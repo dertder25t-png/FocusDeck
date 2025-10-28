@@ -9,3 +9,4 @@ C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Shared\obj\Debug\net8.0\FocusDeck
 C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Shared\obj\Debug\net8.0\refint\FocusDeck.Shared.dll
 C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Shared\obj\Debug\net8.0\FocusDeck.Shared.pdb
 C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Shared\obj\Debug\net8.0\ref\FocusDeck.Shared.dll
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Shared\obj\Debug\net8.0\FocusDeck.Shared.sourcelink.json

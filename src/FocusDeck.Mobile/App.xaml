@@ -2,9 +2,13 @@
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:FocusDeck.Mobile"
+             xmlns:converters="clr-namespace:FocusDeck.Mobile.Converters"
              x:Class="FocusDeck.Mobile.App">
     <Application.Resources>
         <ResourceDictionary>
+            <!-- Converters -->
+            <converters:PercentageToProgressConverter x:Key="ProgressConverter" />
+
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
                 <ResourceDictionary Source="Resources/Styles/Styles.xaml" />

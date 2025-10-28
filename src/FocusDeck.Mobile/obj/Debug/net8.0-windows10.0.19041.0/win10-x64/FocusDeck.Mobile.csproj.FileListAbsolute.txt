@@ -463,3 +463,4 @@ C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Mobile\obj\Debug\net8.0-windows10
 C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Mobile\obj\Debug\net8.0-windows10.0.19041.0\win10-x64\qualifiers.txt
 C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Mobile\obj\Debug\net8.0-windows10.0.19041.0\win10-x64\qualifiers.txt.intermediate
 C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Mobile\obj\Debug\net8.0-windows10.0.19041.0\win10-x64\MultipleQualifiersPerDimensionFound.txt
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Mobile\obj\Debug\net8.0-windows10.0.19041.0\win10-x64\FocusDeck.Mobile.sourcelink.json

@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="FocusDeck.Mobile.Pages.StudyTimerPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Study Timer"
+    BackgroundColor="#F5F5F5">
+
+    <!-- Main layout with timer display and controls -->
+    <Grid
+        RowDefinitions="*, Auto, Auto, Auto"
+        Padding="20"
+        RowSpacing="20">
+
+        <!-- Top spacer -->
+        <BoxView Grid.Row="0" />
+
+        <!-- Large Timer Display -->
+        <StackLayout
+            Grid.Row="1"
+            HorizontalOptions="Center"
+            Spacing="10"
+            VerticalOptions="Center">
+
+            <!-- Progress Ring/Circle Background -->
+            <Frame
+                Padding="0"
+                CornerRadius="150"
+                HasShadow="True"
+                HeightRequest="300"
+                WidthRequest="300"
+                BorderColor="#512BD4"
+                BackgroundColor="#FFFFFF">
+                <Grid>
+                    <!-- Progress Circle -->
+                    <BoxView
+                        CornerRadius="150"
+                        BackgroundColor="#E8E0FF" />
+
+                    <!-- Timer Display -->
+                    <Label
+                        x:Name="TimerDisplay"
+                        FontAttributes="Bold"
+                        FontFamily="Courier New"
+                        FontSize="72"
+                        HorizontalOptions="Center"
+                        Text="{Binding DisplayTime}"
+                        TextColor="#512BD4"
+                        VerticalOptions="Center" />
+                </Grid>
+            </Frame>
+
+            <!-- Timer State Label -->
+            <Label
+                FontAttributes="Bold"
+                FontSize="18"
+                HorizontalOptions="Center"
+                Text="{Binding CurrentState}"
+                TextColor="#512BD4" />
+        </StackLayout>
+
+        <!-- Control Buttons -->
+        <Grid
+            Grid.Row="2"
+            ColumnDefinitions="*, *, *, *"
+            ColumnSpacing="10"
+            Padding="0">
+
+            <!-- Start Button -->
+            <Button
+                Grid.Column="0"
+                Padding="10"
+                BackgroundColor="#512BD4"
+                Command="{Binding StartCommand}"
+                CornerRadius="25"
+                FontAttributes="Bold"
+                FontSize="16"
+                Text="Start"
+                TextColor="White" />
+
+            <!-- Pause Button -->
+            <Button
+                Grid.Column="1"
+                Padding="10"
+                BackgroundColor="#FFA500"
+                Command="{Binding PauseCommand}"
+                CornerRadius="25"
+                FontAttributes="Bold"
+                FontSize="16"
+                Text="Pause"
+                TextColor="White" />
+
+            <!-- Stop Button -->
+            <Button
+                Grid.Column="2"
+                Padding="10"
+                BackgroundColor="#FF6B6B"
+                Command="{Binding StopCommand}"
+                CornerRadius="25"
+                FontAttributes="Bold"
+                FontSize="16"
+                Text="Stop"
+                TextColor="White" />
+
+            <!-- Reset Button -->
+            <Button
+                Grid.Column="3"
+                Padding="10"
+                BackgroundColor="#95A5A6"
+                Command="{Binding ResetCommand}"
+                CornerRadius="25"
+                FontAttributes="Bold"
+                FontSize="16"
+                Text="Reset"
+                TextColor="White" />
+        </Grid>
+
+        <!-- Preset Time Buttons & Custom Time Input -->
+        <ScrollView Grid.Row="3" Orientation="Vertical">
+            <StackLayout Spacing="15" Padding="0">
+
+                <!-- Preset Buttons Row 1 -->
+                <Grid ColumnDefinitions="*, *, *, *" ColumnSpacing="8">
+                    <Button
+                        Grid.Column="0"
+                        BackgroundColor="#E8E0FF"
+                        Command="{Binding Set15MinutesCommand}"
+                        FontSize="14"
+                        Text="15 min"
+                        TextColor="#512BD4" />
+
+                    <Button
+                        Grid.Column="1"
+                        BackgroundColor="#E8E0FF"
+                        Command="{Binding Set25MinutesCommand}"
+                        FontSize="14"
+                        Text="25 min"
+                        TextColor="#512BD4" />
+
+                    <Button
+                        Grid.Column="2"
+                        BackgroundColor="#E8E0FF"
+                        Command="{Binding Set45MinutesCommand}"
+                        FontSize="14"
+                        Text="45 min"
+                        TextColor="#512BD4" />
+
+                    <Button
+                        Grid.Column="3"
+                        BackgroundColor="#E8E0FF"
+                        Command="{Binding Set60MinutesCommand}"
+                        FontSize="14"
+                        Text="60 min"
+                        TextColor="#512BD4" />
+                </Grid>
+
+                <!-- Custom Time Input -->
+                <StackLayout Spacing="10">
+                    <Label
+                        FontAttributes="Bold"
+                        FontSize="16"
+                        Text="Custom Time (minutes)"
+                        TextColor="#333333" />
+
+                    <Grid ColumnDefinitions="*, Auto, Auto" ColumnSpacing="10">
+                        <Entry
+                            Grid.Column="0"
+                            BackgroundColor="White"
+                            Keyboard="Numeric"
+                            Placeholder="Enter minutes (0-180)"
+                            PlaceholderColor="#999999"
+                            Text="{Binding MinutesInput}"
+                            TextColor="#333333" />
+
+                        <Button
+                            Grid.Column="1"
+                            BackgroundColor="#512BD4"
+                            Command="{Binding SetCustomTimeCommand}"
+                            FontSize="14"
+                            Padding="10,5"
+                            Text="Set"
+                            TextColor="White"
+                            WidthRequest="60" />
+
+                        <Label
+                            Grid.Column="2"
+                            FontSize="14"
+                            Text="{Binding FormattedRemainingTime}"
+                            TextColor="#512BD4"
+                            VerticalOptions="Center" />
+                    </Grid>
+                </StackLayout>
+
+                <!-- Session Notes -->
+                <StackLayout Spacing="10">
+                    <Label
+                        FontAttributes="Bold"
+                        FontSize="16"
+                        Text="Session Notes"
+                        TextColor="#333333" />
+
+                    <Editor
+                        BackgroundColor="White"
+                        Placeholder="Add notes for this study session..."
+                        PlaceholderColor="#999999"
+                        Text="{Binding SessionNotes}"
+                        TextColor="#333333"
+                        HeightRequest="80" />
+                </StackLayout>
+
+                <!-- Progress Information -->
+                <StackLayout
+                    BackgroundColor="White"
+                    Padding="15"
+                    Spacing="8">
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="20">
+                        <StackLayout Grid.Column="0" Spacing="5">
+                            <Label
+                                FontSize="12"
+                                FontAttributes="Bold"
+                                Text="Elapsed Time"
+                                TextColor="#999999" />
+                            <Label
+                                FontSize="16"
+                                FontAttributes="Bold"
+                                Text="{Binding FormattedElapsedTime}"
+                                TextColor="#333333" />
+                        </StackLayout>
+
+                        <StackLayout Grid.Column="1" Spacing="5">
+                            <Label
+                                FontSize="12"
+                                FontAttributes="Bold"
+                                Text="Remaining Time"
+                                TextColor="#999999" />
+                            <Label
+                                FontSize="16"
+                                FontAttributes="Bold"
+                                Text="{Binding FormattedRemainingTime}"
+                                TextColor="#512BD4" />
+                        </StackLayout>
+                    </Grid>
+
+                    <!-- Progress Bar -->
+                    <ProgressBar
+                        BackgroundColor="#E8E0FF"
+                        Progress="{Binding ProgressPercentage,
+                            Converter={StaticResource ProgressConverter}}"
+                        ProgressColor="#512BD4" />
+
+                    <Label
+                        FontSize="12"
+                        HorizontalOptions="Center"
+                        Text="{Binding ProgressPercentage,
+                            StringFormat='{0:F1}% Complete'}"
+                        TextColor="#999999" />
+                </StackLayout>
+
+                <!-- Status Message -->
+                <Label
+                    FontSize="14"
+                    HorizontalOptions="Center"
+                    HorizontalTextAlignment="Center"
+                    Text="{Binding StatusMessage}"
+                    TextColor="#512BD4" />
+
+            </StackLayout>
+        </ScrollView>
+
+    </Grid>
+
+</ContentPage>
