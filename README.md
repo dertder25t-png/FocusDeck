@@ -1,18 +1,38 @@
-FocusDock - Study Productivity Platform
-======================================
+# FocusDeck - Focus Session Management System
 
-A WPF-based productivity dock combining window management, calendar integration, task tracking, and AI-powered study planning into one elegant application.
+**Smart study timer app with cloud synchronization for desktop (Windows 10+) and mobile (Android)**
 
-## Status Dashboard
+A cross-platform focus management system with study timers, session tracking, and cloud sync infrastructure.
 
-| Phase | Status | Build | Details |
-|-------|--------|-------|---------|
-| Phase 1 | ✅ Complete | 0 Errors | Window management, workspaces, automations |
-| Phase 2 | ✅ Complete | 0 Errors | Calendar, tasks, study planner infrastructure |
-| Phase 3 | ✅ Complete | 0 Errors | Google/Canvas APIs ready, Settings UI working |
-| **Phase 4** | **✅ Complete** | **0 Errors** | **Study Session UI, History Dashboard, Analytics** |
+## Quick Start
 
-**Latest Build:** ✅ 0 Errors | 1 Warning (non-blocking SDK) | 2.3s compile | All Phases Complete
+### 📥 Download & Install
+
+**Desktop (Windows 10+):**
+- [GitHub Releases](https://github.com/dertder25t-png/FocusDeck/releases) → Download `FocusDeck-Desktop-v*.zip`
+- Extract and run `FocusDeck.exe`
+
+**Mobile (Android 8+):**
+- [GitHub Releases](https://github.com/dertder25t-png/FocusDeck/releases) → Download `FocusDeck-Mobile-v*.apk`
+- Install via ADB or direct download
+
+**Server (Linux):**
+```bash
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/dertder25t-png/FocusDeck/master/setup-server.sh)
+```
+
+---
+
+## 📊 Project Status
+
+| Component | Phase | Status | Build |
+|-----------|-------|--------|-------|
+| **Desktop (WPF)** | 1-5 | ✅ Complete | 0 Errors |
+| **Mobile (MAUI)** | 6b | ⏳ Week 1 Done | 0 Errors |
+| **Server (ASP.NET Core)** | 6a | ✅ Complete | Ready |
+| **Cloud Sync** | 6a | ✅ Complete | OAuth2 Ready |
+
+**Current:** Phase 6b Week 2 - Study Timer Page Implementation
 
 ---
 
