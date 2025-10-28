@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="FocusDeck.Mobile.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:FocusDeck.Mobile"
+    Title="FocusDeck">
+
+    <!-- Define app shell styling -->
+    <Shell.BackgroundColor>#512BD4</Shell.BackgroundColor>
+    <Shell.ForegroundColor>#FFFFFF</Shell.ForegroundColor>
+
+    <!-- TabBar with 4 bottom tabs -->
+    <TabBar>
+        <!-- Study Timer Tab -->
+        <ShellContent
+            Title="Study"
+            Icon="timer.png"
+            ContentTemplate="{DataTemplate local:MainPage}"
+            Route="StudyPage" />
+        
+        <!-- Session History Tab -->
+        <ShellContent
+            Title="History"
+            Icon="history.png"
+            ContentTemplate="{DataTemplate local:MainPage}"
+            Route="HistoryPage" />
+        
+        <!-- Analytics Tab -->
+        <ShellContent
+            Title="Analytics"
+            Icon="chart.png"
+            ContentTemplate="{DataTemplate local:MainPage}"
+            Route="AnalyticsPage" />
+        
+        <!-- Settings Tab -->
+        <ShellContent
+            Title="Settings"
+            Icon="settings.png"
+            ContentTemplate="{DataTemplate local:MainPage}"
+            Route="SettingsPage" />
+    </TabBar>
+
+</Shell>

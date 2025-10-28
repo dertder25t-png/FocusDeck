@@ -2,3 +2,14 @@ C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\obj\Debug\net8.0\FocusDock.D
 C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\obj\Debug\net8.0\FocusDock.Data.AssemblyInfoInputs.cache
 C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\obj\Debug\net8.0\FocusDock.Data.AssemblyInfo.cs
 C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\obj\Debug\net8.0\FocusDock.Data.csproj.CoreCompileInputs.cache
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\bin\Debug\net8.0\FocusDock.Data.deps.json
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\bin\Debug\net8.0\FocusDock.Data.dll
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\bin\Debug\net8.0\FocusDock.Data.pdb
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\bin\Debug\net8.0\FocusDock.System.dll
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\bin\Debug\net8.0\FocusDock.System.pdb
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\obj\Debug\net8.0\FocusDock.Data.csproj.AssemblyReference.cache
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\obj\Debug\net8.0\FocusDoc.42A253FA.Up2Date
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\obj\Debug\net8.0\FocusDock.Data.dll
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\obj\Debug\net8.0\refint\FocusDock.Data.dll
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\obj\Debug\net8.0\FocusDock.Data.pdb
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\obj\Debug\net8.0\ref\FocusDock.Data.dll
