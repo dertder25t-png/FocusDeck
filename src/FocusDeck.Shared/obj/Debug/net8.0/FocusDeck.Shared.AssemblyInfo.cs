@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("FocusDeck.Shared")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4f9496f773e5a09514b5ebbe9fc17043081d09a6")]
 [assembly: System.Reflection.AssemblyProductAttribute("FocusDeck.Shared")]
 [assembly: System.Reflection.AssemblyTitleAttribute("FocusDeck.Shared")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

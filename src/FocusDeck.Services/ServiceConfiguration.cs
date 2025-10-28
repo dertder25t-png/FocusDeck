@@ -22,6 +22,11 @@ public static class ServiceConfiguration
         services.AddSingleton<IStudySessionService, StudySessionService>();
         services.AddSingleton<IAnalyticsService, AnalyticsService>();
         
+        // Register cloud sync services (Phase 6)
+        services.AddSingleton<IEncryptionService, EncryptionService>();
+        services.AddSingleton<IDeviceRegistryService, DeviceRegistryService>();
+        services.AddSingleton<ICloudSyncService, CloudSyncService>();
+        
         return services;
     }
 
