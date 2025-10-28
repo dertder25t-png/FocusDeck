@@ -1,0 +1,112 @@
+<Window x:Class="FocusDock.App.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="FocusDeck Settings" Width="600" Height="700"
+        Background="#2D2D30" Foreground="#CCCCCC"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize">
+    <Grid>
+        <TabControl Background="#2D2D30" BorderThickness="0">
+            <!-- Calendar Tab -->
+            <TabItem Header="📅 Calendar" Foreground="#CCCCCC" Background="#3E3E42">
+                <ScrollViewer>
+                    <StackPanel Margin="20">
+                        <TextBlock FontSize="16" FontWeight="Bold" Margin="0,0,0,15">Google Calendar Setup</TextBlock>
+                        
+                        <TextBlock Margin="0,0,0,5">Client ID:</TextBlock>
+                        <TextBox x:Name="TxtGoogleClientId" Padding="8" Background="#3E3E42" Foreground="#CCCCCC" BorderBrush="#555" Margin="0,0,0,10" />
+
+                        <TextBlock Margin="0,0,0,5">Client Secret:</TextBlock>
+                        <PasswordBox x:Name="PwdGoogleClientSecret" Padding="8" Background="#3E3E42" Foreground="#CCCCCC" BorderBrush="#555" Margin="0,0,0,10" />
+
+                        <CheckBox x:Name="ChkEnableGoogle" Content="Enable Google Calendar Sync" Foreground="#CCCCCC" Margin="0,0,0,15" />
+                        
+                        <Button x:Name="BtnGoogleAuth" Content="🔐 Authorize with Google" 
+                                Background="#0E639C" Foreground="White" Padding="10" Click="OnGoogleAuthClick" Margin="0,0,0,20" />
+                        
+                        <Separator Background="#555" Margin="0,0,0,20" />
+                        
+                        <TextBlock FontSize="16" FontWeight="Bold" Margin="0,0,0,15">Canvas Setup</TextBlock>
+
+                        <TextBlock Margin="0,0,0,5">Canvas Instance URL:</TextBlock>
+                        <TextBox x:Name="TxtCanvasUrl" Padding="8" Background="#3E3E42" Foreground="#CCCCCC" BorderBrush="#555" 
+                                 Text="https://canvas.instructure.com" Margin="0,0,0,5" />
+                        <TextBlock FontSize="11" Foreground="#888" Margin="0,0,0,10">Example: https://myschool.instructure.com</TextBlock>
+
+                        <TextBlock Margin="0,0,0,5">API Token:</TextBlock>
+                        <PasswordBox x:Name="PwdCanvasToken" Padding="8" Background="#3E3E42" Foreground="#CCCCCC" BorderBrush="#555" Margin="0,0,0,10" />
+
+                        <CheckBox x:Name="ChkEnableCanvas" Content="Enable Canvas Sync" Foreground="#CCCCCC" Margin="0,0,0,15" />
+                        
+                        <Button x:Name="BtnCanvasTest" Content="🧪 Test Connection" 
+                                Background="#0E639C" Foreground="White" Padding="10" Click="OnCanvasTestClick" Margin="0,0,0,10" />
+                        
+                        <TextBlock x:Name="TxtCanvasStatus" FontSize="12" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,20" />
+
+                        <Separator Background="#555" Margin="0,0,0,20" />
+
+                        <TextBlock Margin="0,0,0,5">Sync Interval (minutes):</TextBlock>
+                        <Slider x:Name="SliderSyncInterval" Minimum="5" Maximum="120" Value="15" 
+                                Background="#3E3E42" Foreground="#0E639C" Margin="0,0,0,5" />
+                        <TextBlock x:Name="TxtSyncInterval" Foreground="#CCCCCC" Margin="0,0,0,20">15 minutes</TextBlock>
+
+                        <Button x:Name="BtnSaveSettings" Content="💾 Save Settings" 
+                                Background="#107C10" Foreground="White" Padding="10" Click="OnSaveClick" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Tasks Tab -->
+            <TabItem Header="✓ Tasks" Foreground="#CCCCCC" Background="#3E3E42">
+                <StackPanel Margin="20">
+                    <TextBlock FontSize="16" FontWeight="Bold" Margin="0,0,0,15">Task Settings</TextBlock>
+                    <CheckBox Content="Auto-import Canvas assignments as tasks" Foreground="#CCCCCC" Margin="0,0,0,10" />
+                    <CheckBox Content="Show completed tasks" Foreground="#CCCCCC" Margin="0,0,0,10" />
+                    <CheckBox Content="Group tasks by course" Foreground="#CCCCCC" Margin="0,0,0,20" />
+                    
+                    <Separator Background="#555" Margin="0,0,0,20" />
+                    
+                    <TextBlock FontSize="14" FontWeight="Bold" Margin="0,0,0,10">About</TextBlock>
+                    <TextBlock TextWrapping="Wrap" Foreground="#888">
+                        For setup instructions, see API_SETUP_GUIDE.md in the FocusDeck folder.
+                    </TextBlock>
+                </StackPanel>
+            </TabItem>
+
+            <!-- Study Tab -->
+            <TabItem Header="📚 Study" Foreground="#CCCCCC" Background="#3E3E42">
+                <StackPanel Margin="20">
+                    <TextBlock FontSize="16" FontWeight="Bold" Margin="0,0,0,15">Study Session Settings</TextBlock>
+                    <CheckBox Content="Auto-start sessions before due dates" Foreground="#CCCCCC" Margin="0,0,0,10" />
+                    <CheckBox Content="Show effectiveness rating after session" Foreground="#CCCCCC" IsChecked="True" Margin="0,0,0,20" />
+                    
+                    <TextBlock Margin="0,0,0,5">Session Duration (minutes):</TextBlock>
+                    <Slider Minimum="15" Maximum="180" Value="60" Background="#3E3E42" Foreground="#0E639C" />
+                </StackPanel>
+            </TabItem>
+
+            <!-- About Tab -->
+            <TabItem Header="ℹ About" Foreground="#CCCCCC" Background="#3E3E42">
+                <StackPanel Margin="20">
+                    <TextBlock FontSize="18" FontWeight="Bold" Margin="0,0,0,5">FocusDeck</TextBlock>
+                    <TextBlock FontSize="12" Foreground="#888" Margin="0,0,0,20">Study Productivity Platform</TextBlock>
+                    
+                    <Separator Background="#555" Margin="0,0,0,20" />
+                    
+                    <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,0,0,5">
+                        <Run FontWeight="Bold">Version:</Run> Phase 3 (Beta)
+                    </TextBlock>
+                    <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,0,0,20">
+                        <Run FontWeight="Bold">Features:</Run> Window Management • Calendar Integration • Task Tracking • Study Planning
+                    </TextBlock>
+                    
+                    <Separator Background="#555" Margin="0,0,0,20" />
+                    
+                    <TextBlock FontSize="12" FontWeight="Bold" Margin="0,0,0,10">Resources</TextBlock>
+                    <Button Content="📖 View Setup Guide" Background="#0E639C" Foreground="White" Padding="8" Margin="0,0,0,10" />
+                    <Button Content="🔗 GitHub Repository" Background="#0E639C" Foreground="White" Padding="8" />
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>

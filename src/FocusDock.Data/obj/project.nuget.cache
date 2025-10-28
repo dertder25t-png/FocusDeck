@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "LHpY2fovGMk=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\Caleb\\Desktop\\FocusDeck\\src\\FocusDock.Data\\FocusDock.Data.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Caleb\\.nuget\\packages\\microsoft.windows.sdk.net.ref\\10.0.19041.57\\microsoft.windows.sdk.net.ref.10.0.19041.57.nupkg.sha512"
+  ],
+  "logs": []
+}

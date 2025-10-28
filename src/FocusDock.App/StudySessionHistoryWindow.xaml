@@ -1,0 +1,106 @@
+<Window x:Class="FocusDock.App.StudySessionHistoryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Study Session History" Width="800" Height="600"
+        Background="#1E1E1E" Foreground="#CCCCCC"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize">
+    <Grid Background="#1E1E1E" Margin="0">
+        <DockPanel LastChildFill="True">
+            <!-- Header -->
+            <Border DockPanel.Dock="Top" Background="#007ACC" Padding="16" Margin="0">
+                <StackPanel>
+                    <TextBlock Text="📊 Study Session History" FontSize="20" FontWeight="Bold" Foreground="White" Margin="0,0,0,12"/>
+                    <StackPanel Orientation="Horizontal">
+                        <StackPanel Margin="0,0,12,0">
+                            <TextBlock Text="From:" FontSize="12" Foreground="#E0E0E0" Margin="0,0,0,4"/>
+                            <DatePicker x:Name="DtpFromDate" Background="#252526" Foreground="#CCCCCC" BorderBrush="#3E3E42" Padding="8"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,12,0">
+                            <TextBlock Text="To:" FontSize="12" Foreground="#E0E0E0" Margin="0,0,0,4"/>
+                            <DatePicker x:Name="DtpToDate" Background="#252526" Foreground="#CCCCCC" BorderBrush="#3E3E42" Padding="8"/>
+                        </StackPanel>
+                        <Button x:Name="BtnFilter" Content="🔍 Filter" Padding="12,8" Background="#007ACC" Foreground="White" BorderThickness="0" VerticalAlignment="Bottom" Margin="0,0,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Statistics Strip -->
+            <Border DockPanel.Dock="Top" Background="#252526" Padding="16" BorderBrush="#3E3E42" BorderThickness="0,1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Total Sessions" FontSize="12" Foreground="#999999" Margin="0,0,0,4"/>
+                        <TextBlock x:Name="TxtTotalSessions" Text="0" FontSize="18" FontWeight="Bold" Foreground="#4EC9B0"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="Total Hours" FontSize="12" Foreground="#999999" Margin="0,0,0,4"/>
+                        <TextBlock x:Name="TxtTotalHours" Text="0.0h" FontSize="18" FontWeight="Bold" Foreground="#4EC9B0"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Avg Effectiveness" FontSize="12" Foreground="#999999" Margin="0,0,0,4"/>
+                        <TextBlock x:Name="TxtAvgEffectiveness" Text="0.0/5.0" FontSize="18" FontWeight="Bold" Foreground="#4EC9B0"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="3">
+                        <TextBlock Text="Total Breaks" FontSize="12" Foreground="#999999" Margin="0,0,0,4"/>
+                        <TextBlock x:Name="TxtTotalBreaks" Text="0" FontSize="18" FontWeight="Bold" Foreground="#4EC9B0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Sessions List -->
+            <Border DockPanel.Dock="Top" Background="#1E1E1E" Margin="0">
+                <ListBox x:Name="LstSessions" Background="#1E1E1E" BorderThickness="0" Foreground="#CCCCCC" Margin="0">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#252526" Padding="12" Margin="8,4" CornerRadius="4" BorderBrush="#3E3E42" BorderThickness="1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+                                        <TextBlock Text="📚" FontSize="20"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock x:Name="TxtSessionSubject" FontWeight="Bold" FontSize="14" Foreground="White" Margin="0,0,0,4"/>
+                                        <TextBlock x:Name="TxtSessionTime" FontSize="11" Foreground="#999999"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="12,0">
+                                        <TextBlock Text="Duration:" FontSize="11" Foreground="#999999" Margin="0,0,0,2"/>
+                                        <TextBlock x:Name="TxtSessionDuration" FontSize="13" Foreground="#4EC9B0" FontWeight="Bold"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="3" VerticalAlignment="Center" Margin="12,0">
+                                        <TextBlock Text="Effectiveness:" FontSize="11" Foreground="#999999" Margin="0,0,0,2"/>
+                                        <TextBlock x:Name="TxtSessionRating" FontSize="13" Foreground="#CE9178" FontWeight="Bold"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                                        <TextBlock Text="Breaks:" FontSize="11" Foreground="#999999" Margin="0,0,0,2"/>
+                                        <TextBlock x:Name="TxtSessionBreaks" FontSize="13" Foreground="#9CDCFE" FontWeight="Bold"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+
+            <!-- Footer -->
+            <Border DockPanel.Dock="Bottom" Background="#252526" Padding="16" BorderBrush="#3E3E42" BorderThickness="0,1">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="BtnAnalytics" Content="📊 View Analytics" Padding="12,8" Background="#007ACC" Foreground="White" BorderThickness="0" Margin="0,0,8,0"/>
+                    <Button x:Name="BtnExport" Content="📥 Export" Padding="12,8" Background="#007ACC" Foreground="White" BorderThickness="0" Margin="0,0,8,0"/>
+                    <Button x:Name="BtnClose" Content="Close" Padding="12,8" Background="#3E3E42" Foreground="White" BorderThickness="0"/>
+                </StackPanel>
+            </Border>
+        </DockPanel>
+    </Grid>
+</Window>

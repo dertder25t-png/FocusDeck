@@ -1,0 +1,4 @@
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\obj\Debug\net8.0\FocusDock.Data.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\obj\Debug\net8.0\FocusDock.Data.AssemblyInfoInputs.cache
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\obj\Debug\net8.0\FocusDock.Data.AssemblyInfo.cs
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Data\obj\Debug\net8.0\FocusDock.Data.csproj.CoreCompileInputs.cache
