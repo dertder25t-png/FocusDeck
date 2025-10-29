@@ -1,0 +1,283 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    
+    <!--
+        ╔══════════════════════════════════════════════════════════════╗
+        ║  FOCUSDECK DESIGN SYSTEM - Premium Edition                   ║
+        ║  Modern glassmorphism • Fluid animations • Pro aesthetics    ║
+        ╚══════════════════════════════════════════════════════════════╝
+    -->
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         COLOR PALETTE - Dark Theme Foundation
+    ══════════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Background Hierarchy -->
+    <Color x:Key="BgBase">#0A0B0E</Color>
+    <Color x:Key="BgElevated1">#0F1014</Color>
+    <Color x:Key="BgElevated2">#1A1B21</Color>
+    <Color x:Key="BgElevated3">#24252C</Color>
+    <Color x:Key="BgElevated4">#2E2F38</Color>
+    
+    <!-- Glass/Translucent Surfaces -->
+    <Color x:Key="GlassLight">#28FFFFFF</Color><!-- 15% white -->
+    <Color x:Key="GlassMedium">#40FFFFFF</Color><!-- 25% white -->
+    <Color x:Key="GlassDark">#1A1B21</Color>
+    
+    <!-- Accent Colors -->
+    <Color x:Key="AccentPrimary">#7C5CFF</Color><!-- Purple/Violet -->
+    <Color x:Key="AccentSecondary">#5C8CFF</Color><!-- Blue variant -->
+    <Color x:Key="AccentTertiary">#FF5C9E</Color><!-- Pink accent -->
+    
+    <!-- Semantic Colors -->
+    <Color x:Key="Success">#34C759</Color>
+    <Color x:Key="Warning">#FFB800</Color>
+    <Color x:Key="Danger">#FF5C5C</Color>
+    <Color x:Key="Info">#0A84FF</Color>
+    
+    <!-- Text Hierarchy -->
+    <Color x:Key="TextPrimary">#F5F7FA</Color><!-- 96% white -->
+    <Color x:Key="TextSecondary">#C9CFDA</Color><!-- 79% white -->
+    <Color x:Key="TextTertiary">#8E95A5</Color><!-- 56% white -->
+    <Color x:Key="TextDisabled">#5A5D6B</Color><!-- 35% white -->
+    <Color x:Key="TextOnAccent">#FFFFFF</Color>
+    
+    <!-- Stroke/Border -->
+    <Color x:Key="StrokePrimary">#2E2F38</Color>
+    <Color x:Key="StrokeSecondary">#1A1B21</Color>
+    <Color x:Key="StrokeAccent">#7C5CFF</Color>
+    
+    <!-- Interactive States -->
+    <Color x:Key="HoverOverlay">#1AFFFFFF</Color><!-- 10% white -->
+    <Color x:Key="PressedOverlay">#0DFFFFFF</Color><!-- 5% white -->
+    <Color x:Key="ActiveOverlay">#267C5CFF</Color><!-- 15% accent -->
+    
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SOLID COLOR BRUSHES
+    ══════════════════════════════════════════════════════════════════════ -->
+    
+    <SolidColorBrush x:Key="BgBaseBrush" Color="{StaticResource BgBase}"/>
+    <SolidColorBrush x:Key="BgElevated1Brush" Color="{StaticResource BgElevated1}"/>
+    <SolidColorBrush x:Key="BgElevated2Brush" Color="{StaticResource BgElevated2}"/>
+    <SolidColorBrush x:Key="BgElevated3Brush" Color="{StaticResource BgElevated3}"/>
+    <SolidColorBrush x:Key="BgElevated4Brush" Color="{StaticResource BgElevated4}"/>
+    
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentPrimary}"/>
+    <SolidColorBrush x:Key="AccentSecondaryBrush" Color="{StaticResource AccentSecondary}"/>
+    <SolidColorBrush x:Key="AccentTertiaryBrush" Color="{StaticResource AccentTertiary}"/>
+    
+    <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource Success}"/>
+    <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource Warning}"/>
+    <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource Danger}"/>
+    <SolidColorBrush x:Key="InfoBrush" Color="{StaticResource Info}"/>
+    
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondary}"/>
+    <SolidColorBrush x:Key="TextTertiaryBrush" Color="{StaticResource TextTertiary}"/>
+    <SolidColorBrush x:Key="TextDisabledBrush" Color="{StaticResource TextDisabled}"/>
+    <SolidColorBrush x:Key="TextOnAccentBrush" Color="{StaticResource TextOnAccent}"/>
+    
+    <SolidColorBrush x:Key="StrokePrimaryBrush" Color="{StaticResource StrokePrimary}"/>
+    <SolidColorBrush x:Key="StrokeSecondaryBrush" Color="{StaticResource StrokeSecondary}"/>
+    <SolidColorBrush x:Key="StrokeAccentBrush" Color="{StaticResource StrokeAccent}"/>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════
+         GRADIENT BRUSHES - Glassmorphism & Depth
+    ══════════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Glass Panel Gradient (subtle top-to-bottom light) -->
+    <LinearGradientBrush x:Key="GlassPanelGradient" StartPoint="0.5,0" EndPoint="0.5,1">
+        <GradientStop Color="#2A1A1B21" Offset="0"/>
+        <GradientStop Color="#401A1B21" Offset="0.5"/>
+        <GradientStop Color="#331A1B21" Offset="1"/>
+    </LinearGradientBrush>
+    
+    <!-- Accent Gradient (for active pills, highlights) -->
+    <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#7C5CFF" Offset="0"/>
+        <GradientStop Color="#5C8CFF" Offset="1"/>
+    </LinearGradientBrush>
+    
+    <!-- Subtle Background Gradient (very light, adds depth) -->
+    <LinearGradientBrush x:Key="SubtleBgGradient" StartPoint="0.5,0" EndPoint="0.5,1">
+        <GradientStop Color="#0F1014" Offset="0"/>
+        <GradientStop Color="#0A0B0E" Offset="1"/>
+    </LinearGradientBrush>
+    
+    <!-- Glow Gradient (for hover states) -->
+    <RadialGradientBrush x:Key="GlowGradient" Center="0.5,0.5" RadiusX="0.8" RadiusY="0.8">
+        <GradientStop Color="#407C5CFF" Offset="0"/>
+        <GradientStop Color="#007C5CFF" Offset="1"/>
+    </RadialGradientBrush>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════
+         TYPOGRAPHY SCALE - Segoe UI Variable / Segoe UI
+    ══════════════════════════════════════════════════════════════════════ -->
+    
+    <FontFamily x:Key="FontFamilyPrimary">Segoe UI Variable Display, Segoe UI</FontFamily>
+    <FontFamily x:Key="FontFamilyText">Segoe UI Variable Text, Segoe UI</FontFamily>
+    <FontFamily x:Key="FontFamilySmall">Segoe UI Variable Small, Segoe UI</FontFamily>
+    <FontFamily x:Key="FontFamilyMonospace">Consolas, Courier New</FontFamily>
+    
+    <!-- Display (Hero text, 40px) -->
+    <Style x:Key="DisplayTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyPrimary}"/>
+        <Setter Property="FontSize" Value="40"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="LineHeight" Value="48"/>
+    </Style>
+    
+    <!-- Title Large (28px) -->
+    <Style x:Key="TitleLargeTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyPrimary}"/>
+        <Setter Property="FontSize" Value="28"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="LineHeight" Value="36"/>
+    </Style>
+    
+    <!-- Title (20px) -->
+    <Style x:Key="TitleTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}"/>
+        <Setter Property="FontSize" Value="20"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="LineHeight" Value="28"/>
+    </Style>
+    
+    <!-- Subtitle (16px) -->
+    <Style x:Key="SubtitleTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}"/>
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+        <Setter Property="LineHeight" Value="22"/>
+    </Style>
+    
+    <!-- Body (14px) -->
+    <Style x:Key="BodyTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+        <Setter Property="LineHeight" Value="20"/>
+    </Style>
+    
+    <!-- Body Strong (14px, semi-bold) -->
+    <Style x:Key="BodyStrongTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyTextStyle}">
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+    </Style>
+    
+    <!-- Caption (12px) -->
+    <Style x:Key="CaptionTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilySmall}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}"/>
+        <Setter Property="LineHeight" Value="16"/>
+    </Style>
+    
+    <!-- Label (13px, medium) -->
+    <Style x:Key="LabelTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="LineHeight" Value="18"/>
+    </Style>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════
+         CORNER RADIUS STANDARDS
+    ══════════════════════════════════════════════════════════════════════ -->
+    
+    <CornerRadius x:Key="RadiusXSmall">4</CornerRadius>
+    <CornerRadius x:Key="RadiusSmall">8</CornerRadius>
+    <CornerRadius x:Key="RadiusMedium">10</CornerRadius>
+    <CornerRadius x:Key="RadiusLarge">12</CornerRadius>
+    <CornerRadius x:Key="RadiusXLarge">16</CornerRadius>
+    <CornerRadius x:Key="RadiusXXLarge">18</CornerRadius>
+    <CornerRadius x:Key="RadiusPill">24</CornerRadius>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SPACING CONSTANTS (8px grid system)
+    ══════════════════════════════════════════════════════════════════════ -->
+    
+    <Thickness x:Key="SpacingXXSmall">2</Thickness>
+    <Thickness x:Key="SpacingXSmall">4</Thickness>
+    <Thickness x:Key="SpacingSmall">8</Thickness>
+    <Thickness x:Key="SpacingMedium">12</Thickness>
+    <Thickness x:Key="SpacingLarge">16</Thickness>
+    <Thickness x:Key="SpacingXLarge">20</Thickness>
+    <Thickness x:Key="SpacingXXLarge">24</Thickness>
+    <Thickness x:Key="SpacingXXXLarge">32</Thickness>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SHADOW DEFINITIONS
+    ══════════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Soft Shadow (subtle elevation) -->
+    <DropShadowEffect x:Key="SoftShadow" 
+                      BlurRadius="16" 
+                      ShadowDepth="0" 
+                      Opacity="0.25" 
+                      Color="#000000"/>
+    
+    <!-- Medium Shadow (cards, panels) -->
+    <DropShadowEffect x:Key="MediumShadow" 
+                      BlurRadius="24" 
+                      ShadowDepth="2" 
+                      Opacity="0.35" 
+                      Color="#000000"/>
+    
+    <!-- Strong Shadow (floating elements) -->
+    <DropShadowEffect x:Key="StrongShadow" 
+                      BlurRadius="32" 
+                      ShadowDepth="4" 
+                      Opacity="0.45" 
+                      Color="#000000"/>
+    
+    <!-- Accent Glow (active state highlight) -->
+    <DropShadowEffect x:Key="AccentGlow" 
+                      BlurRadius="20" 
+                      ShadowDepth="0" 
+                      Opacity="0.5" 
+                      Color="#7C5CFF"/>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════
+         GLASSMORPHISM PANEL STYLES
+    ══════════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Glass Card (frosted glass effect with subtle gradient) -->
+    <Style x:Key="GlassCard" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource GlassPanelGradient}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource StrokePrimaryBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLarge}"/>
+        <Setter Property="Padding" Value="{StaticResource SpacingLarge}"/>
+        <Setter Property="Effect" Value="{StaticResource SoftShadow}"/>
+    </Style>
+    
+    <!-- Floating Panel (elevated with stronger shadow) -->
+    <Style x:Key="FloatingPanel" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource BgElevated2Brush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource StrokePrimaryBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusXLarge}"/>
+        <Setter Property="Padding" Value="{StaticResource SpacingLarge}"/>
+        <Setter Property="Effect" Value="{StaticResource MediumShadow}"/>
+    </Style>
+    
+    <!-- Blurred Background Panel (for overlay/modal backgrounds) -->
+    <Style x:Key="BlurredPanel" TargetType="Border">
+        <Setter Property="Background">
+            <Setter.Value>
+                <SolidColorBrush Color="#1A1B21" Opacity="0.7"/>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusXLarge}"/>
+    </Style>
+    
+</ResourceDictionary>

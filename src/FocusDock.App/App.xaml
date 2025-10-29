@@ -4,10 +4,15 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-        <!-- Modern UI Resources -->
+        <!-- Premium UI Resources - Glassmorphism Design System -->
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
+                <!-- Foundation: Design tokens (colors, typography, spacing, shadows) -->
+                <ResourceDictionary Source="Styles/DesignSystem.xaml"/>
+                <!-- Base: Modern component styles -->
                 <ResourceDictionary Source="Styles/ModernStyles.xaml"/>
+                <!-- Premium: Animated button templates -->
+                <ResourceDictionary Source="Styles/PremiumButtons.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
