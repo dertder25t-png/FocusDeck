@@ -1,5 +1,0 @@
-C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Core\obj\Debug\net8.0\FocusDock.Core.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Core\obj\Debug\net8.0\FocusDock.Core.AssemblyInfoInputs.cache
-C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Core\obj\Debug\net8.0\FocusDock.Core.AssemblyInfo.cs
-C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Core\obj\Debug\net8.0\FocusDock.Core.csproj.CoreCompileInputs.cache
-C:\Users\Caleb\Desktop\FocusDeck\src\FocusDock.Core\obj\Debug\net8.0\FocusDock.Core.csproj.AssemblyReference.cache
