@@ -18,8 +18,8 @@
     
     <!--
         ╔═══════════════════════════════════════════════════════════╗
-        ║  FOCUSDOCK - MODERN UI OVERHAUL (October 2025)          ║
-        ║  Premium glass morphism design with smooth animations     ║
+        ║  FOCUSDOCK - PREMIUM UI PHASE 2 (October 2025)          ║
+        ║  Glassmorphism design with side rail navigation          ║
         ╚═══════════════════════════════════════════════════════════╝
     -->
 
@@ -171,10 +171,17 @@
             </Setter>
         </Style>
 
-        <!-- Feature Button (with icon and label) -->
-        <Style x:Key="FeatureButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+        <!-- Feature Button (with icon and label) - Now using PillButton -->
+        <Style x:Key="FeatureButton" TargetType="Button" BasedOn="{StaticResource PillButton}">
             <Setter Property="Width" Value="Auto"/>
             <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Background" Value="{StaticResource GlassLightBrush}"/>
+        </Style>
+        
+        <!-- Quick Action Icon Button - Using IconPillButton -->
+        <Style x:Key="QuickActionButton" TargetType="Button" BasedOn="{StaticResource IconPillButton}">
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="Background" Value="Transparent"/>
         </Style>
 
     </Window.Resources>
@@ -208,6 +215,15 @@
                             Orientation="Horizontal" 
                             VerticalAlignment="Center" 
                             Margin="8,0,16,0">
+                    
+                    <!-- Menu Button (opens side panel/navigation) -->
+                    <Button x:Name="BtnMenu" 
+                            Style="{StaticResource IconPillButton}" 
+                            Tag=""
+                            Content="Menu"
+                            Margin="0,0,8,0"
+                            ToolTip="Open Navigation Menu">
+                    </Button>
                     
                     <!-- Focus Mode Toggle -->
                     <Button x:Name="BtnFocus" 
@@ -326,96 +342,77 @@
                     
                     <!-- Calendar & Assignments -->
                     <Button x:Name="BtnCalendar" 
-                            Style="{StaticResource IconButton}" 
-                                ToolTip="Calendar &amp; Assignments" 
+                            Style="{StaticResource QuickActionButton}" 
+                            Tag=""
+                            Content="Calendar"
+                            ToolTip="Calendar &amp; Assignments" 
                             Margin="0,0,6,0">
-                        <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
-                                   Text="" 
-                                   FontSize="18"/>
                     </Button>
                     
                     <!-- To-Do / Reminders -->
                     <Button x:Name="BtnReminders" 
-                            Style="{StaticResource IconButton}" 
-                                ToolTip="To-Do List &amp; Reminders"
+                            Style="{StaticResource QuickActionButton}"
+                            Tag=""
+                            Content="Tasks" 
+                            ToolTip="To-Do List &amp; Reminders"
                             Margin="0,0,6,0">
-                        <Grid>
-                            <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
-                                       Text="" 
-                                       FontSize="18"/>
-                            <!-- Notification Badge -->
-                            <Border Style="{StaticResource Badge}"
-                                    HorizontalAlignment="Right" 
-                                    VerticalAlignment="Top" 
-                                    Margin="0,-4,-4,0"
-                                    Visibility="{Binding RemindersCount, Converter={StaticResource BoolToVis}}">
-                                <TextBlock x:Name="TxtRemindersCount" 
-                                           Text="0" 
-                                           Style="{StaticResource BadgeText}"/>
-                            </Border>
-                        </Grid>
                     </Button>
                     
                     <!-- Study Timer -->
                     <Button x:Name="BtnStudySession" 
-                            Style="{StaticResource IconButton}" 
-                ToolTip="Study Timer &amp; Sessions"
+                            Style="{StaticResource QuickActionButton}"
+                            Tag=""
+                            Content="Study"
+                            ToolTip="Study Timer &amp; Sessions"
                             Margin="0,0,6,0">
-                        <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
-                                   Text="" 
-                                   FontSize="18"/>
                     </Button>
                     
                     <!-- Separator -->
                     <Border Width="1" 
                             Height="30" 
-                            Background="{StaticResource GlassStrokeBrush}" 
+                            Background="{StaticResource StrokeSecondaryBrush}" 
                             Margin="6,0,8,0"/>
                     
                     <!-- Workspace Manager -->
                     <Button x:Name="BtnWorkspace" 
-                            Style="{StaticResource IconButton}"
+                            Style="{StaticResource QuickActionButton}"
+                            Tag=""
+                            Content="Workspace"
                             ToolTip="Workspace Manager"
                             Margin="0,0,6,0">
-                        <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
-                                   Text="" 
-                                   FontSize="18"/>
                     </Button>
                     
                     <!-- Dock Settings -->
                     <Button x:Name="BtnDock" 
-                            Style="{StaticResource IconButton}"
+                            Style="{StaticResource QuickActionButton}"
+                            Tag=""
+                            Content="Dock"
                             ToolTip="Dock Configuration"
                             Margin="0,0,6,0">
-                        <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
-                                   Text="" 
-                                   FontSize="18"/>
                     </Button>
                     
                     <!-- Automations -->
-            <Button x:Name="BtnAutomations" 
-                            Style="{StaticResource IconButton}"
-                ToolTip="Automations &amp; Rules"
+                    <Button x:Name="BtnAutomations" 
+                            Style="{StaticResource QuickActionButton}"
+                            Tag=""
+                            Content="Auto"
+                            ToolTip="Automations &amp; Rules"
                             Margin="0,0,6,0">
-                        <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
-                                   Text="" 
-                                   FontSize="18"/>
                     </Button>
                     
                     <!-- Settings -->
                     <Button x:Name="BtnSettings" 
-                            Style="{StaticResource IconButton}" 
+                            Style="{StaticResource QuickActionButton}"
+                            Tag=""
+                            Content="Settings" 
                             ToolTip="Settings"
                             Margin="0,0,12,0">
-                        <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
-                                   Text="" 
-                                   FontSize="18"/>
                     </Button>
                     
                     <!-- Clock -->
-                    <Border Style="{StaticResource Chip}" 
+                    <Border Style="{StaticResource GlassCard}" 
                             Padding="14,8"
-                            Background="{StaticResource DarkBg4Brush}">
+                            Background="{StaticResource GlassLightBrush}">
                         <TextBlock x:Name="TxtClock" 
                                    Style="{StaticResource BodyStrongTextStyle}" 
                                    Text="--:--"
@@ -471,6 +468,7 @@
                 <!-- Hidden placeholders to satisfy legacy code-behind references -->
                 <StackPanel x:Name="PanelLeft" Visibility="Collapsed"/>
                 <StackPanel x:Name="PanelRight" Visibility="Collapsed"/>
+                <TextBlock x:Name="TxtRemindersCount" Visibility="Collapsed" Text="0"/>
             </Grid>
         </Border>
     </Grid>
