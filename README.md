@@ -1,12 +1,10 @@
-# FocusDeck 🎯# FocusDeck - Focus Session Management System
+# FocusDeck 🎯
 
+**Smart study timer app with cloud synchronization for desktop (Windows 10+) and mobile (Android)**
 
+> Last Updated: October 29, 2025
 
-**A Smart Focus Session Management System for Windows Desktop & Android Mobile****Smart study timer app with cloud synchronization for desktop (Windows 10+) and mobile (Android)**
-
-
-
-FocusDeck is a cross-platform productivity suite that combines smart study timers, session tracking, and cloud synchronization. Focus on what matters while we handle the rest.A cross-platform focus management system with study timers, session tracking, and cloud sync infrastructure.
+FocusDeck is a cross-platform productivity suite that combines smart study timers, session tracking, and cloud synchronization. Focus on what matters while we handle the rest.
 
 
 
