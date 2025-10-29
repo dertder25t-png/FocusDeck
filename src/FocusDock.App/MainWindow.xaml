@@ -77,21 +77,13 @@
                                 <ScaleTransform ScaleX="1" ScaleY="1"/>
                             </Border.RenderTransform>
                             <StackPanel Orientation="Horizontal">
-                                <!-- App Icon -->
-                                <Image Width="24" Height="24" 
-                                       Source="{Binding Converter={StaticResource WindowIconConverter}, TargetNullValue={x:Null}}" 
-                                       Margin="0"
-                                       RenderOptions.BitmapScalingMode="HighQuality">
-                                    <Image.Style>
-                                        <Style TargetType="Image">
-                                            <Style.Triggers>
-                                                <Trigger Property="Source" Value="{x:Null}">
-                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Image.Style>
-                                </Image>
+                                <!-- App Icon - Using Segoe Fluent Icons -->
+                                <TextBlock FontFamily="Segoe Fluent Icons" 
+                                           Text="" 
+                                           FontSize="20"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Center"/>
                                 
                                 <!-- Window Title -->
                                 <TextBlock Text="{Binding Title}" 
@@ -285,6 +277,98 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        
+        <!-- Compact Icon-Only Action Button (no expand on hover) -->
+        <Style x:Key="CompactIconButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="42"/>
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" 
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="10"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform>
+                                <ScaleTransform ScaleX="1" ScaleY="1"/>
+                            </Border.RenderTransform>
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <!-- Hover State -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#20FFFFFF"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="border"
+                                                             Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="1.08"
+                                                             Duration="0:0:0.15">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut"/>
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="border"
+                                                             Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="1.08"
+                                                             Duration="0:0:0.15">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut"/>
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="border"
+                                                             Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="1"
+                                                             Duration="0:0:0.15"/>
+                                            <DoubleAnimation Storyboard.TargetName="border"
+                                                             Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="1"
+                                                             Duration="0:0:0.15"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            <!-- Pressed State -->
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource AccentBrush}"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextOnAccentBrush}"/>
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="border"
+                                                             Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="0.95"
+                                                             Duration="0:0:0.1"/>
+                                            <DoubleAnimation Storyboard.TargetName="border"
+                                                             Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="0.95"
+                                                             Duration="0:0:0.1"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
     </Window.Resources>
 
@@ -318,55 +402,19 @@
                             VerticalAlignment="Center" 
                             Margin="8,0,16,0">
                     
-                    <!-- Menu Button (opens side panel/navigation) -->
+                    <!-- Menu Button (opens showcase) -->
                     <Button x:Name="BtnMenu" 
-                            Style="{StaticResource IconPillButton}" 
-                            Tag=""
-                            Content="Showcase"
-                            Margin="0,0,8,0"
-                            ToolTip="Open Premium UI Showcase - Auto-opens on startup">
-                    </Button>
-                    
-                    <!-- Focus Mode Toggle -->
-                    <Button x:Name="BtnFocus" 
-                            Style="{StaticResource FeatureButton}" 
-                            Margin="0,0,8,0"
-                            ToolTip="Enable Focus Mode">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
-                                       Text="" 
-                                       FontSize="18"
-                                       Margin="0,0,8,0"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Text="Focus" 
-                                       Style="{StaticResource LabelTextStyle}"
-                                       FontSize="14"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                    
-                    <!-- Layouts Manager -->
-                    <Button x:Name="BtnLayouts" 
-                            Style="{StaticResource FeatureButton}"
-                            ToolTip="Manage Window Layouts">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
-                                       Text="" 
-                                       FontSize="18"
-                                       Margin="0,0,8,0"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Text="Layouts" 
-                                       Style="{StaticResource LabelTextStyle}"
-                                       FontSize="14"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
+                            Style="{StaticResource CompactIconButton}" 
+                            Content=""
+                            Margin="0,0,4,0"
+                            ToolTip="Premium UI Showcase">
                     </Button>
                     
                     <!-- Vertical Separator -->
                     <Border Width="1" 
                             Height="40"
                             Background="{StaticResource GlassStrokeBrush}" 
-                            Margin="12,0"/>
+                            Margin="8,0"/>
                 </StackPanel>
 
                 <!-- ═══════════════ CENTER SECTION (Groups & Windows) ═══════════════ -->
@@ -438,37 +486,56 @@
                     </ItemsControl>
                 </ScrollViewer>
 
-                <!-- ═══════════════ RIGHT SECTION (Utilities) ═══════════════ -->
+                <!-- ═══════════════ RIGHT SECTION (All Actions) ═══════════════ -->
                 <StackPanel Grid.Column="2" 
                             Orientation="Horizontal" 
                             VerticalAlignment="Center" 
                             Margin="16,0,8,0">
                     
+                    <!-- Focus Mode Toggle -->
+                    <Button x:Name="BtnFocus" 
+                            Style="{StaticResource CompactIconButton}" 
+                            Content=""
+                            ToolTip="Focus Mode"
+                            Margin="0,0,4,0">
+                    </Button>
+                    
+                    <!-- Layouts Manager -->
+                    <Button x:Name="BtnLayouts" 
+                            Style="{StaticResource CompactIconButton}"
+                            Content=""
+                            ToolTip="Window Layouts"
+                            Margin="0,0,4,0">
+                    </Button>
+                    
+                    <!-- Separator -->
+                    <Border Width="1" 
+                            Height="30" 
+                            Background="{StaticResource StrokeSecondaryBrush}" 
+                            Margin="6,0,8,0"/>
+                    
                     <!-- Calendar & Assignments -->
                     <Button x:Name="BtnCalendar" 
-                            Style="{StaticResource QuickActionButton}" 
-                            Tag=""
-                            Content="Calendar"
+                            Style="{StaticResource CompactIconButton}" 
+                            Content=""
                             ToolTip="Calendar &amp; Assignments" 
-                            Margin="0,0,6,0">
+                            Margin="0,0,4,0">
                     </Button>
                     
                     <!-- To-Do / Reminders -->
                     <Button x:Name="BtnReminders" 
-                            Style="{StaticResource QuickActionButton}"
-                            Tag=""
-                            Content="Tasks" 
-                            ToolTip="To-Do List &amp; Reminders"
-                            Margin="0,0,6,0">
+                            Style="{StaticResource CompactIconButton}"
+                            Content=""
+                            ToolTip="Tasks &amp; Reminders"
+                            Margin="0,0,4,0">
                     </Button>
                     
                     <!-- Study Timer -->
                     <Button x:Name="BtnStudySession" 
-                            Style="{StaticResource QuickActionButton}"
-                            Tag=""
-                            Content="Study"
-                            ToolTip="Study Timer &amp; Sessions"
-                            Margin="0,0,6,0">
+                            Style="{StaticResource CompactIconButton}"
+                            Content=""
+                            ToolTip="Study Timer"
+                            Margin="0,0,4,0">
                     </Button>
                     
                     <!-- Separator -->
@@ -479,39 +546,41 @@
                     
                     <!-- Workspace Manager -->
                     <Button x:Name="BtnWorkspace" 
-                            Style="{StaticResource QuickActionButton}"
-                            Tag=""
-                            Content="Workspace"
+                            Style="{StaticResource CompactIconButton}"
+                            Content=""
                             ToolTip="Workspace Manager"
-                            Margin="0,0,6,0">
+                            Margin="0,0,4,0">
                     </Button>
                     
                     <!-- Dock Settings -->
                     <Button x:Name="BtnDock" 
-                            Style="{StaticResource QuickActionButton}"
-                            Tag=""
-                            Content="Dock"
-                            ToolTip="Dock Configuration"
-                            Margin="0,0,6,0">
+                            Style="{StaticResource CompactIconButton}"
+                            Content=""
+                            ToolTip="Dock Settings"
+                            Margin="0,0,4,0">
                     </Button>
                     
                     <!-- Automations -->
                     <Button x:Name="BtnAutomations" 
-                            Style="{StaticResource QuickActionButton}"
-                            Tag=""
-                            Content="Auto"
-                            ToolTip="Automations &amp; Rules"
-                            Margin="0,0,6,0">
+                            Style="{StaticResource CompactIconButton}"
+                            Content=""
+                            ToolTip="Automations"
+                            Margin="0,0,4,0">
                     </Button>
                     
                     <!-- Settings -->
                     <Button x:Name="BtnSettings" 
-                            Style="{StaticResource QuickActionButton}"
-                            Tag=""
-                            Content="Settings" 
+                            Style="{StaticResource CompactIconButton}"
+                            Content=""
                             ToolTip="Settings"
-                            Margin="0,0,12,0">
+                            Margin="0,0,4,0">
                     </Button>
+                    
+                    <!-- Separator -->
+                    <Border Width="1" 
+                            Height="30" 
+                            Background="{StaticResource StrokeSecondaryBrush}" 
+                            Margin="6,0,8,0"/>
                     
                     <!-- Clock -->
                     <Border Style="{StaticResource GlassCard}" 
