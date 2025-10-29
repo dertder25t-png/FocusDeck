@@ -67,7 +67,10 @@ public class GoogleCalendarProvider
             var accessToken = root.GetProperty("access_token").GetString();
             var refreshToken = root.TryGetProperty("refresh_token", out var rt) ? rt.GetString() : null;
 
-            return (accessToken, refreshToken);
+            if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
+                return null;
+
+            return (accessToken!, refreshToken!);
         }
         catch
         {

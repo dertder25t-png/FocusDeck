@@ -167,7 +167,7 @@ public class StudyPlanService
 
         if (sessions.Count == 0) return 0;
 
-        return sessions.Average(log => log.EffectivenessRating.Value);
+        return sessions.Average(log => log.EffectivenessRating!.Value);
     }
 
     public string GetProductivitySummary(int daysBack = 7)

@@ -191,14 +191,14 @@ public class TodoService : ObservableObject
     {
         return _todos
             .Where(t => !t.IsCompleted && t.EstimatedMinutes.HasValue)
-            .Sum(t => t.EstimatedMinutes.Value);
+            .Sum(t => t.EstimatedMinutes!.Value);
     }
 
     public int GetTotalActualMinutes()
     {
         return _todos
             .Where(t => t.ActualMinutes.HasValue)
-            .Sum(t => t.ActualMinutes.Value);
+            .Sum(t => t.ActualMinutes!.Value);
     }
 
     public string GetStatsSummary()

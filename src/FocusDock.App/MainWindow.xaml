@@ -29,6 +29,13 @@
         <conv:WindowIconConverter x:Key="WindowIconConverter"/>
 
         <!-- Window-specific styles extending ModernStyles.xaml -->
+        <!-- Fallback ItemsPanel templates (used by legacy code / safety) -->
+        <ItemsPanelTemplate x:Key="HorizontalItemsPanel">
+            <StackPanel Orientation="Horizontal"/>
+        </ItemsPanelTemplate>
+        <ItemsPanelTemplate x:Key="VerticalItemsPanel">
+            <StackPanel Orientation="Vertical"/>
+        </ItemsPanelTemplate>
         
         <!-- Frosted Dock Container -->
         <Style x:Key="DockContainer" TargetType="Border" BasedOn="{StaticResource GlassCard}">
@@ -73,8 +80,7 @@
                                 <!-- Window Title -->
                                 <TextBlock Text="{Binding Title}" 
                                            MaxWidth="180"
-                                           TextTrimming="CharacterEllipsis"
-                                           Style="{StaticResource LabelTextStyle}">
+                                           TextTrimming="CharacterEllipsis">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource LabelTextStyle}">
                                             <Setter Property="Visibility" Value="Visible"/>
@@ -267,7 +273,6 @@
                                             Padding="12,7"
                                             Background="{StaticResource DarkBg4Brush}">
                                         <TextBlock Text="{Binding GroupName}" 
-                                                   Style="{StaticResource CaptionTextStyle}"
                                                    FontWeight="SemiBold"
                                                    Foreground="{StaticResource AccentBrush}">
                                             <TextBlock.Style>
@@ -322,7 +327,7 @@
                     <!-- Calendar & Assignments -->
                     <Button x:Name="BtnCalendar" 
                             Style="{StaticResource IconButton}" 
-                            ToolTip="Calendar & Assignments" 
+                                ToolTip="Calendar &amp; Assignments" 
                             Margin="0,0,6,0">
                         <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
                                    Text="" 
@@ -332,7 +337,7 @@
                     <!-- To-Do / Reminders -->
                     <Button x:Name="BtnReminders" 
                             Style="{StaticResource IconButton}" 
-                            ToolTip="To-Do List & Reminders"
+                                ToolTip="To-Do List &amp; Reminders"
                             Margin="0,0,6,0">
                         <Grid>
                             <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
@@ -354,7 +359,7 @@
                     <!-- Study Timer -->
                     <Button x:Name="BtnStudySession" 
                             Style="{StaticResource IconButton}" 
-                            ToolTip="Study Timer & Sessions"
+                ToolTip="Study Timer &amp; Sessions"
                             Margin="0,0,6,0">
                         <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
                                    Text="" 
@@ -388,9 +393,9 @@
                     </Button>
                     
                     <!-- Automations -->
-                    <Button x:Name="BtnAutomations" 
+            <Button x:Name="BtnAutomations" 
                             Style="{StaticResource IconButton}"
-                            ToolTip="Automations & Rules"
+                ToolTip="Automations &amp; Rules"
                             Margin="0,0,6,0">
                         <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
                                    Text="" 
@@ -463,6 +468,9 @@
                         </Button>
                     </StackPanel>
                 </Border>
+                <!-- Hidden placeholders to satisfy legacy code-behind references -->
+                <StackPanel x:Name="PanelLeft" Visibility="Collapsed"/>
+                <StackPanel x:Name="PanelRight" Visibility="Collapsed"/>
             </Grid>
         </Border>
     </Grid>

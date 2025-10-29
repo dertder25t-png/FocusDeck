@@ -207,8 +207,7 @@
                 
                 <!-- Actions -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button Content="History" 
-                            Style="{StaticResource IconButton}"
+                    <Button Style="{StaticResource IconButton}"
                             ToolTip="View Session History"
                             Margin="0,0,8,0"
                             Click="OnHistoryClick">
@@ -216,8 +215,7 @@
                                    Text="" 
                                    FontSize="18"/>
                     </Button>
-                    <Button Content="Settings" 
-                            Style="{StaticResource IconButton}"
+                    <Button Style="{StaticResource IconButton}"
                             ToolTip="Timer Settings"
                             Click="OnSettingsClick">
                         <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
