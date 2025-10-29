@@ -7,14 +7,15 @@
         xmlns:conv="clr-namespace:FocusDock.App.Converters"
         mc:Ignorable="d"
         Title="FocusDock - Modern Workspace Manager"
-        Height="60" Width="1400"
+        Height="80" Width="1400"
         MinHeight="60"
-        WindowStartupLocation="Manual"
+        WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
         Topmost="True"
-        ShowInTaskbar="True">
+        ShowInTaskbar="True"
+        Opacity="1.0">
     
     <!--
         ╔═══════════════════════════════════════════════════════════╗
