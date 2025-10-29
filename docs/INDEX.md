@@ -12,6 +12,8 @@
 ### 📖 Current Development
 - **[Phase 6b Implementation](./PHASE6b_IMPLEMENTATION.md)** - Week-by-week checklist (START HERE for Phase 6b)
 - **[MAUI Architecture](./MAUI_ARCHITECTURE.md)** - Mobile app structure, MVVM patterns, services
+- **[Phase 6b Week 3 Completion](./PHASE6b_WEEK3_COMPLETION.md)** - ✅ Database & Sync Prep - COMPLETE
+- **[Database Quick Reference](./DATABASE_QUICK_REFERENCE.md)** - Common operations, patterns, troubleshooting
 - **[Cloud Sync Architecture](./CLOUD_SYNC_ARCHITECTURE.md)** - Encryption, device registry, multi-device sync
 
 ### 🔐 Security & Integration

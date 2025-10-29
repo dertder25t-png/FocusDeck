@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("FocusDock.System")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4f1b21506436e402a5408f4cf5c92f663b30e5c7")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+029c59ccd544404b9bf7f2583f1913a8b6e32f75")]
 [assembly: System.Reflection.AssemblyProductAttribute("FocusDock.System")]
 [assembly: System.Reflection.AssemblyTitleAttribute("FocusDock.System")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

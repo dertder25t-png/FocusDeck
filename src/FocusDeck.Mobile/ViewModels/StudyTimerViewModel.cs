@@ -4,17 +4,21 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Devices;
+using FocusDeck.Shared.Models;
+using FocusDeck.Mobile.Data.Repositories;
 
 namespace FocusDeck.Mobile.ViewModels;
 
 /// <summary>
 /// ViewModel for the Study Timer page.
-/// Manages timer state, controls, and session persistence.
+/// Manages timer state, controls, and session persistence to local database.
 /// </summary>
 public partial class StudyTimerViewModel : ObservableObject
 {
     private IDispatcherTimer? _timer;
     private DateTime _sessionStartTime;
+    private readonly ISessionRepository _sessionRepository;
+    private StudySession? _currentSession;
 
     /// <summary>
     /// Total time set for this session (user-configurable)
@@ -104,9 +108,15 @@ public partial class StudyTimerViewModel : ObservableObject
     /// </summary>
     public event EventHandler<string>? MessageChanged;
 
-    public StudyTimerViewModel()
+    /// <summary>
+    /// Initializes a new instance of StudyTimerViewModel with dependency injection.
+    /// </summary>
+    /// <param name="sessionRepository">Repository for database operations.</param>
+    public StudyTimerViewModel(ISessionRepository sessionRepository)
     {
+        _sessionRepository = sessionRepository ?? throw new ArgumentNullException(nameof(sessionRepository));
         _sessionStartTime = DateTime.Now;
+        _currentSession = null;
         InitializeTimer();
     }
 
@@ -134,11 +144,25 @@ public partial class StudyTimerViewModel : ObservableObject
         if (CurrentState == TimerState.Stopped)
         {
             _sessionStartTime = DateTime.Now - ElapsedTime;
+            
+            // Create new session for database tracking
+            _currentSession = new StudySession
+            {
+                SessionId = Guid.NewGuid(),
+                StartTime = _sessionStartTime,
+                Status = SessionStatus.Active,
+                Category = "Mobile Study"
+            };
+            
             Debug.WriteLine("[Timer] Started new session");
         }
         else if (CurrentState == TimerState.Paused)
         {
             _sessionStartTime = DateTime.Now - ElapsedTime;
+            if (_currentSession != null)
+            {
+                _currentSession.Status = SessionStatus.Active;
+            }
             Debug.WriteLine("[Timer] Resumed from pause");
         }
 
@@ -381,22 +405,25 @@ public partial class StudyTimerViewModel : ObservableObject
     {
         try
         {
-            // Note: Session persistence moved to Week 3 (Database & Sync Prep)
-            // For now, log that session would be saved
-            Debug.WriteLine($"[Timer] Session saved: {ElapsedTime.TotalMinutes:F1}m - Notes: {SessionNotes}");
+            if (_currentSession == null)
+            {
+                Debug.WriteLine("[Timer] No session to save");
+                return;
+            }
 
-            // TODO: Week 3 - Implement actual database save
-            // var session = new StudySession
-            // {
-            //     StartTime = _sessionStartTime,
-            //     EndTime = DateTime.Now,
-            //     Duration = ElapsedTime,
-            //     Notes = SessionNotes,
-            //     CreatedAt = DateTime.UtcNow
-            // };
-            // await _sessionService.AddSessionAsync(session);
+            // Update session with completion data
+            _currentSession.EndTime = DateTime.UtcNow;
+            _currentSession.DurationMinutes = (int)ElapsedTime.TotalMinutes;
+            _currentSession.SessionNotes = SessionNotes;
+            _currentSession.Status = SessionStatus.Completed;
+            _currentSession.UpdatedAt = DateTime.UtcNow;
 
-            await Task.CompletedTask;
+            // Save to database
+            var savedSession = await _sessionRepository.CreateSessionAsync(_currentSession);
+
+            Debug.WriteLine($"[Timer] Session saved to database: {savedSession.SessionId}");
+            Debug.WriteLine($"[Timer] Duration: {ElapsedTime.TotalMinutes:F1}m - Notes: {SessionNotes}");
+            MessageChanged?.Invoke(this, "Session saved successfully");
         }
         catch (Exception ex)
         {

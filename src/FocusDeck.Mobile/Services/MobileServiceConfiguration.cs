@@ -1,23 +1,27 @@
 using FocusDeck.Mobile.Services;
+using FocusDeck.Mobile.Data;
+using FocusDeck.Mobile.Data.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FocusDeck.Mobile;
 
 /// <summary>
 /// Configures all services for the FocusDeck mobile application.
-/// Note: For Phase 6b, we register only mobile-specific services.
-/// In Phase 6c, we'll add a cross-platform shared library for business logic
-/// that both Desktop and Mobile apps can use without platform-specific dependencies.
+/// Registers database context, repository, cloud sync, and platform-specific services.
 /// </summary>
 public static class MobileServiceConfiguration
 {
-    public static IServiceCollection AddMobileServices(this IServiceCollection services)
+    public static IServiceCollection AddMobileServices(this IServiceCollection services, string cloudServerUrl = "")
     {
-        // TODO: Phase 6b - Register platform-specific mobile services
-        // services.AddSingleton<IStudySessionService, MobileStudySessionService>();
-        // services.AddSingleton<IAnalyticsService, MobileAnalyticsService>();
-        // services.AddSingleton<ICloudSyncService, MobileCloudSyncService>();
-        // services.AddSingleton<IEncryptionService, EncryptionService>();
+        // Register database context
+        services.AddDbContext<StudySessionDbContext>();
+        
+        // Register repository for local data access
+        services.AddScoped<ISessionRepository, SessionRepository>();
+        
+        // Register cloud sync service (PocketBase by default)
+        services.AddSingleton<ICloudSyncService>(sp => 
+            new PocketBaseCloudSyncService(cloudServerUrl));
         
         // Register platform-specific mobile services
         services.AddSingleton<IMobileAudioRecordingService, MobileAudioRecordingService>();

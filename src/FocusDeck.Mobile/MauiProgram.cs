@@ -16,8 +16,11 @@ public static class MauiProgram
 				fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
 			});
 
-		// Register all mobile services
-		builder.Services.AddMobileServices();
+		// Get cloud server URL from preferences or environment
+		var cloudServerUrl = Preferences.Get("cloud_server_url", "");
+
+		// Register all mobile services with cloud sync
+		builder.Services.AddMobileServices(cloudServerUrl);
 
 #if DEBUG
 		builder.Logging.AddDebug();

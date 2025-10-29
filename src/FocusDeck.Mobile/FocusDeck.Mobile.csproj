@@ -59,15 +59,24 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<!-- MAUI and Base Dependencies -->
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.8" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.1" />
 		<PackageReference Include="System.Reflection" Version="4.3.0" />
 		<PackageReference Include="System.ComponentModel" Version="4.3.0" />
+		
+		<!-- Database Dependencies -->
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Proxies" Version="8.0.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.0" />
+		<PackageReference Include="System.Data.SQLite.Core" Version="1.0.118" />
 	</ItemGroup>
 
-	<!-- Reference only cross-platform shared services -->
-	<!-- Note: FocusDock.Core references WPF (Windows-specific) -->
-	<!-- So for now we'll reference shared models through manual includes -->
+	<!-- Project References -->
+	<ItemGroup>
+		<ProjectReference Include="..\FocusDeck.Shared\FocusDeck.Shared.csproj" />
+	</ItemGroup>
 
 </Project>

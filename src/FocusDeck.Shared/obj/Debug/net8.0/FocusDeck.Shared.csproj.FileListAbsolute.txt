@@ -5,8 +5,8 @@ C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Shared\obj\Debug\net8.0\FocusDeck
 C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Shared\obj\Debug\net8.0\FocusDeck.Shared.AssemblyInfoInputs.cache
 C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Shared\obj\Debug\net8.0\FocusDeck.Shared.AssemblyInfo.cs
 C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Shared\obj\Debug\net8.0\FocusDeck.Shared.csproj.CoreCompileInputs.cache
+C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Shared\obj\Debug\net8.0\FocusDeck.Shared.sourcelink.json
 C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Shared\obj\Debug\net8.0\FocusDeck.Shared.dll
 C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Shared\obj\Debug\net8.0\refint\FocusDeck.Shared.dll
 C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Shared\obj\Debug\net8.0\FocusDeck.Shared.pdb
 C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Shared\obj\Debug\net8.0\ref\FocusDeck.Shared.dll
-C:\Users\Caleb\Desktop\FocusDeck\src\FocusDeck.Shared\obj\Debug\net8.0\FocusDeck.Shared.sourcelink.json
