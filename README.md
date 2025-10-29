@@ -736,7 +736,7 @@ cd C:\Users\Caleb\Desktop\FocusDeck
 
 ```
 
-**Want to chat?** Reach out on [Discord](https://discord.gg/focusdeck) (coming soon)
+
 
 **Or from Visual Studio:**
 
@@ -1381,4 +1381,4 @@ Future modules could include:
 
 ---
 
-Would you like me to make a **visual layout diagram or wireframe** next (showing how the dock, panels, and study areas fit together on screen)? That would help you or a designer start prototyping the UI flow visually.
+

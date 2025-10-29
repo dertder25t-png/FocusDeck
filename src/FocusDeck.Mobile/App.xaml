@@ -8,6 +8,7 @@
         <ResourceDictionary>
             <!-- Converters -->
             <converters:PercentageToProgressConverter x:Key="ProgressConverter" />
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
 
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Resources/Styles/Colors.xaml" />

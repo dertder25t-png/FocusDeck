@@ -7,8 +7,9 @@ public class DockStateManager
 {
     private readonly Window _window;
     private readonly System.Timers.Timer _collapseTimer = new(600);
-    public double CollapsedHeight { get; } = 6;
-    public double ExpandedHeight { get; } = 42;
+    // Tuned for better readability while keeping footprint small
+    public double CollapsedHeight { get; } = 8;
+    public double ExpandedHeight { get; } = 56;
     private bool _focusMode;
 
     public DockStateManager(Window window)

@@ -8,16 +8,48 @@
 
     <!-- Main layout with timer display and controls -->
     <Grid
-        RowDefinitions="*, Auto, Auto, Auto"
+        RowDefinitions="Auto, *, Auto, Auto"
         Padding="20"
         RowSpacing="20">
 
+        <!-- Cloud Sync Status Bar -->
+        <StackLayout
+            Grid.Row="0"
+            BackgroundColor="Transparent"
+            Spacing="10"
+            Padding="10,0"
+            IsVisible="{Binding IsCloudSyncEnabled}">
+            <Grid ColumnDefinitions="Auto, *, Auto" ColumnSpacing="10" HeightRequest="30">
+                <!-- Cloud Icon -->
+                <Label
+                    Grid.Column="0"
+                    FontSize="18"
+                    Text="☁️"
+                    VerticalOptions="Center" />
+
+                <!-- Status Text -->
+                <Label
+                    Grid.Column="1"
+                    FontSize="12"
+                    Text="{Binding CloudSyncStatusText}"
+                    TextColor="#666666"
+                    VerticalOptions="Center" />
+
+                <!-- Status Indicator -->
+                <Label
+                    Grid.Column="2"
+                    FontSize="14"
+                    Text="{Binding CloudSyncIndicator}"
+                    VerticalOptions="Center" />
+            </Grid>
+        </StackLayout>
+
         <!-- Top spacer -->
-        <BoxView Grid.Row="0" />
+        <BoxView Grid.Row="1" />
 
         <!-- Large Timer Display -->
         <StackLayout
-            Grid.Row="1"
+            Grid.Row="2"
             HorizontalOptions="Center"
             Spacing="10"
             VerticalOptions="Center">
@@ -61,7 +93,7 @@
 
         <!-- Control Buttons -->
         <Grid
-            Grid.Row="2"
+            Grid.Row="3"
             ColumnDefinitions="*, *, *, *"
             ColumnSpacing="10"
             Padding="0">
@@ -116,7 +148,7 @@
         </Grid>
 
         <!-- Preset Time Buttons & Custom Time Input -->
-        <ScrollView Grid.Row="3" Orientation="Vertical">
+        <ScrollView Grid.Row="4" Orientation="Vertical">
             <StackLayout Spacing="15" Padding="0">
 
                 <!-- Preset Buttons Row 1 -->

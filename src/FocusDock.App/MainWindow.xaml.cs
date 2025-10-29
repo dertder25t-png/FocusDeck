@@ -76,12 +76,13 @@ public partial class MainWindow : Window
         _windowTracker.Start();
 
         MouseEnter += (_, _) => _dockState.Expand();
-        MouseLeave += (_, _) => _dockState.CollapseIfAway();
+        // Temporarily disable auto-collapse to aid visibility/debugging
+        // MouseLeave += (_, _) => _dockState.CollapseIfAway();
 
         BtnFocus.Click += (_, _) => _dockState.ToggleFocusMode();
         BtnDock.Click += (_, _) => ShowDockMenu();
         BtnCalendar.Click += (_, _) => ShowCalendarMenu();
-        BtnTodos.Click += (_, _) => ShowTodosMenu();
+        BtnReminders.Click += (_, _) => ShowTodosMenu();
         BtnStudySession.Click += (_, _) => ShowStudySessionMenu();
         BtnWorkspace.Click += (_, _) => ShowWorkspaceMenu();
         BtnAutomations.Click += (_, _) => ShowAutomationsMenu();
@@ -108,7 +109,36 @@ public partial class MainWindow : Window
         _automationPreviewTimer.Tick += OnAutomationPreviewTick;
         
         // Auto-restore last workspace on startup
-        Loaded += (_, _) => RestoreLastWorkspace();
+        Loaded += (_, _) =>
+        {
+            RestoreLastWorkspace();
+            _dockState.Expand();
+            // Ensure window is in a visible, normal state on load
+            WindowState = WindowState.Normal;
+            Topmost = true;
+            try { Focus(); } catch { }
+        };
+
+        // Dev fallback: F8 forces the dock to a visible size/position
+        KeyDown += (s, e) =>
+        {
+            if (e.Key == Key.F8)
+            {
+                try
+                {
+                    _dockState.Expand();
+                    Opacity = 1.0;
+                    WindowState = WindowState.Normal;
+                    Topmost = true;
+                    var wa = SystemParameters.WorkArea;
+                    Width = Math.Min(1200, wa.Width - 200);
+                    Height = 120;
+                    Left = wa.Left + (wa.Width - Width) / 2;
+                    Top = wa.Top + 100;
+                }
+                catch { }
+            }
+        };
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -127,15 +157,16 @@ public partial class MainWindow : Window
         switch (_settings.Edge)
         {
             case DockEdge.Top:
-                Left = area.Left + 10; Width = area.Width - 20; Height = _dockState.ExpandedHeight; Top = area.Top + 6; break;
+                Left = area.Left + 10; Width = area.Width - 20; Height = _dockState.ExpandedHeight; Top = area.Top; break;
             case DockEdge.Bottom:
-                Left = area.Left + 10; Width = area.Width - 20; Height = _dockState.ExpandedHeight; Top = area.Bottom - _dockState.CollapsedHeight - 6; break;
+                Left = area.Left + 10; Width = area.Width - 20; Height = _dockState.ExpandedHeight; Top = area.Bottom - _dockState.CollapsedHeight; break;
             case DockEdge.Left:
                 Left = area.Left + 6; Width = 220; Height = area.Height - 20; Top = area.Top + 10; break;
             case DockEdge.Right:
                 Left = area.Right - 220 - 6; Width = 220; Height = area.Height - 20; Top = area.Top + 10; break;
         }
-        _dockState.Collapse();
+        // Start visible; collapsing is handled on mouse leave and timers
+        // _dockState.Collapse();
 
         // Adjust UI layout for vertical dock
         bool vertical = _settings.Edge == DockEdge.Left || _settings.Edge == DockEdge.Right;
@@ -153,6 +184,58 @@ public partial class MainWindow : Window
             // Update bound list to reflect pin state immediately
             var items = VM.WindowGroups.SelectMany(g => g.Windows).ToList();
             _reminder.UpdateSeen(items);
+        }
+    }
+
+    private void OnWindowItemActivate(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.Button btn && btn.DataContext is WindowInfo w)
+        {
+            try
+            {
+                var h = (IntPtr)w.Hwnd;
+                if (User32.IsIconic(h))
+                {
+                    User32.ShowWindow(h, User32.SW_RESTORE);
+                }
+                User32.SetForegroundWindow(h);
+            }
+            catch { /* ignore focus errors */ }
+        }
+    }
+
+    private void OnWindowItemRightClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is System.Windows.Controls.Button btn && btn.DataContext is WindowInfo w)
+        {
+            var menu = new System.Windows.Controls.ContextMenu();
+            var miFocus = new System.Windows.Controls.MenuItem { Header = "Focus" };
+            miFocus.Click += (_, _) =>
+            {
+                try
+                {
+                    var h = (IntPtr)w.Hwnd;
+                    if (User32.IsIconic(h)) User32.ShowWindow(h, User32.SW_RESTORE);
+                    User32.SetForegroundWindow(h);
+                }
+                catch { }
+            };
+            var miPin = new System.Windows.Controls.MenuItem { Header = w.IsPinned ? "Unpin" : "Pin" };
+            miPin.Click += (_, _) =>
+            {
+                _pins.TogglePin(w);
+                var items = VM.WindowGroups.SelectMany(g => g.Windows).ToList();
+                _reminder.UpdateSeen(items);
+            };
+            var miClose = new System.Windows.Controls.MenuItem { Header = "Close" };
+            miClose.Click += (_, _) => User32.SendMessage((IntPtr)w.Hwnd, 0x0010, IntPtr.Zero, IntPtr.Zero);
+            menu.Items.Add(miFocus);
+            menu.Items.Add(miPin);
+            menu.Items.Add(new System.Windows.Controls.Separator());
+            menu.Items.Add(miClose);
+            btn.ContextMenu = menu;
+            menu.PlacementTarget = btn;
+            menu.IsOpen = true;
         }
     }
 
@@ -179,6 +262,11 @@ public partial class MainWindow : Window
             edgeRoot.Items.Add(mi);
         }
         menu.Items.Add(edgeRoot);
+
+        menu.Items.Add(new System.Windows.Controls.Separator());
+        var miIconOnly = new System.Windows.Controls.MenuItem { Header = "Icon-only mode", IsCheckable = true, IsChecked = VM.IconOnlyMode };
+        miIconOnly.Click += (_, _) => { VM.IconOnlyMode = !VM.IconOnlyMode; };
+        menu.Items.Add(miIconOnly);
 
         BtnDock.ContextMenu = menu;
         menu.PlacementTarget = BtnDock;
@@ -759,8 +847,8 @@ public partial class MainWindow : Window
             System.Windows.MessageBox.Show("Completed tasks cleared!");
         });
 
-        BtnTodos.ContextMenu = menu;
-        menu.PlacementTarget = BtnTodos;
+        BtnReminders.ContextMenu = menu;
+        menu.PlacementTarget = BtnReminders;
         menu.IsOpen = true;
     }
 
@@ -795,5 +883,12 @@ public class DockViewModel : ObservableObject
     {
         get => _lastAppliedPresetName;
         set => SetProperty(ref _lastAppliedPresetName, value);
+    }
+
+    private bool _iconOnlyMode;
+    public bool IconOnlyMode
+    {
+        get => _iconOnlyMode;
+        set => SetProperty(ref _iconOnlyMode, value);
     }
 }

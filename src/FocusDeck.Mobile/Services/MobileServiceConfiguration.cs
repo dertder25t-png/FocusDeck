@@ -1,13 +1,15 @@
 using FocusDeck.Mobile.Services;
 using FocusDeck.Mobile.Data;
 using FocusDeck.Mobile.Data.Repositories;
+using FocusDeck.Mobile.Pages;
+using FocusDeck.Mobile.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FocusDeck.Mobile;
 
 /// <summary>
 /// Configures all services for the FocusDeck mobile application.
-/// Registers database context, repository, cloud sync, and platform-specific services.
+/// Registers database context, repository, cloud sync, viewmodels, and platform-specific services.
 /// </summary>
 public static class MobileServiceConfiguration
 {
@@ -22,6 +24,14 @@ public static class MobileServiceConfiguration
         // Register cloud sync service (PocketBase by default)
         services.AddSingleton<ICloudSyncService>(sp => 
             new PocketBaseCloudSyncService(cloudServerUrl));
+        
+        // Register ViewModels
+        services.AddSingleton<StudyTimerViewModel>();
+        services.AddSingleton<CloudSettingsViewModel>();
+        
+        // Register Pages
+        services.AddSingleton<StudyTimerPage>();
+        services.AddSingleton<SettingsPage>();
         
         // Register platform-specific mobile services
         services.AddSingleton<IMobileAudioRecordingService, MobileAudioRecordingService>();

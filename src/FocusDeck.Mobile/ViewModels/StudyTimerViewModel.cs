@@ -6,18 +6,20 @@ using Microsoft.Maui.Controls;
 using Microsoft.Maui.Devices;
 using FocusDeck.Shared.Models;
 using FocusDeck.Mobile.Data.Repositories;
+using FocusDeck.Mobile.Services;
 
 namespace FocusDeck.Mobile.ViewModels;
 
 /// <summary>
 /// ViewModel for the Study Timer page.
-/// Manages timer state, controls, and session persistence to local database.
+/// Manages timer state, controls, and session persistence to local database and cloud sync.
 /// </summary>
 public partial class StudyTimerViewModel : ObservableObject
 {
     private IDispatcherTimer? _timer;
     private DateTime _sessionStartTime;
     private readonly ISessionRepository _sessionRepository;
+    private readonly ICloudSyncService _cloudSyncService;
     private StudySession? _currentSession;
 
     /// <summary>
@@ -109,14 +111,64 @@ public partial class StudyTimerViewModel : ObservableObject
     public event EventHandler<string>? MessageChanged;
 
     /// <summary>
+    /// Cloud sync status (Idle, Syncing, Synced, Error)
+    /// </summary>
+    [ObservableProperty]
+    private CloudSyncStatus cloudSyncStatus = CloudSyncStatus.Idle;
+
+    /// <summary>
+    /// Cloud sync error message (if any)
+    /// </summary>
+    [ObservableProperty]
+    private string cloudSyncErrorMessage = string.Empty;
+
+    /// <summary>
+    /// Is cloud sync enabled?
+    /// </summary>
+    [ObservableProperty]
+    private bool isCloudSyncEnabled = false;
+
+    /// <summary>
+    /// Cloud sync status display text
+    /// </summary>
+    public string CloudSyncStatusText => CloudSyncStatus switch
+    {
+        CloudSyncStatus.Idle => "Cloud sync ready",
+        CloudSyncStatus.Syncing => "Syncing to cloud...",
+        CloudSyncStatus.Synced => "✓ Synced to cloud",
+        CloudSyncStatus.Error => $"✗ Sync error: {CloudSyncErrorMessage}",
+        CloudSyncStatus.Disabled => "Cloud sync disabled",
+        _ => "Cloud sync ready"
+    };
+
+    /// <summary>
+    /// Cloud sync status indicator (emoji/icon)
+    /// </summary>
+    public string CloudSyncIndicator => CloudSyncStatus switch
+    {
+        CloudSyncStatus.Idle => "⏱️",
+        CloudSyncStatus.Syncing => "⏳",
+        CloudSyncStatus.Synced => "✅",
+        CloudSyncStatus.Error => "❌",
+        CloudSyncStatus.Disabled => "🚫",
+        _ => "⏱️"
+    };
+
+    /// <summary>
     /// Initializes a new instance of StudyTimerViewModel with dependency injection.
     /// </summary>
     /// <param name="sessionRepository">Repository for database operations.</param>
-    public StudyTimerViewModel(ISessionRepository sessionRepository)
+    /// <param name="cloudSyncService">Service for cloud synchronization (optional).</param>
+    public StudyTimerViewModel(ISessionRepository sessionRepository, ICloudSyncService? cloudSyncService = null)
     {
         _sessionRepository = sessionRepository ?? throw new ArgumentNullException(nameof(sessionRepository));
+        _cloudSyncService = cloudSyncService ?? new NoOpCloudSyncService();
         _sessionStartTime = DateTime.Now;
         _currentSession = null;
+        
+        // Check if cloud sync is configured
+        IsCloudSyncEnabled = !string.IsNullOrWhiteSpace(Preferences.Get("cloud_server_url", ""));
+        
         InitializeTimer();
     }
 
@@ -399,7 +451,7 @@ public partial class StudyTimerViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Save completed session to database
+    /// Save completed session to database and sync to cloud (if enabled)
     /// </summary>
     private async Task SaveSessionAsync()
     {
@@ -418,17 +470,80 @@ public partial class StudyTimerViewModel : ObservableObject
             _currentSession.Status = SessionStatus.Completed;
             _currentSession.UpdatedAt = DateTime.UtcNow;
 
-            // Save to database
+            // Save to local database first (always works)
             var savedSession = await _sessionRepository.CreateSessionAsync(_currentSession);
-
-            Debug.WriteLine($"[Timer] Session saved to database: {savedSession.SessionId}");
+            Debug.WriteLine($"[Timer] Session saved to local database: {savedSession.SessionId}");
             Debug.WriteLine($"[Timer] Duration: {ElapsedTime.TotalMinutes:F1}m - Notes: {SessionNotes}");
-            MessageChanged?.Invoke(this, "Session saved successfully");
+            MessageChanged?.Invoke(this, "Session saved locally ✓");
+
+            // Attempt cloud sync if enabled
+            if (IsCloudSyncEnabled)
+            {
+                await SyncSessionToCloudAsync(savedSession);
+            }
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"[Timer] Save error: {ex.Message}");
             MessageChanged?.Invoke(this, $"Error saving session: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Sync a saved session to cloud (async, doesn't block local app)
+    /// </summary>
+    private async Task SyncSessionToCloudAsync(StudySession session)
+    {
+        try
+        {
+            CloudSyncStatus = CloudSyncStatus.Syncing;
+            CloudSyncErrorMessage = string.Empty;
+            MessageChanged?.Invoke(this, "Syncing to cloud...");
+
+            // Get stored auth token (if available)
+            var authToken = Preferences.Get("cloud_auth_token", "");
+            if (string.IsNullOrWhiteSpace(authToken))
+            {
+                // No auth token, can't sync
+                CloudSyncStatus = CloudSyncStatus.Idle;
+                CloudSyncErrorMessage = "Not authenticated with cloud server";
+                Debug.WriteLine("[Cloud] Not authenticated - skipping sync");
+                return;
+            }
+
+            // Attempt to sync
+            var syncSuccess = await _cloudSyncService.SyncSessionAsync(session, authToken);
+
+            if (syncSuccess)
+            {
+                CloudSyncStatus = CloudSyncStatus.Synced;
+                MessageChanged?.Invoke(this, "Session synced to cloud ☁️");
+                Debug.WriteLine($"[Cloud] Session {session.SessionId} synced successfully");
+            }
+            else
+            {
+                CloudSyncStatus = CloudSyncStatus.Error;
+                CloudSyncErrorMessage = "Cloud sync failed";
+                MessageChanged?.Invoke(this, "Failed to sync to cloud (saved locally)");
+                Debug.WriteLine("[Cloud] Sync failed but local save succeeded");
+            }
+
+            // Reset status after a delay
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                await Task.Delay(3000);
+                if (CloudSyncStatus == CloudSyncStatus.Synced)
+                {
+                    CloudSyncStatus = CloudSyncStatus.Idle;
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            CloudSyncStatus = CloudSyncStatus.Error;
+            CloudSyncErrorMessage = ex.Message;
+            Debug.WriteLine($"[Cloud] Sync error: {ex.Message}");
+            MessageChanged?.Invoke(this, $"Cloud sync error (saved locally): {ex.Message}");
         }
     }
 

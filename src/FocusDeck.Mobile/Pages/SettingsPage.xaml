@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="FocusDeck.Mobile.Pages.SettingsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Settings"
+    BackgroundColor="#F5F5F5">
+
+    <ScrollView>
+        <StackLayout Padding="20" Spacing="20">
+
+            <!-- Cloud Sync Section -->
+            <StackLayout Spacing="15">
+                <Label
+                    FontAttributes="Bold"
+                    FontSize="18"
+                    Text="☁️ Cloud Synchronization"
+                    TextColor="#333333" />
+
+                <!-- Status Card -->
+                <Frame
+                    Padding="15"
+                    BackgroundColor="White"
+                    BorderColor="#E0E0E0"
+                    CornerRadius="10"
+                    HasShadow="False">
+                    <StackLayout Spacing="10">
+                        <!-- Status Indicator -->
+                        <Grid ColumnDefinitions="Auto, *" ColumnSpacing="10">
+                            <Label
+                                Grid.Column="0"
+                                FontSize="20"
+                                Text="{Binding CloudStatusIcon}"
+                                VerticalOptions="Center" />
+                            <StackLayout Grid.Column="1" Spacing="5">
+                                <Label
+                                    FontAttributes="Bold"
+                                    FontSize="14"
+                                    Text="{Binding CloudConnectionStatus}"
+                                    TextColor="#333333" />
+                                <Label
+                                    FontSize="12"
+                                    Text="{Binding CloudStatusMessage}"
+                                    TextColor="#999999" />
+                            </StackLayout>
+                        </Grid>
+                    </StackLayout>
+                </Frame>
+
+                <!-- Server URL Input -->
+                <StackLayout Spacing="8">
+                    <Label
+                        FontAttributes="Bold"
+                        FontSize="14"
+                        Text="Server URL"
+                        TextColor="#333333" />
+                    <Entry
+                        BackgroundColor="White"
+                        Keyboard="Url"
+                        Placeholder="https://your-server.com"
+                        PlaceholderColor="#999999"
+                        Text="{Binding CloudServerUrl}"
+                        TextColor="#333333" />
+                    <Label
+                        FontSize="11"
+                        Text="Example: https://focusdeck.example.com or http://192.168.1.100:8090"
+                        TextColor="#999999" />
+                </StackLayout>
+
+                <!-- Authentication Section -->
+                <StackLayout Spacing="8">
+                    <Label
+                        FontAttributes="Bold"
+                        FontSize="14"
+                        Text="Authentication"
+                        TextColor="#333333" />
+
+                    <!-- Email Input -->
+                    <Entry
+                        BackgroundColor="White"
+                        Keyboard="Email"
+                        Placeholder="Email (optional)"
+                        PlaceholderColor="#999999"
+                        Text="{Binding CloudEmail}"
+                        TextColor="#333333" />
+
+                    <!-- Password Input -->
+                    <Entry
+                        BackgroundColor="White"
+                        IsPassword="True"
+                        Placeholder="Password (optional)"
+                        PlaceholderColor="#999999"
+                        Text="{Binding CloudPassword}"
+                        TextColor="#333333" />
+                </StackLayout>
+
+                <!-- Action Buttons -->
+                <Grid ColumnDefinitions="*, *" ColumnSpacing="10">
+                    <!-- Test Connection Button -->
+                    <Button
+                        Grid.Column="0"
+                        BackgroundColor="#512BD4"
+                        Command="{Binding TestConnectionCommand}"
+                        CornerRadius="8"
+                        FontAttributes="Bold"
+                        FontSize="14"
+                        IsEnabled="{Binding IsTestingConnection, Converter={StaticResource InvertedBoolConverter}}"
+                        Padding="10"
+                        Text="{Binding TestButtonText}"
+                        TextColor="White" />
+
+                    <!-- Save Button -->
+                    <Button
+                        Grid.Column="1"
+                        BackgroundColor="#07C063"
+                        Command="{Binding SaveSettingsCommand}"
+                        CornerRadius="8"
+                        FontAttributes="Bold"
+                        FontSize="14"
+                        Padding="10"
+                        Text="Save"
+                        TextColor="White" />
+                </Grid>
+
+                <!-- Connection Test Result -->
+                <Frame
+                    Padding="12"
+                    BackgroundColor="{Binding ConnectionTestBackgroundColor}"
+                    BorderColor="{Binding ConnectionTestBorderColor}"
+                    CornerRadius="8"
+                    HasShadow="False"
+                    IsVisible="{Binding ShowConnectionTestResult}">
+                    <StackLayout Spacing="5">
+                        <Label
+                            FontAttributes="Bold"
+                            FontSize="13"
+                            Text="{Binding ConnectionTestTitle}"
+                            TextColor="{Binding ConnectionTestTitleColor}" />
+                        <Label
+                            FontSize="12"
+                            Text="{Binding ConnectionTestMessage}"
+                            TextColor="{Binding ConnectionTestMessageColor}" />
+                    </StackLayout>
+                </Frame>
+            </StackLayout>
+
+            <!-- Divider -->
+            <BoxView
+                BackgroundColor="#E0E0E0"
+                HeightRequest="1"
+                HorizontalOptions="FillAndExpand" />
+
+            <!-- Data Management Section -->
+            <StackLayout Spacing="15">
+                <Label
+                    FontAttributes="Bold"
+                    FontSize="18"
+                    Text="📊 Data Management"
+                    TextColor="#333333" />
+
+                <!-- Session Statistics Card -->
+                <Frame
+                    Padding="15"
+                    BackgroundColor="White"
+                    BorderColor="#E0E0E0"
+                    CornerRadius="10"
+                    HasShadow="False">
+                    <Grid RowDefinitions="Auto, Auto" RowSpacing="12">
+                        <!-- Total Sessions -->
+                        <Grid
+                            Grid.Row="0"
+                            ColumnDefinitions="*, *"
+                            ColumnSpacing="15">
+                            <StackLayout Grid.Column="0" Spacing="5">
+                                <Label
+                                    FontSize="12"
+                                    Text="Total Sessions"
+                                    TextColor="#999999" />
+                                <Label
+                                    FontAttributes="Bold"
+                                    FontSize="18"
+                                    Text="{Binding TotalSessionsCount}"
+                                    TextColor="#512BD4" />
+                            </StackLayout>
+
+                            <StackLayout Grid.Column="1" Spacing="5">
+                                <Label
+                                    FontSize="12"
+                                    Text="Total Time"
+                                    TextColor="#999999" />
+                                <Label
+                                    FontAttributes="Bold"
+                                    FontSize="18"
+                                    Text="{Binding TotalStudyTime}"
+                                    TextColor="#512BD4" />
+                            </StackLayout>
+                        </Grid>
+
+                        <!-- Synced Sessions -->
+                        <Grid
+                            Grid.Row="1"
+                            ColumnDefinitions="*, *"
+                            ColumnSpacing="15">
+                            <StackLayout Grid.Column="0" Spacing="5">
+                                <Label
+                                    FontSize="12"
+                                    Text="Synced to Cloud"
+                                    TextColor="#999999" />
+                                <Label
+                                    FontAttributes="Bold"
+                                    FontSize="18"
+                                    Text="{Binding SyncedSessionsCount}"
+                                    TextColor="#07C063" />
+                            </StackLayout>
+
+                            <StackLayout Grid.Column="1" Spacing="5">
+                                <Label
+                                    FontSize="12"
+                                    Text="Last Sync"
+                                    TextColor="#999999" />
+                                <Label
+                                    FontAttributes="Bold"
+                                    FontSize="14"
+                                    Text="{Binding LastSyncTime}"
+                                    TextColor="#333333" />
+                            </StackLayout>
+                        </Grid>
+                    </Grid>
+                </Frame>
+            </StackLayout>
+
+            <!-- Divider -->
+            <BoxView
+                BackgroundColor="#E0E0E0"
+                HeightRequest="1"
+                HorizontalOptions="FillAndExpand" />
+
+            <!-- Help Section -->
+            <StackLayout Spacing="15">
+                <Label
+                    FontAttributes="Bold"
+                    FontSize="18"
+                    Text="❓ Help"
+                    TextColor="#333333" />
+
+                <!-- Help Card -->
+                <Frame
+                    Padding="15"
+                    BackgroundColor="White"
+                    BorderColor="#E0E0E0"
+                    CornerRadius="10"
+                    HasShadow="False">
+                    <StackLayout Spacing="10">
+                        <Label
+                            FontSize="13"
+                            FontAttributes="Bold"
+                            Text="Setting Up Cloud Sync"
+                            TextColor="#333333" />
+                        <Label
+                            FontSize="12"
+                            LineBreakMode="WordWrap"
+                            Text="1. Set up a PocketBase server on your Linux machine&#10;2. Enter the server URL above&#10;3. Click 'Test Connection' to verify&#10;4. Your sessions will sync automatically"
+                            TextColor="#666666" />
+                        <Label
+                            FontSize="11"
+                            FontAttributes="Italic"
+                            LineBreakMode="WordWrap"
+                            Text="Note: Cloud sync is optional. Your sessions are always saved locally."
+                            TextColor="#999999" />
+                    </StackLayout>
+                </Frame>
+            </StackLayout>
+
+            <!-- Padding -->
+            <BoxView HeightRequest="20" />
+
+        </StackLayout>
+    </ScrollView>
+
+</ContentPage>

@@ -53,6 +53,31 @@ public static class User32
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
+    [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    public const int SW_RESTORE = 9;
+
+    public const int WM_GETICON = 0x7F;
+    public const int ICON_SMALL = 0;
+    public const int ICON_BIG = 1;
+    public const int ICON_SMALL2 = 2;
+
+    [DllImport("user32.dll", EntryPoint = "GetClassLong")] // 32-bit
+    public static extern uint GetClassLong32(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", EntryPoint = "GetClassLongPtrW")] // 64-bit
+    public static extern IntPtr GetClassLongPtr64(IntPtr hWnd, int nIndex);
+
+    public const int GCL_HICON = -14;
+    public const int GCL_HICONSM = -34;
+
     [StructLayout(LayoutKind.Sequential)]
     public struct RECT
     {
