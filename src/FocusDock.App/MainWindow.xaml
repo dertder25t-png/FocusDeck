@@ -72,15 +72,15 @@
                         <Border x:Name="chip" 
                                 Style="{StaticResource Chip}" 
                                 Margin="4,0" 
-                                Padding="10,7">
+                                Padding="8">
                             <Border.RenderTransform>
                                 <ScaleTransform ScaleX="1" ScaleY="1"/>
                             </Border.RenderTransform>
                             <StackPanel Orientation="Horizontal">
                                 <!-- App Icon -->
-                                <Image Width="20" Height="20" 
+                                <Image Width="24" Height="24" 
                                        Source="{Binding Converter={StaticResource WindowIconConverter}, TargetNullValue={x:Null}}" 
-                                       Margin="0,0,10,0"
+                                       Margin="0"
                                        RenderOptions.BitmapScalingMode="HighQuality">
                                     <Image.Style>
                                         <Style TargetType="Image">
@@ -96,10 +96,11 @@
                                 <!-- Window Title -->
                                 <TextBlock Text="{Binding Title}" 
                                            MaxWidth="180"
-                                           TextTrimming="CharacterEllipsis">
+                                           TextTrimming="CharacterEllipsis"
+                                           Visibility="Collapsed">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource LabelTextStyle}">
-                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Setter Property="Visibility" Value="Collapsed"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding DataContext.IconOnlyMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                                                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -202,6 +203,87 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="MinHeight" Value="40"/>
             <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="Opacity" Value="0.9"/>
+        </Style>
+
+        <!-- Premium Glassmorphism ContextMenu Style -->
+        <Style x:Key="PremiumContextMenu" TargetType="ContextMenu">
+            <Setter Property="Background" Value="{StaticResource GlassPanelGradient}"/>
+            <Setter Property="BorderBrush">
+                <Setter.Value>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#30FFFFFF" Offset="0"/>
+                        <GradientStop Color="#15FFFFFF" Offset="1"/>
+                    </LinearGradientBrush>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="MinWidth" Value="200"/>
+            <Setter Property="HasDropShadow" Value="True"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="32" ShadowDepth="0" Opacity="0.6" Color="Black"/>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12"
+                                Padding="{TemplateBinding Padding}"
+                                Effect="{TemplateBinding Effect}">
+                            <ScrollViewer CanContentScroll="True" 
+                                          Style="{DynamicResource {ComponentResourceKey ResourceId=MenuScrollViewer, TypeInTargetAssembly={x:Type FrameworkElement}}}">
+                                <ItemsPresenter Margin="0"/>
+                            </ScrollViewer>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Premium Glassmorphism MenuItem Style -->
+        <Style x:Key="PremiumMenuItem" TargetType="MenuItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderThickness="0"
+                                CornerRadius="8"
+                                Margin="2,1"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#1AFFFFFF"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource AccentBrush}"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextOnAccentBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{StaticResource TextDisabledBrush}"/>
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
     </Window.Resources>
