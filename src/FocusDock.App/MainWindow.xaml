@@ -77,10 +77,10 @@
                                 <ScaleTransform ScaleX="1" ScaleY="1"/>
                             </Border.RenderTransform>
                             <StackPanel Orientation="Horizontal">
-                                <!-- App Icon - Using Segoe Fluent Icons -->
-                                <TextBlock FontFamily="Segoe Fluent Icons" 
-                                           Text="" 
-                                           FontSize="20"
+                                <!-- App Icon - Using Segoe MDL2 Assets -->
+                                <TextBlock FontFamily="Segoe MDL2 Assets" 
+                                           Text="&#xE8FD;" 
+                                           FontSize="22"
                                            Foreground="{StaticResource TextPrimaryBrush}"
                                            VerticalAlignment="Center"
                                            HorizontalAlignment="Center"/>
@@ -285,7 +285,7 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Width" Value="42"/>
             <Setter Property="Height" Value="42"/>
-            <Setter Property="FontFamily" Value="Segoe Fluent Icons"/>
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
             <Setter Property="FontSize" Value="18"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
@@ -405,7 +405,7 @@
                     <!-- Menu Button (opens showcase) -->
                     <Button x:Name="BtnMenu" 
                             Style="{StaticResource CompactIconButton}" 
-                            Content=""
+                            Content="&#xE700;"
                             Margin="0,0,4,0"
                             ToolTip="Premium UI Showcase">
                     </Button>
@@ -495,7 +495,7 @@
                     <!-- Focus Mode Toggle -->
                     <Button x:Name="BtnFocus" 
                             Style="{StaticResource CompactIconButton}" 
-                            Content=""
+                            Content="&#xE7B5;"
                             ToolTip="Focus Mode"
                             Margin="0,0,4,0">
                     </Button>
@@ -503,7 +503,7 @@
                     <!-- Layouts Manager -->
                     <Button x:Name="BtnLayouts" 
                             Style="{StaticResource CompactIconButton}"
-                            Content=""
+                            Content="&#xE80A;"
                             ToolTip="Window Layouts"
                             Margin="0,0,4,0">
                     </Button>
@@ -517,7 +517,7 @@
                     <!-- Calendar & Assignments -->
                     <Button x:Name="BtnCalendar" 
                             Style="{StaticResource CompactIconButton}" 
-                            Content=""
+                            Content="&#xE787;"
                             ToolTip="Calendar &amp; Assignments" 
                             Margin="0,0,4,0">
                     </Button>
@@ -525,7 +525,7 @@
                     <!-- To-Do / Reminders -->
                     <Button x:Name="BtnReminders" 
                             Style="{StaticResource CompactIconButton}"
-                            Content=""
+                            Content="&#xE73A;"
                             ToolTip="Tasks &amp; Reminders"
                             Margin="0,0,4,0">
                     </Button>
@@ -533,7 +533,7 @@
                     <!-- Study Timer -->
                     <Button x:Name="BtnStudySession" 
                             Style="{StaticResource CompactIconButton}"
-                            Content=""
+                            Content="&#xE8F1;"
                             ToolTip="Study Timer"
                             Margin="0,0,4,0">
                     </Button>
@@ -547,7 +547,7 @@
                     <!-- Workspace Manager -->
                     <Button x:Name="BtnWorkspace" 
                             Style="{StaticResource CompactIconButton}"
-                            Content=""
+                            Content="&#xE7EF;"
                             ToolTip="Workspace Manager"
                             Margin="0,0,4,0">
                     </Button>
@@ -555,7 +555,7 @@
                     <!-- Dock Settings -->
                     <Button x:Name="BtnDock" 
                             Style="{StaticResource CompactIconButton}"
-                            Content=""
+                            Content="&#xEC7A;"
                             ToolTip="Dock Settings"
                             Margin="0,0,4,0">
                     </Button>
@@ -563,7 +563,7 @@
                     <!-- Automations -->
                     <Button x:Name="BtnAutomations" 
                             Style="{StaticResource CompactIconButton}"
-                            Content=""
+                            Content="&#xE945;"
                             ToolTip="Automations"
                             Margin="0,0,4,0">
                     </Button>
@@ -571,7 +571,7 @@
                     <!-- Settings -->
                     <Button x:Name="BtnSettings" 
                             Style="{StaticResource CompactIconButton}"
-                            Content=""
+                            Content="&#xE713;"
                             ToolTip="Settings"
                             Margin="0,0,4,0">
                     </Button>
@@ -584,14 +584,16 @@
                     
                     <!-- Clock -->
                     <Border Style="{StaticResource GlassCard}" 
-                            Padding="16,10"
-                            MinWidth="100"
+                            Padding="14,8"
+                            MinWidth="90"
+                            Height="42"
                             Background="{StaticResource GlassLightBrush}">
                         <TextBlock x:Name="TxtClock" 
                                    Style="{StaticResource BodyStrongTextStyle}" 
                                    Text="--:--"
-                                   FontSize="15"
-                                   FontFamily="Segoe UI, Consolas"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   FontFamily="Segoe UI"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"/>
                     </Border>
