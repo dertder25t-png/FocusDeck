@@ -8,8 +8,8 @@
         mc:Ignorable="d"
         Title="FocusDock - Modern Workspace Manager"
         Height="80" Width="1400"
-        MinHeight="60"
-        WindowStartupLocation="CenterScreen"
+        MinHeight="80"
+        WindowStartupLocation="Manual"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -38,10 +38,25 @@
             <StackPanel Orientation="Vertical"/>
         </ItemsPanelTemplate>
         
-        <!-- Frosted Dock Container -->
-        <Style x:Key="DockContainer" TargetType="Border" BasedOn="{StaticResource GlassCard}">
-            <Setter Property="Padding" Value="10"/>
-            <Setter Property="CornerRadius" Value="18"/>
+        <!-- Frosted Dock Container with better contrast -->
+        <Style x:Key="DockContainer" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource GlassPanelGradient}"/>
+            <Setter Property="BorderBrush">
+                <Setter.Value>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#40FFFFFF" Offset="0"/>
+                        <GradientStop Color="#20FFFFFF" Offset="1"/>
+                    </LinearGradientBrush>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="32" ShadowDepth="0" Opacity="0.5" Color="Black"/>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <!-- Window Item Button -->
@@ -175,20 +190,24 @@
         <!-- Feature Button (with icon and label) - Now using PillButton -->
         <Style x:Key="FeatureButton" TargetType="Button" BasedOn="{StaticResource PillButton}">
             <Setter Property="Width" Value="Auto"/>
-            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Padding" Value="16,10"/>
             <Setter Property="Background" Value="{StaticResource GlassLightBrush}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="MinHeight" Value="40"/>
         </Style>
         
         <!-- Quick Action Icon Button - Using IconPillButton -->
         <Style x:Key="QuickActionButton" TargetType="Button" BasedOn="{StaticResource IconPillButton}">
-            <Setter Property="Padding" Value="10"/>
+            <Setter Property="Padding" Value="12,10"/>
             <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="FontSize" Value="14"/>
         </Style>
 
     </Window.Resources>
 
     <!-- MAIN DOCK LAYOUT -->
-    <Grid Margin="12">
+    <Grid Margin="8,8,8,10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -196,10 +215,10 @@
 
         <!-- Accent indicator strip (always visible at top edge) -->
         <Border Grid.Row="0" 
-                Height="4" 
+                Height="3" 
                 CornerRadius="2,2,0,0" 
                 Background="{StaticResource AccentGradient}" 
-                Opacity="0.95"
+                Opacity="0.9"
                 Margin="0,0,0,2"/>
 
         <!-- Main Dock Container -->
@@ -221,9 +240,9 @@
                     <Button x:Name="BtnMenu" 
                             Style="{StaticResource IconPillButton}" 
                             Tag=""
-                            Content="Menu"
+                            Content="Showcase"
                             Margin="0,0,8,0"
-                            ToolTip="Open Navigation Menu">
+                            ToolTip="Open Premium UI Showcase - Auto-opens on startup">
                     </Button>
                     
                     <!-- Focus Mode Toggle -->
@@ -234,11 +253,12 @@
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
                                        Text="" 
-                                       FontSize="16"
+                                       FontSize="18"
                                        Margin="0,0,8,0"
                                        VerticalAlignment="Center"/>
                             <TextBlock Text="Focus" 
                                        Style="{StaticResource LabelTextStyle}"
+                                       FontSize="14"
                                        VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -250,18 +270,19 @@
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
                                        Text="" 
-                                       FontSize="16"
+                                       FontSize="18"
                                        Margin="0,0,8,0"
                                        VerticalAlignment="Center"/>
                             <TextBlock Text="Layouts" 
                                        Style="{StaticResource LabelTextStyle}"
+                                       FontSize="14"
                                        VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     
                     <!-- Vertical Separator -->
                     <Border Width="1" 
-                            Height="30" 
+                            Height="40"
                             Background="{StaticResource GlassStrokeBrush}" 
                             Margin="12,0"/>
                 </StackPanel>
@@ -269,8 +290,8 @@
                 <!-- ═══════════════ CENTER SECTION (Groups & Windows) ═══════════════ -->
                 <ScrollViewer Grid.Column="1" 
                               VerticalScrollBarVisibility="Disabled" 
-                              HorizontalScrollBarVisibility="Auto"
-                              Style="{DynamicResource {x:Type ScrollViewer}}">
+                              HorizontalScrollBarVisibility="Hidden"
+                              CanContentScroll="True">
                     <ItemsControl x:Name="GroupsList" 
                                   ItemsSource="{Binding WindowGroups}">
                         <ItemsControl.ItemsPanel>
@@ -412,12 +433,16 @@
                     
                     <!-- Clock -->
                     <Border Style="{StaticResource GlassCard}" 
-                            Padding="14,8"
+                            Padding="16,10"
+                            MinWidth="100"
                             Background="{StaticResource GlassLightBrush}">
                         <TextBlock x:Name="TxtClock" 
                                    Style="{StaticResource BodyStrongTextStyle}" 
                                    Text="--:--"
-                                   FontFamily="Consolas, Cascadia Code"/>
+                                   FontSize="15"
+                                   FontFamily="Segoe UI, Consolas"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
                     </Border>
                 </StackPanel>
 

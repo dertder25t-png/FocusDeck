@@ -1,0 +1,286 @@
+<Window x:Class="FocusDock.App.ShowcaseWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="FocusDock - Premium UI Showcase"
+        Height="900" Width="1400"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgBaseBrush}"
+        ResizeMode="CanResizeWithGrip">
+    
+    <!--
+        ╔══════════════════════════════════════════════════════════════╗
+        ║  PREMIUM UI SHOWCASE - Component Gallery & Demo             ║
+        ║  Demonstrating glassmorphism design system                   ║
+        ╚══════════════════════════════════════════════════════════════╝
+    -->
+    
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="32">
+        <StackPanel MaxWidth="1300">
+            
+            <!-- HEADER SECTION -->
+            <Border Style="{StaticResource GlassCard}" Padding="32" Margin="0,0,0,24">
+                <StackPanel>
+                    <TextBlock Text="🎨 Premium UI Showcase" 
+                               Style="{StaticResource DisplayTextStyle}"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               Margin="0,0,0,12"/>
+                    <TextBlock Text="Glassmorphism Design System • Smooth Animations • Premium Components" 
+                               Style="{StaticResource SubtitleTextStyle}"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Opacity="0.8"/>
+                </StackPanel>
+            </Border>
+            
+            <!-- BUTTONS SECTION -->
+            <TextBlock Text="Interactive Buttons" 
+                       Style="{StaticResource TitleLargeTextStyle}"
+                       Foreground="{StaticResource AccentBrush}"
+                       Margin="0,0,0,16"/>
+            
+            <Border Style="{StaticResource FloatingPanel}" Padding="32" Margin="0,0,0,24">
+                <StackPanel>
+                    
+                    <!-- Pill Buttons -->
+                    <StackPanel>
+                        <TextBlock Text="Pill Buttons" 
+                                   Style="{StaticResource TitleTextStyle}"
+                                   Margin="0,0,0,12"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource PillButton}" Content="Default Pill" Padding="20,12"/>
+                            <Button Style="{StaticResource AccentPillButton}" Content="Accent Primary" Padding="20,12"/>
+                            <Button Style="{StaticResource PillButton}" Content="Hover Me!" Padding="20,12" Background="{StaticResource GlassLightBrush}"/>
+                            <Button Style="{StaticResource PillButton}" Content="Press Me" Padding="20,12" Background="{StaticResource GlassMediumBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                    
+                    <!-- Icon Pill Buttons -->
+                    <StackPanel>
+                        <TextBlock Text="Icon Pill Buttons (Hover to Expand)" 
+                                   Style="{StaticResource TitleTextStyle}"
+                                   Margin="0,0,0,12"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource IconPillButton}" Tag="" Content="Home"/>
+                            <Button Style="{StaticResource IconPillButton}" Tag="" Content="Calendar"/>
+                            <Button Style="{StaticResource IconPillButton}" Tag="" Content="Tasks"/>
+                            <Button Style="{StaticResource IconPillButton}" Tag="" Content="Settings"/>
+                            <Button Style="{StaticResource IconPillButton}" Tag="" Content="Analytics"/>
+                        </StackPanel>
+                    </StackPanel>
+                    
+                    <!-- Navigation Buttons -->
+                    <StackPanel>
+                        <TextBlock Text="Navigation Buttons (with Active State)" 
+                                   Style="{StaticResource TitleTextStyle}"
+                                   Margin="0,0,0,12"/>
+                        <StackPanel Width="300" HorizontalAlignment="Left">
+                            <Button Style="{StaticResource NavigationButton}" Tag="Active">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="18" Width="20" Margin="0,0,12,0"/>
+                                    <TextBlock Text="Dashboard" Style="{StaticResource LabelTextStyle}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource NavigationButton}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="18" Width="20" Margin="0,0,12,0"/>
+                                    <TextBlock Text="Projects" Style="{StaticResource LabelTextStyle}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource NavigationButton}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="18" Width="20" Margin="0,0,12,0"/>
+                                    <TextBlock Text="Documents" Style="{StaticResource LabelTextStyle}"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                    
+                    <!-- Ghost Buttons -->
+                    <StackPanel>
+                        <TextBlock Text="Ghost Buttons (Minimal)" 
+                                   Style="{StaticResource TitleTextStyle}"
+                                   Margin="0,0,0,12"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource GhostButton}" Content="Cancel" Padding="16,10"/>
+                            <Button Style="{StaticResource GhostButton}" Content="Dismiss" Padding="16,10"/>
+                            <Button Style="{StaticResource GhostButton}" Content="Skip" Padding="16,10"/>
+                        </StackPanel>
+                    </StackPanel>
+                    
+                </StackPanel>
+            </Border>
+            
+            <!-- GLASS PANELS SECTION -->
+            <TextBlock Text="Glass Panels &amp; Cards" 
+                       Style="{StaticResource TitleLargeTextStyle}"
+                       Foreground="{StaticResource AccentBrush}"
+                       Margin="0,0,0,16"/>
+            
+            <Grid Margin="0,0,0,24">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- Glass Card -->
+                <Border Grid.Column="0" Style="{StaticResource GlassCard}" Padding="24" MinHeight="200">
+                    <StackPanel>
+                        <TextBlock Text="" 
+                                   FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
+                                   FontSize="32"
+                                   Foreground="{StaticResource AccentBrush}"
+                                   Margin="0,0,0,12"/>
+                        <TextBlock Text="Glass Card" 
+                                   Style="{StaticResource TitleTextStyle}"
+                                   Margin="0,0,0,8"/>
+                        <TextBlock Text="Translucent panel with gradient overlay and soft shadow." 
+                                   Style="{StaticResource BodyTextStyle}"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- Floating Panel -->
+                <Border Grid.Column="2" Style="{StaticResource FloatingPanel}" Padding="24" MinHeight="200">
+                    <StackPanel>
+                        <TextBlock Text="" 
+                                   FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
+                                   FontSize="32"
+                                   Foreground="{StaticResource AccentSecondaryBrush}"
+                                   Margin="0,0,0,12"/>
+                        <TextBlock Text="Floating Panel" 
+                                   Style="{StaticResource TitleTextStyle}"
+                                   Margin="0,0,0,8"/>
+                        <TextBlock Text="Elevated surface with medium shadow and solid background." 
+                                   Style="{StaticResource BodyTextStyle}"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- Blurred Panel -->
+                <Border Grid.Column="4" Style="{StaticResource BlurredPanel}" Padding="24" MinHeight="200">
+                    <StackPanel>
+                        <TextBlock Text="" 
+                                   FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" 
+                                   FontSize="32"
+                                   Foreground="{StaticResource AccentTertiaryBrush}"
+                                   Margin="0,0,0,12"/>
+                        <TextBlock Text="Blurred Panel" 
+                                   Style="{StaticResource TitleTextStyle}"
+                                   Margin="0,0,0,8"/>
+                        <TextBlock Text="Semi-transparent backdrop with blur simulation effect." 
+                                   Style="{StaticResource BodyTextStyle}"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+            
+            <!-- TYPOGRAPHY SECTION -->
+            <TextBlock Text="Typography Scale" 
+                       Style="{StaticResource TitleLargeTextStyle}"
+                       Foreground="{StaticResource AccentBrush}"
+                       Margin="0,0,0,16"/>
+            
+            <Border Style="{StaticResource GlassCard}" Padding="32" Margin="0,0,0,24">
+                <StackPanel>
+                    <TextBlock Text="Display Text (40px SemiBold)" Style="{StaticResource DisplayTextStyle}"/>
+                    <TextBlock Text="Title Large (28px SemiBold)" Style="{StaticResource TitleLargeTextStyle}"/>
+                    <TextBlock Text="Title (20px SemiBold)" Style="{StaticResource TitleTextStyle}"/>
+                    <TextBlock Text="Subtitle (16px Medium)" Style="{StaticResource SubtitleTextStyle}"/>
+                    <TextBlock Text="Body Text (14px Normal) - The quick brown fox jumps over the lazy dog." Style="{StaticResource BodyTextStyle}"/>
+                    <TextBlock Text="Body Strong (14px SemiBold) - Enhanced readability for important content." Style="{StaticResource BodyStrongTextStyle}"/>
+                    <TextBlock Text="Caption (12px Normal) - Small supplementary text for hints and labels." Style="{StaticResource CaptionTextStyle}"/>
+                    <TextBlock Text="Label (13px Medium) - UI component labels and buttons." Style="{StaticResource LabelTextStyle}"/>
+                </StackPanel>
+            </Border>
+            
+            <!-- COLOR PALETTE SECTION -->
+            <TextBlock Text="Color Palette" 
+                       Style="{StaticResource TitleLargeTextStyle}"
+                       Foreground="{StaticResource AccentBrush}"
+                       Margin="0,0,0,16"/>
+            
+            <Border Style="{StaticResource FloatingPanel}" Padding="32" Margin="0,0,0,24">
+                <StackPanel>
+                    
+                    <!-- Accent Colors -->
+                    <StackPanel>
+                        <TextBlock Text="Accent Colors" Style="{StaticResource SubtitleTextStyle}" Margin="0,0,0,12"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="100" Height="60" Background="{StaticResource AccentBrush}" CornerRadius="8">
+                                <TextBlock Text="Primary" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="White"/>
+                            </Border>
+                            <Border Width="100" Height="60" Background="{StaticResource AccentSecondaryBrush}" CornerRadius="8">
+                                <TextBlock Text="Secondary" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="White"/>
+                            </Border>
+                            <Border Width="100" Height="60" Background="{StaticResource AccentTertiaryBrush}" CornerRadius="8">
+                                <TextBlock Text="Tertiary" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="White"/>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                    
+                    <!-- Semantic Colors -->
+                    <StackPanel>
+                        <TextBlock Text="Semantic Colors" Style="{StaticResource SubtitleTextStyle}" Margin="0,0,0,12"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="100" Height="60" Background="{StaticResource SuccessBrush}" CornerRadius="8">
+                                <TextBlock Text="Success" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="White"/>
+                            </Border>
+                            <Border Width="100" Height="60" Background="{StaticResource WarningBrush}" CornerRadius="8">
+                                <TextBlock Text="Warning" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="Black"/>
+                            </Border>
+                            <Border Width="100" Height="60" Background="{StaticResource DangerBrush}" CornerRadius="8">
+                                <TextBlock Text="Danger" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="White"/>
+                            </Border>
+                            <Border Width="100" Height="60" Background="{StaticResource InfoBrush}" CornerRadius="8">
+                                <TextBlock Text="Info" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="White"/>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                    
+                    <!-- Background Hierarchy -->
+                    <StackPanel>
+                        <TextBlock Text="Background Hierarchy" Style="{StaticResource SubtitleTextStyle}" Margin="0,0,0,12"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="80" Height="60" Background="{StaticResource BgBaseBrush}" BorderBrush="{StaticResource StrokeSecondaryBrush}" BorderThickness="1" CornerRadius="8">
+                                <TextBlock Text="Base" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </Border>
+                            <Border Width="80" Height="60" Background="{StaticResource BgElevated1Brush}" CornerRadius="8">
+                                <TextBlock Text="Level 1" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </Border>
+                            <Border Width="80" Height="60" Background="{StaticResource BgElevated2Brush}" CornerRadius="8">
+                                <TextBlock Text="Level 2" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </Border>
+                            <Border Width="80" Height="60" Background="{StaticResource BgElevated3Brush}" CornerRadius="8">
+                                <TextBlock Text="Level 3" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </Border>
+                            <Border Width="80" Height="60" Background="{StaticResource BgElevated4Brush}" CornerRadius="8">
+                                <TextBlock Text="Level 4" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                    
+                </StackPanel>
+            </Border>
+            
+            <!-- FOOTER -->
+            <Border Style="{StaticResource GlassCard}" Padding="24" Margin="0,0,0,32">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <TextBlock Text="💎" FontSize="20"/>
+                    <TextBlock Text="Premium Glassmorphism Design System • October 2025" 
+                               Style="{StaticResource BodyTextStyle}"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+            
+        </StackPanel>
+    </ScrollViewer>
+</Window>
