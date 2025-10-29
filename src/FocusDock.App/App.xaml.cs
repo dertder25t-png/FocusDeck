@@ -1,3 +1,4 @@
+// FocusDock Desktop Application - Last Updated: October 29, 2025
 namespace FocusDock.App;
 
 using System;

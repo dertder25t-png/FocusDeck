@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+// Project Snapshot - October 29, 2025
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FocusDeck.Mobile;

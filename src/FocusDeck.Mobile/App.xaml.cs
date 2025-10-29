@@ -1,4 +1,5 @@
-﻿namespace FocusDeck.Mobile;
+﻿// FocusDeck Mobile Application - Last Updated: October 29, 2025
+namespace FocusDeck.Mobile;
 
 public partial class App : Application
 {

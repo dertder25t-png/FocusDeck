@@ -1,4 +1,5 @@
-﻿namespace FocusDeck.Mobile;
+// Project Snapshot - October 29, 2025
+namespace FocusDeck.Mobile;
 
 public partial class MainPage : ContentPage
 {
