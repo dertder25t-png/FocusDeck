@@ -11,12 +11,14 @@ public partial class SettingsWindow : Window
 {
     private readonly CalendarService _calendarService;
     private CalendarSettings _settings;
+    private AppSettings _appSettings;
 
     public SettingsWindow(CalendarService calendarService)
     {
         InitializeComponent();
         _calendarService = calendarService;
         _settings = _calendarService.GetSettings();
+        _appSettings = SettingsStore.LoadSettings();
 
         LoadSettings();
 
@@ -25,6 +27,11 @@ public partial class SettingsWindow : Window
         {
             TxtSyncInterval.Text = $"{(int)SliderSyncInterval.Value} minutes";
         };
+        
+        // Wire up alignment radio buttons to update preview
+        RbAlignLeft.Checked += OnAlignmentChanged;
+        RbAlignCenter.Checked += OnAlignmentChanged;
+        RbAlignRight.Checked += OnAlignmentChanged;
     }
 
     private void LoadSettings()
@@ -35,6 +42,72 @@ public partial class SettingsWindow : Window
         ChkEnableCanvas.IsChecked = _settings.EnableCanvas;
         SliderSyncInterval.Value = _settings.SyncIntervalMinutes;
         TxtSyncInterval.Text = $"{_settings.SyncIntervalMinutes} minutes";
+        
+        // Load dock position settings
+        switch (_appSettings.Alignment)
+        {
+            case DockAlignment.Left:
+                RbAlignLeft.IsChecked = true;
+                break;
+            case DockAlignment.Right:
+                RbAlignRight.IsChecked = true;
+                break;
+            case DockAlignment.Center:
+            default:
+                RbAlignCenter.IsChecked = true;
+                break;
+        }
+        
+        UpdatePreview();
+    }
+    
+    private void OnAlignmentChanged(object sender, RoutedEventArgs e)
+    {
+        UpdatePreview();
+    }
+    
+    private void UpdatePreview()
+    {
+        if (PreviewDock == null) return;
+        
+        if (RbAlignLeft.IsChecked == true)
+        {
+            PreviewDock.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
+            PreviewDock.Margin = new Thickness(20, 0, 0, 0);
+        }
+        else if (RbAlignRight.IsChecked == true)
+        {
+            PreviewDock.HorizontalAlignment = System.Windows.HorizontalAlignment.Right;
+            PreviewDock.Margin = new Thickness(0, 0, 20, 0);
+        }
+        else // Center
+        {
+            PreviewDock.HorizontalAlignment = System.Windows.HorizontalAlignment.Center;
+            PreviewDock.Margin = new Thickness(0);
+        }
+    }
+    
+    private void OnApplyPositionClick(object sender, RoutedEventArgs e)
+    {
+        // Update app settings with selected alignment
+        if (RbAlignLeft.IsChecked == true)
+            _appSettings.Alignment = DockAlignment.Left;
+        else if (RbAlignRight.IsChecked == true)
+            _appSettings.Alignment = DockAlignment.Right;
+        else
+            _appSettings.Alignment = DockAlignment.Center;
+        
+        // Save settings
+        SettingsStore.SaveSettings(_appSettings);
+        
+        // Apply to main window immediately
+        if (Owner is MainWindow mainWindow)
+        {
+            mainWindow.ApplyPositionSettings(_appSettings);
+        }
+        
+        System.Windows.MessageBox.Show("Dock position updated!", "Success", 
+            System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
     }
 
     private void OnGoogleAuthClick(object sender, RoutedEventArgs e)

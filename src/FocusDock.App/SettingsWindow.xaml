@@ -126,6 +126,64 @@
                     </StackPanel>
                 </TabItem>
 
+                <!-- Dock Position Tab -->
+                <TabItem Header="Dock Position" Foreground="#E8EAED" Background="{StaticResource PanelBrush}">
+                    <StackPanel Margin="8,12,8,12">
+                        <TextBlock FontSize="16" FontWeight="Bold" Margin="0,0,0,15">Dock Position Settings</TextBlock>
+                        
+                        <TextBlock Margin="0,0,0,8">Horizontal Alignment</TextBlock>
+                        <TextBlock FontSize="12" Foreground="#AAB2BE" TextWrapping="Wrap" Margin="0,0,0,8">
+                            Choose where the dock appears on your screen horizontally.
+                        </TextBlock>
+                        
+                        <StackPanel Margin="0,0,0,20">
+                            <RadioButton x:Name="RbAlignLeft" Content="Left" Margin="0,0,0,8" 
+                                         Foreground="#E8EAED" GroupName="Alignment"/>
+                            <RadioButton x:Name="RbAlignCenter" Content="Center (Default)" Margin="0,0,0,8" 
+                                         Foreground="#E8EAED" GroupName="Alignment" IsChecked="True"/>
+                            <RadioButton x:Name="RbAlignRight" Content="Right" Margin="0,0,0,8" 
+                                         Foreground="#E8EAED" GroupName="Alignment"/>
+                        </StackPanel>
+
+                        <Separator Background="{StaticResource StrokeBrush}" Margin="0,0,0,20" />
+
+                        <TextBlock FontSize="14" FontWeight="Bold" Margin="0,0,0,10">Preview</TextBlock>
+                        <Border Background="{StaticResource InputBrush}" 
+                                BorderBrush="{StaticResource StrokeBrush}" 
+                                BorderThickness="1" 
+                                CornerRadius="8" 
+                                Height="60" 
+                                Margin="0,0,0,20">
+                            <Grid>
+                                <!-- Screen representation -->
+                                <Border x:Name="PreviewDock" 
+                                        Width="150" 
+                                        Height="30" 
+                                        Background="{StaticResource AccentBrush}" 
+                                        CornerRadius="15" 
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Center">
+                                    <TextBlock Text="Dock" 
+                                               FontSize="10" 
+                                               HorizontalAlignment="Center" 
+                                               VerticalAlignment="Center" 
+                                               Foreground="White"/>
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                        <Button x:Name="BtnApplyPosition" 
+                                Content="Apply Position" 
+                                Style="{StaticResource PrimaryButton}" 
+                                Click="OnApplyPositionClick" 
+                                Margin="0,0,0,10" />
+                        
+                        <TextBlock FontSize="11" Foreground="#AAB2BE" TextWrapping="Wrap">
+                            Changes will take effect immediately. The dock width automatically adjusts based on the number of open windows.
+                        </TextBlock>
+                    </StackPanel>
+                </TabItem>
+
                 <!-- About Tab -->
                 <TabItem Header="About" Foreground="#E8EAED" Background="{StaticResource PanelBrush}">
                     <StackPanel Margin="8,12,8,12">

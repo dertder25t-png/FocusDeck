@@ -7,15 +7,24 @@
         xmlns:conv="clr-namespace:FocusDock.App.Converters"
         mc:Ignorable="d"
         Title="FocusDock - Modern Workspace Manager"
-        Height="80" Width="1400"
-        MinHeight="80"
+        Height="90"
+        MinWidth="400"
+        MinHeight="90"
+        SizeToContent="Manual"
         WindowStartupLocation="Manual"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
         Topmost="True"
         ShowInTaskbar="True"
-        Opacity="1.0">
+        Opacity="1.0"
+        PreviewMouseDown="OnWindowClick"
+        MouseEnter="OnDockMouseEnter"
+        MouseLeave="OnDockMouseLeave"
+        RenderOptions.BitmapScalingMode="HighQuality"
+        TextOptions.TextFormattingMode="Display"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
     
     <!--
         ╔═══════════════════════════════════════════════════════════╗
@@ -54,7 +63,7 @@
             <Setter Property="CornerRadius" Value="16"/>
             <Setter Property="Effect">
                 <Setter.Value>
-                    <DropShadowEffect BlurRadius="32" ShadowDepth="0" Opacity="0.5" Color="Black"/>
+                    <DropShadowEffect BlurRadius="20" ShadowDepth="0" Opacity="0.4" Color="Black" RenderingBias="Performance"/>
                 </Setter.Value>
             </Setter>
         </Style>
@@ -71,36 +80,31 @@
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="chip" 
                                 Style="{StaticResource Chip}" 
-                                Margin="4,0" 
-                                Padding="8">
+                                Margin="2,0" 
+                                Padding="8,6"
+                                Height="42"
+                                VerticalAlignment="Center">
                             <Border.RenderTransform>
                                 <ScaleTransform ScaleX="1" ScaleY="1"/>
                             </Border.RenderTransform>
-                            <StackPanel Orientation="Horizontal">
-                                <!-- App Icon - Using Segoe MDL2 Assets -->
-                                <TextBlock FontFamily="Segoe MDL2 Assets" 
-                                           Text="&#xE8FD;" 
-                                           FontSize="22"
-                                           Foreground="{StaticResource TextPrimaryBrush}"
-                                           VerticalAlignment="Center"
-                                           HorizontalAlignment="Center"/>
-                                
-                                <!-- Window Title -->
-                                <TextBlock Text="{Binding Title}" 
-                                           MaxWidth="180"
-                                           TextTrimming="CharacterEllipsis"
-                                           Visibility="Collapsed">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock" BasedOn="{StaticResource LabelTextStyle}">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <!-- App Icon - Use actual app icon from Windows (ICON ONLY) -->
+                                <Image Width="26" Height="26" 
+                                       Source="{Binding Converter={StaticResource WindowIconConverter}, TargetNullValue={x:Null}}" 
+                                       Margin="0"
+                                       RenderOptions.BitmapScalingMode="HighQuality">
+                                    <Image.Style>
+                                        <Style TargetType="Image">
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding DataContext.IconOnlyMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                <Trigger Property="Source" Value="{x:Null}">
                                                     <Setter Property="Visibility" Value="Collapsed"/>
-                                                </DataTrigger>
+                                                </Trigger>
                                             </Style.Triggers>
                                         </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
+                                    </Image.Style>
+                                </Image>
+                                
+                                <!-- Window Title - COMPLETELY REMOVED, icon-only mode -->
                             </StackPanel>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -370,6 +374,13 @@
             </Setter>
         </Style>
 
+        <!-- Expandable Toolbar Container -->
+        <Style x:Key="ExpandableToolbar" TargetType="Border">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="4"/>
+        </Style>
+
     </Window.Resources>
 
     <!-- MAIN DOCK LAYOUT -->
@@ -400,30 +411,28 @@
                 <StackPanel Grid.Column="0" 
                             Orientation="Horizontal" 
                             VerticalAlignment="Center" 
-                            Margin="8,0,16,0">
+                            Margin="4,0,8,0">
                     
-                    <!-- Menu Button (opens showcase) -->
-                    <Button x:Name="BtnMenu" 
-                            Style="{StaticResource CompactIconButton}" 
-                            Content="&#xE700;"
-                            Margin="0,0,4,0"
-                            ToolTip="Premium UI Showcase">
-                    </Button>
+                    <!-- Left section intentionally minimal -->
                     
                     <!-- Vertical Separator -->
                     <Border Width="1" 
                             Height="40"
                             Background="{StaticResource GlassStrokeBrush}" 
-                            Margin="8,0"/>
+                            Margin="4,0"/>
                 </StackPanel>
 
                 <!-- ═══════════════ CENTER SECTION (Groups & Windows) ═══════════════ -->
                 <ScrollViewer Grid.Column="1" 
                               VerticalScrollBarVisibility="Disabled" 
                               HorizontalScrollBarVisibility="Hidden"
-                              CanContentScroll="True">
+                              CanContentScroll="True"
+                              Focusable="False">
                     <ItemsControl x:Name="GroupsList" 
-                                  ItemsSource="{Binding WindowGroups}">
+                                  ItemsSource="{Binding WindowGroups}"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  Focusable="False">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Orientation="Horizontal"/>
@@ -432,13 +441,14 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" 
-                                            Margin="6,0" 
+                                            Margin="2,0" 
                                             VerticalAlignment="Center">
                                     
-                                    <!-- Group Name Badge -->
+                                    <!-- Group Name Badge - HIDDEN in icon-only mode -->
                                     <Border Style="{StaticResource Chip}" 
-                                            Margin="0,0,12,0" 
-                                            Padding="12,7"
+                                            Margin="0,0,6,0" 
+                                            Padding="8,5"
+                                            Visibility="Collapsed"
                                             Background="{StaticResource DarkBg4Brush}">
                                         <TextBlock Text="{Binding GroupName}" 
                                                    FontWeight="SemiBold"
@@ -479,125 +489,156 @@
                                     <Border Width="1" 
                                             Height="30" 
                                             Background="{StaticResource GlassStrokeBrush}" 
-                                            Margin="12,0"/>
+                                            Margin="8,0"/>
                                 </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
 
-                <!-- ═══════════════ RIGHT SECTION (All Actions) ═══════════════ -->
-                <StackPanel Grid.Column="2" 
-                            Orientation="Horizontal" 
-                            VerticalAlignment="Center" 
-                            Margin="16,0,8,0">
-                    
-                    <!-- Focus Mode Toggle -->
-                    <Button x:Name="BtnFocus" 
-                            Style="{StaticResource CompactIconButton}" 
-                            Content="&#xE7B5;"
-                            ToolTip="Focus Mode"
-                            Margin="0,0,4,0">
-                    </Button>
-                    
-                    <!-- Layouts Manager -->
-                    <Button x:Name="BtnLayouts" 
-                            Style="{StaticResource CompactIconButton}"
-                            Content="&#xE80A;"
-                            ToolTip="Window Layouts"
-                            Margin="0,0,4,0">
-                    </Button>
-                    
-                    <!-- Separator -->
-                    <Border Width="1" 
-                            Height="30" 
-                            Background="{StaticResource StrokeSecondaryBrush}" 
-                            Margin="6,0,8,0"/>
-                    
-                    <!-- Calendar & Assignments -->
-                    <Button x:Name="BtnCalendar" 
-                            Style="{StaticResource CompactIconButton}" 
-                            Content="&#xE787;"
-                            ToolTip="Calendar &amp; Assignments" 
-                            Margin="0,0,4,0">
-                    </Button>
-                    
-                    <!-- To-Do / Reminders -->
-                    <Button x:Name="BtnReminders" 
-                            Style="{StaticResource CompactIconButton}"
-                            Content="&#xE73A;"
-                            ToolTip="Tasks &amp; Reminders"
-                            Margin="0,0,4,0">
-                    </Button>
-                    
-                    <!-- Study Timer -->
-                    <Button x:Name="BtnStudySession" 
-                            Style="{StaticResource CompactIconButton}"
-                            Content="&#xE8F1;"
-                            ToolTip="Study Timer"
-                            Margin="0,0,4,0">
-                    </Button>
-                    
-                    <!-- Separator -->
-                    <Border Width="1" 
-                            Height="30" 
-                            Background="{StaticResource StrokeSecondaryBrush}" 
-                            Margin="6,0,8,0"/>
-                    
-                    <!-- Workspace Manager -->
-                    <Button x:Name="BtnWorkspace" 
-                            Style="{StaticResource CompactIconButton}"
-                            Content="&#xE7EF;"
-                            ToolTip="Workspace Manager"
-                            Margin="0,0,4,0">
-                    </Button>
-                    
-                    <!-- Dock Settings -->
-                    <Button x:Name="BtnDock" 
-                            Style="{StaticResource CompactIconButton}"
-                            Content="&#xEC7A;"
-                            ToolTip="Dock Settings"
-                            Margin="0,0,4,0">
-                    </Button>
-                    
-                    <!-- Automations -->
-                    <Button x:Name="BtnAutomations" 
-                            Style="{StaticResource CompactIconButton}"
-                            Content="&#xE945;"
-                            ToolTip="Automations"
-                            Margin="0,0,4,0">
-                    </Button>
-                    
-                    <!-- Settings -->
-                    <Button x:Name="BtnSettings" 
-                            Style="{StaticResource CompactIconButton}"
-                            Content="&#xE713;"
-                            ToolTip="Settings"
-                            Margin="0,0,4,0">
-                    </Button>
-                    
-                    <!-- Separator -->
-                    <Border Width="1" 
-                            Height="30" 
-                            Background="{StaticResource StrokeSecondaryBrush}" 
-                            Margin="6,0,8,0"/>
-                    
-                    <!-- Clock -->
-                    <Border Style="{StaticResource GlassCard}" 
-                            Padding="14,8"
-                            MinWidth="90"
-                            Height="42"
-                            Background="{StaticResource GlassLightBrush}">
-                        <TextBlock x:Name="TxtClock" 
-                                   Style="{StaticResource BodyStrongTextStyle}" 
-                                   Text="--:--"
-                                   FontSize="14"
-                                   FontWeight="SemiBold"
-                                   FontFamily="Segoe UI"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"/>
-                    </Border>
-                </StackPanel>
+                <!-- ═══════════════ RIGHT SECTION (Expandable Toolbar) ═══════════════ -->
+                <Border Grid.Column="2" 
+                        x:Name="ToolbarContainer"
+                        Style="{StaticResource ExpandableToolbar}"
+                        VerticalAlignment="Center" 
+                        Margin="8,0,4,0">
+                    <StackPanel Orientation="Horizontal">
+                        <!-- Toolbar Toggle Button (Always Visible) -->
+                        <Button x:Name="BtnToolbar" 
+                                Style="{StaticResource CompactIconButton}" 
+                                Content="&#xE712;"
+                                ToolTip="Tools"
+                                Margin="0,0,4,0"
+                                MouseEnter="ExpandToolbar"
+                                MouseLeave="CollapseToolbar">
+                        </Button>
+                        
+                        <!-- Expandable Tools Panel -->
+                        <StackPanel x:Name="ToolsPanel" 
+                                    Orientation="Horizontal"
+                                    MaxWidth="0"
+                                    Height="42"
+                                    Opacity="0"
+                                    VerticalAlignment="Center"
+                                    MouseEnter="ExpandToolbar"
+                                    MouseLeave="CollapseToolbar">
+                            
+                            <!-- Focus Mode Toggle -->
+                            <Button x:Name="BtnFocus" 
+                                    Style="{StaticResource CompactIconButton}" 
+                                    Content="&#xE7B5;"
+                                    ToolTip="Focus Mode"
+                                    Margin="0,0,4,0">
+                            </Button>
+                            
+                            <!-- Layouts Manager -->
+                            <Button x:Name="BtnLayouts" 
+                                    Style="{StaticResource CompactIconButton}"
+                                    Content="&#xE80A;"
+                                    ToolTip="Window Layouts"
+                                    Margin="0,0,4,0">
+                            </Button>
+                            
+                            <!-- Separator -->
+                            <Border Width="1" 
+                                    Height="30" 
+                                    Background="{StaticResource StrokeSecondaryBrush}" 
+                                    Margin="6,0,8,0"/>
+                            
+                            <!-- Calendar & Assignments -->
+                            <Button x:Name="BtnCalendar" 
+                                    Style="{StaticResource CompactIconButton}" 
+                                    Content="&#xE787;"
+                                    ToolTip="Calendar &amp; Assignments" 
+                                    Margin="0,0,4,0">
+                            </Button>
+                            
+                            <!-- To-Do / Reminders -->
+                            <Button x:Name="BtnReminders" 
+                                    Style="{StaticResource CompactIconButton}"
+                                    Content="&#xE73A;"
+                                    ToolTip="Tasks"
+                                    Margin="0,0,4,0">
+                            </Button>
+                            
+                            <!-- Notes -->
+                            <Button x:Name="BtnNotes" 
+                                    Style="{StaticResource CompactIconButton}"
+                                    Content="&#xE70F;"
+                                    ToolTip="Notes"
+                                    Margin="0,0,4,0">
+                            </Button>
+                            
+                            <!-- Study Timer -->
+                            <Button x:Name="BtnStudySession" 
+                                    Style="{StaticResource CompactIconButton}"
+                                    Content="&#xE8F1;"
+                                    ToolTip="Study Timer"
+                                    Margin="0,0,4,0">
+                            </Button>
+                            
+                            <!-- Separator -->
+                            <Border Width="1" 
+                                    Height="30" 
+                                    Background="{StaticResource StrokeSecondaryBrush}" 
+                                    Margin="6,0,8,0"/>
+                            
+                            <!-- Workspace Manager -->
+                            <Button x:Name="BtnWorkspace" 
+                                    Style="{StaticResource CompactIconButton}"
+                                    Content="&#xE7EF;"
+                                    ToolTip="Workspace Manager"
+                                    Margin="0,0,4,0">
+                            </Button>
+                            
+                            <!-- Dock Settings -->
+                            <Button x:Name="BtnDock" 
+                                    Style="{StaticResource CompactIconButton}"
+                                    Content="&#xEC7A;"
+                                    ToolTip="Dock Settings"
+                                    Margin="0,0,4,0">
+                            </Button>
+                            
+                            <!-- Automations -->
+                            <Button x:Name="BtnAutomations" 
+                                    Style="{StaticResource CompactIconButton}"
+                                    Content="&#xE945;"
+                                    ToolTip="Automations"
+                                    Margin="0,0,4,0">
+                            </Button>
+                            
+                            <!-- Settings -->
+                            <Button x:Name="BtnSettings" 
+                                    Style="{StaticResource CompactIconButton}"
+                                    Content="&#xE713;"
+                                    ToolTip="Settings"
+                                    Margin="0,0,4,0">
+                            </Button>
+                        </StackPanel>
+                        
+                        <!-- Separator -->
+                        <Border Width="1" 
+                                Height="30" 
+                                Background="{StaticResource StrokeSecondaryBrush}" 
+                                Margin="6,0,8,0"/>
+                        
+                        <!-- Clock (Always Visible) -->
+                        <Border Style="{StaticResource GlassCard}" 
+                                Padding="14,8"
+                                MinWidth="90"
+                                Height="42"
+                                Background="{StaticResource GlassLightBrush}">
+                            <TextBlock x:Name="TxtClock" 
+                                       Style="{StaticResource BodyStrongTextStyle}" 
+                                       Text="--:--"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       FontFamily="Segoe UI"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
 
                 <!-- ═══════════════ AUTOMATION BANNER (Floating) ═══════════════ -->
                 <Border x:Name="AutomationBanner" 
@@ -644,9 +685,7 @@
                         </Button>
                     </StackPanel>
                 </Border>
-                <!-- Hidden placeholders to satisfy legacy code-behind references -->
-                <StackPanel x:Name="PanelLeft" Visibility="Collapsed"/>
-                <StackPanel x:Name="PanelRight" Visibility="Collapsed"/>
+                <!-- Legacy code-behind references handled in MainWindow.xaml.cs -->
                 <TextBlock x:Name="TxtRemindersCount" Visibility="Collapsed" Text="0"/>
             </Grid>
         </Border>

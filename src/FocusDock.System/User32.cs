@@ -106,7 +106,7 @@ public enum SetWindowPosFlags : uint
 
 public class WindowTracker
 {
-    private readonly System.Timers.Timer _timer = new(1500);
+    private readonly System.Timers.Timer _timer = new(2000); // Increased to 2 seconds for better performance
     public event EventHandler<List<WindowInfo>>? WindowsUpdated;
 
     public WindowTracker()

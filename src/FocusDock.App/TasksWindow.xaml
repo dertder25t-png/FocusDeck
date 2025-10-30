@@ -1,0 +1,554 @@
+<Window x:Class="FocusDock.App.TasksWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Tasks - FocusDeck" 
+        Width="1100" Height="720"
+        MinWidth="900" MinHeight="600"
+        Background="#0F0F10" 
+        Foreground="#E8EAED"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        RenderOptions.BitmapScalingMode="HighQuality">
+    
+    <Window.Resources>
+        <!-- Colors matching Notes section -->
+        <SolidColorBrush x:Key="AccentBrush" Color="#7B5FFF"/>
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="#9176FF"/>
+        <SolidColorBrush x:Key="DarkBg1" Color="#0F0F10"/>
+        <SolidColorBrush x:Key="DarkBg2" Color="#1C1C1F"/>
+        <SolidColorBrush x:Key="DarkBg3" Color="#1D1E20"/>
+        <SolidColorBrush x:Key="DarkBg4" Color="#27292D"/>
+        <SolidColorBrush x:Key="StrokeBrush" Color="#3F4550"/>
+        <SolidColorBrush x:Key="TextPrimary" Color="#E8EAED"/>
+        <SolidColorBrush x:Key="TextSecondary" Color="#AAB2BE"/>
+        <SolidColorBrush x:Key="SuccessBrush" Color="#4CAF50"/>
+        <SolidColorBrush x:Key="WarningBrush" Color="#FF9800"/>
+        <SolidColorBrush x:Key="DangerBrush" Color="#F44336"/>
+        <SolidColorBrush x:Key="InfoBrush" Color="#2196F3"/>
+        
+        <!-- Priority Colors -->
+        <SolidColorBrush x:Key="PriorityLow" Color="#4A9EFF"/>
+        <SolidColorBrush x:Key="PriorityMedium" Color="#FAA61A"/>
+        <SolidColorBrush x:Key="PriorityHigh" Color="#FF8C42"/>
+        <SolidColorBrush x:Key="PriorityUrgent" Color="#F04747"/>
+        
+        <!-- Sidebar Button Style (Things 3 inspired) -->
+        <Style x:Key="SidebarButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Padding" Value="14,10"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource DarkBg3}"/>
+                            </Trigger>
+                            <Trigger Property="Tag" Value="active">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource DarkBg3}"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Modern Button Style -->
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="18,10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                CornerRadius="8" 
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource AccentHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.9"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Icon Button Style -->
+        <Style x:Key="IconButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{StaticResource DarkBg4}"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Quick Add TextBox Style -->
+        <Style x:Key="QuickAddTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="CaretBrush" Value="{StaticResource AccentBrush}"/>
+            <Setter Property="FontSize" Value="15"/>
+        </Style>
+    </Window.Resources>
+    
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="260"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        
+        <!-- Sidebar (Things 3 inspired) -->
+        <Border Grid.Column="0"
+                Background="{StaticResource DarkBg2}"
+                BorderBrush="{StaticResource StrokeBrush}"
+                BorderThickness="0,0,1,0"
+                Padding="20,24">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <!-- Header -->
+                <StackPanel Grid.Row="0" Margin="0,0,0,28">
+                    <TextBlock Text="Tasks" 
+                               FontSize="26"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextPrimary}"
+                               Margin="0,0,0,6"/>
+                    <TextBlock x:Name="TxtTaskStats"
+                               Text="0 tasks"
+                               FontSize="13"
+                               Foreground="{StaticResource TextSecondary}"/>
+                </StackPanel>
+                
+                <!-- Quick Filters -->
+                <StackPanel Grid.Row="1" Margin="0,0,0,24">
+                    <TextBlock Text="QUICK FILTERS" 
+                               FontSize="11"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextSecondary}"
+                               Margin="0,0,0,12"/>
+                    
+                    <Button x:Name="BtnMyDay"
+                            Style="{StaticResource SidebarButton}"
+                            Tag="active"
+                            Click="OnMyDayClick">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="16" Height="16" Margin="0,0,12,0">
+                                <Path Fill="{StaticResource TextSecondary}" Data="M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/>
+                            </Viewbox>
+                            <TextBlock Text="My Day" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TxtMyDayCount"
+                                       Text="0"
+                                       FontSize="12"
+                                       Foreground="{StaticResource AccentBrush}"
+                                       FontWeight="SemiBold"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    
+                    <Button x:Name="BtnTodayView"
+                            Style="{StaticResource SidebarButton}"
+                            Click="OnTodayClick">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="16" Height="16" Margin="0,0,12,0">
+                                <Path Fill="{StaticResource TextSecondary}" Data="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+                            </Viewbox>
+                            <TextBlock Text="Today" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TxtTodayCount"
+                                       Text="0"
+                                       FontSize="12"
+                                       Foreground="{StaticResource TextSecondary}"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    
+                    <Button x:Name="BtnUpcoming"
+                            Style="{StaticResource SidebarButton}"
+                            Click="OnUpcomingClick">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="16" Height="16" Margin="0,0,12,0">
+                                <Path Fill="{StaticResource TextSecondary}" Data="M9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/>
+                            </Viewbox>
+                            <TextBlock Text="Upcoming" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TxtUpcomingCount"
+                                       Text="0"
+                                       FontSize="12"
+                                       Foreground="{StaticResource TextSecondary}"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    
+                    <Button x:Name="BtnOverdue"
+                            Style="{StaticResource SidebarButton}"
+                            Click="OnOverdueClick">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="16" Height="16" Margin="0,0,12,0">
+                                <Path Fill="{StaticResource DangerBrush}" Data="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                            </Viewbox>
+                            <TextBlock Text="Overdue" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TxtOverdueCount"
+                                       Text="0"
+                                       FontSize="12"
+                                       Foreground="{StaticResource DangerBrush}"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                
+                <!-- Lists -->
+                <StackPanel Grid.Row="2">
+                    <TextBlock Text="LISTS" 
+                               FontSize="11"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextSecondary}"
+                               Margin="0,0,0,12"/>
+                    
+                    <Button x:Name="BtnAllTasks"
+                            Style="{StaticResource SidebarButton}"
+                            Click="OnAllTasksClick">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="16" Height="16" Margin="0,0,12,0">
+                                <Path Fill="{StaticResource TextSecondary}" Data="M3,13h2v-2H3V13z M3,17h2v-2H3V17z M3,9h2V7H3V9z M7,13h14v-2H7V13z M7,17h14v-2H7V17z M7,7v2h14V7H7z"/>
+                            </Viewbox>
+                            <TextBlock Text="All Tasks" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    
+                    <Button x:Name="BtnCanvas"
+                            Style="{StaticResource SidebarButton}"
+                            Click="OnCanvasClick">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="16" Height="16" Margin="0,0,12,0">
+                                <Path Fill="{StaticResource InfoBrush}" Data="M5,13.18v4L12,21l7-3.82v-4L12,17ZM12,3,1,9l11,6,9-4.91V17h2V9Z"/>
+                            </Viewbox>
+                            <TextBlock Text="Canvas" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TxtCanvasCount"
+                                       Text="0"
+                                       FontSize="12"
+                                       Foreground="{StaticResource InfoBrush}"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    
+                    <Button x:Name="BtnCompletedView"
+                            Style="{StaticResource SidebarButton}"
+                            Click="OnCompletedClick">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="16" Height="16" Margin="0,0,12,0">
+                                <Path Fill="{StaticResource SuccessBrush}" Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </Viewbox>
+                            <TextBlock Text="Completed" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TxtCompletedCount"
+                                       Text="0"
+                                       FontSize="12"
+                                       Foreground="{StaticResource SuccessBrush}"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                
+                <!-- Bottom Actions -->
+                <StackPanel Grid.Row="3" Margin="0,24,0,0">
+                    <Button Content="Clear Completed"
+                            Style="{StaticResource SidebarButton}"
+                            Click="OnClearCompletedClick"
+                            Foreground="{StaticResource TextSecondary}"
+                            FontSize="13"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+        
+        <!-- Main Content Area -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            
+            <!-- Header + Quick Add Bar (Todoist inspired) -->
+            <Border Grid.Row="0"
+                    Background="{StaticResource DarkBg2}"
+                    BorderBrush="{StaticResource StrokeBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="32,24,32,20">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- Current View Title -->
+                    <Grid Grid.Row="0" Margin="0,0,0,20">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <TextBlock x:Name="TxtViewTitle"
+                                   Grid.Column="0"
+                                   Text="My Day"
+                                   FontSize="30"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimary}"
+                                   VerticalAlignment="Center"/>
+                        
+                        <!-- View Toggle Buttons -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Background="{StaticResource DarkBg3}"
+                                    BorderBrush="{StaticResource StrokeBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Padding="2">
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="BtnListView"
+                                            Width="34" Height="34"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Cursor="Hand"
+                                            ToolTip="List view"
+                                            Tag="active"
+                                            Click="OnListViewClick">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="border" 
+                                                        Background="{TemplateBinding Background}"
+                                                        CornerRadius="4"
+                                                        Padding="6">
+                                                    <Viewbox Width="16" Height="16">
+                                                        <Path x:Name="icon" Fill="{StaticResource TextSecondary}" Data="M3,13h2v-2H3V13z M3,17h2v-2H3V17z M3,9h2V7H3V9z M7,13h14v-2H7V13z M7,17h14v-2H7V17z M7,7v2h14V7H7z"/>
+                                                    </Viewbox>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="border" Property="Background" Value="{StaticResource DarkBg4}"/>
+                                                    </Trigger>
+                                                    <Trigger Property="Tag" Value="active">
+                                                        <Setter TargetName="border" Property="Background" Value="{StaticResource AccentBrush}"/>
+                                                        <Setter TargetName="icon" Property="Fill" Value="White"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                    
+                                    <Button x:Name="BtnGridView"
+                                            Width="34" Height="34"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Margin="2,0,0,0"
+                                            Cursor="Hand"
+                                            ToolTip="Grid view"
+                                            Click="OnGridViewClick">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="border" 
+                                                        Background="{TemplateBinding Background}"
+                                                        CornerRadius="4"
+                                                        Padding="6">
+                                                    <Viewbox Width="16" Height="16">
+                                                        <Path x:Name="icon" Fill="{StaticResource TextSecondary}" Data="M4 11h5V5H4v6zm0 7h5v-6H4v6zm6 0h5v-6h-5v6zm6 0h5v-6h-5v6zm-6-7h5V5h-5v6zm6-6v6h5V5h-5z"/>
+                                                    </Viewbox>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="border" Property="Background" Value="{StaticResource DarkBg4}"/>
+                                                    </Trigger>
+                                                    <Trigger Property="Tag" Value="active">
+                                                        <Setter TargetName="border" Property="Background" Value="{StaticResource AccentBrush}"/>
+                                                        <Setter TargetName="icon" Property="Fill" Value="White"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                            
+                            <!-- Add Task Button -->
+                            <Button Width="40" Height="40"
+                                    Margin="12,0,0,0"
+                                    Background="{StaticResource AccentBrush}"
+                                    BorderThickness="0"
+                                    Cursor="Hand"
+                                    ToolTip="Add task"
+                                    Click="OnQuickAddSubmit">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}"
+                                                CornerRadius="8">
+                                            <Viewbox Width="20" Height="20">
+                                                <Path Fill="White" Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                                            </Viewbox>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource AccentHoverBrush}"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                    
+                    <!-- Quick Add Bar -->
+                    <Border Grid.Row="1"
+                            Background="{StaticResource DarkBg3}"
+                            BorderBrush="{StaticResource AccentBrush}"
+                            BorderThickness="2"
+                            CornerRadius="10"
+                            Padding="16,14">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <TextBox x:Name="TxtQuickAdd"
+                                     Grid.Column="0"
+                                     Style="{StaticResource QuickAddTextBox}"
+                                     VerticalAlignment="Center"
+                                     KeyDown="OnQuickAddKeyDown">
+                                <TextBox.Resources>
+                                    <Style TargetType="TextBox" BasedOn="{StaticResource QuickAddTextBox}">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="TextBox">
+                                                    <Grid>
+                                                        <TextBlock x:Name="Placeholder"
+                                                                   Text="Add a task... Try: 'Study for exam tomorrow #Bible'"
+                                                                   FontSize="15"
+                                                                   Foreground="{StaticResource TextSecondary}"
+                                                                   IsHitTestVisible="False"
+                                                                   VerticalAlignment="Center"/>
+                                                        <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
+                                                    </Grid>
+                                                    <ControlTemplate.Triggers>
+                                                        <MultiTrigger>
+                                                            <MultiTrigger.Conditions>
+                                                                <Condition Property="Text" Value=""/>
+                                                                <Condition Property="IsFocused" Value="False"/>
+                                                            </MultiTrigger.Conditions>
+                                                            <Setter TargetName="Placeholder" Property="Visibility" Value="Visible"/>
+                                                        </MultiTrigger>
+                                                        <Trigger Property="IsFocused" Value="True">
+                                                            <Setter TargetName="Placeholder" Property="Visibility" Value="Collapsed"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </TextBox.Resources>
+                            </TextBox>
+                            
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0">
+                                <Button Width="38" Height="38"
+                                        Style="{StaticResource IconButton}"
+                                        ToolTip="Set due date"
+                                        Click="OnQuickAddDateClick">
+                                    <Viewbox Width="18" Height="18">
+                                        <Path Fill="{StaticResource TextSecondary}" Data="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+                                    </Viewbox>
+                                </Button>
+                                <Button Width="38" Height="38"
+                                        Style="{StaticResource IconButton}"
+                                        Margin="6,0,0,0"
+                                        ToolTip="Add tag"
+                                        Click="OnQuickAddTagClick">
+                                    <Viewbox Width="18" Height="18">
+                                        <Path Fill="{StaticResource TextSecondary}" Data="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+                                    </Viewbox>
+                                </Button>
+                                <Button Width="90" Height="38"
+                                        Margin="12,0,0,0"
+                                        Style="{StaticResource ModernButton}"
+                                        Click="OnQuickAddSubmit">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Viewbox Width="16" Height="16" Margin="0,0,6,0">
+                                            <Path Fill="White" Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                                        </Viewbox>
+                                        <TextBlock Text="Add" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+            
+            <!-- Task List -->
+            <ScrollViewer Grid.Row="1"
+                          VerticalScrollBarVisibility="Auto"
+                          Padding="32,24"
+                          Background="{StaticResource DarkBg1}">
+                <StackPanel x:Name="TasksList">
+                    <!-- Tasks will be dynamically added here -->
+                    <TextBlock x:Name="TxtEmptyState"
+                               Text="No tasks yet. Add one above!"
+                               FontSize="15"
+                               Foreground="{StaticResource TextSecondary}"
+                               TextAlignment="Center"
+                               Margin="0,60,0,0"
+                               Visibility="Collapsed"/>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</Window>

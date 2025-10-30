@@ -1,4 +1,3 @@
-// Project Snapshot - October 29, 2025
 using System;
 using System.Linq;
 using System.Windows;
@@ -25,18 +24,30 @@ public partial class MainWindow : Window
     private readonly WorkspaceManager _workspaces;
     private readonly CalendarService _calendar = new();
     private readonly TodoService _todos = new();
+    private readonly NotesService _notes = new();
     private readonly StudyPlanService _studyPlans = new();
     private AppSettings _settings;
     private AutomationService _automation;
     private System.Windows.Threading.DispatcherTimer _automationPreviewTimer = new();
     private TimeRule? _automationPendingRule;
     private int _automationCountdown = 0;
+    // Placeholder panels to satisfy legacy references when running with modern XAML that doesn't define these named elements.
+    private StackPanel PanelLeft = new();
+    private StackPanel PanelRight = new();
 
     public DockViewModel VM { get; } = new();
 
     public MainWindow()
     {
         InitializeComponent();
+
+        // Optimize process priority for minimal resource usage
+        try
+        {
+            using var process = System.Diagnostics.Process.GetCurrentProcess();
+            process.PriorityClass = System.Diagnostics.ProcessPriorityClass.BelowNormal;
+        }
+        catch { /* Ignore if unable to set priority */ }
 
         DataContext = VM;
 
@@ -48,7 +59,13 @@ public partial class MainWindow : Window
 
         _windowTracker.WindowsUpdated += (s, e) =>
         {
-            var groups = e.GroupBy(w => w.ProcessName)
+            // Filter out FocusDock itself from the window list
+            var filteredWindows = e.Where(w => 
+                !w.ProcessName.Equals("FocusDock", StringComparison.OrdinalIgnoreCase) &&
+                !w.ProcessName.Equals("FocusDock.App", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            
+            var groups = filteredWindows.GroupBy(w => w.ProcessName)
                 .Select(g => new WindowGroup
                 {
                     GroupName = g.Key,
@@ -61,8 +78,15 @@ public partial class MainWindow : Window
                     w.IsPinned = _pins.IsPinned(w);
                 }
             }
-            _reminder.UpdateSeen(e);
-            Dispatcher.Invoke(() => VM.WindowGroups = groups);
+            _reminder.UpdateSeen(filteredWindows);
+            
+            // Use BeginInvoke with Background priority for better performance
+            Dispatcher.BeginInvoke(new Action(() => 
+            {
+                VM.WindowGroups = groups;
+                UpdateDockWidth();
+                UpdateDockPosition();
+            }), System.Windows.Threading.DispatcherPriority.Background);
         };
 
         _reminder.StaleWindowsDetected += (_, stale) =>
@@ -83,21 +107,27 @@ public partial class MainWindow : Window
         BtnFocus.Click += (_, _) => _dockState.ToggleFocusMode();
         BtnDock.Click += (_, _) => ShowDockMenu();
         BtnCalendar.Click += (_, _) => ShowCalendarMenu();
-        BtnReminders.Click += (_, _) => ShowTodosMenu();
+        BtnReminders.Click += (_, _) => ShowTasksWindow();
+        BtnNotes.Click += (_, _) => ShowNotesMenu();
         BtnStudySession.Click += (_, _) => ShowStudySessionMenu();
         BtnWorkspace.Click += (_, _) => ShowWorkspaceMenu();
         BtnAutomations.Click += (_, _) => ShowAutomationsMenu();
-        BtnReminders.Click += (_, _) => ShowRemindersMenu();
         BtnSettings.Click += (_, _) => ShowSettingsWindow();
         BtnLayouts.Click += (_, _) =>
         {
             ShowLayoutsMenu();
         };
 
-        _clockTimer.Elapsed += (_, _) => Dispatcher.Invoke(() =>
+        _clockTimer.Elapsed += (_, _) =>
         {
-            TxtClock.Text = DateTime.Now.ToString("h:mm tt");
-        });
+            // Only update if window is visible to save resources
+            if (!IsVisible) return;
+            
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                TxtClock.Text = DateTime.Now.ToString("h:mm tt");
+            }), System.Windows.Threading.DispatcherPriority.Background);
+        };
         _clockTimer.Start();
 
         // Automation
@@ -112,6 +142,9 @@ public partial class MainWindow : Window
         // Auto-restore last workspace on startup
         Loaded += (_, _) =>
         {
+            Top = -77; // Start hidden
+            UpdateDockWidth();
+            UpdateDockPosition();
             RestoreLastWorkspace();
             _dockState.Expand();
             // Ensure window is in a visible, normal state on load
@@ -145,7 +178,12 @@ public partial class MainWindow : Window
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
-        PositionDock();
+        // Temporarily comment out PositionDock to keep window centered and visible for UI development
+        // PositionDock();
+        
+        // Force expanded state for visibility during development
+        _dockState.Expand();
+        Opacity = 1.0;
     }
 
     private void PositionDock()
@@ -171,10 +209,10 @@ public partial class MainWindow : Window
 
         // Adjust UI layout for vertical dock
         bool vertical = _settings.Edge == DockEdge.Left || _settings.Edge == DockEdge.Right;
-        PanelLeft.Orientation = vertical ? System.Windows.Controls.Orientation.Vertical : System.Windows.Controls.Orientation.Horizontal;
-        PanelRight.Orientation = vertical ? System.Windows.Controls.Orientation.Vertical : System.Windows.Controls.Orientation.Horizontal;
-        var panel = vertical ? (ItemsPanelTemplate)FindResource("VerticalItemsPanel") : (ItemsPanelTemplate)FindResource("HorizontalItemsPanel");
-        GroupsList.ItemsPanel = panel;
+    // TODO: Implement panel orientation changes when UI elements are defined in XAML
+        // var panel = vertical ? (ItemsPanelTemplate)FindResource("VerticalItemsPanel") : (ItemsPanelTemplate)FindResource("HorizontalItemsPanel");
+        // TODO: Reference the correct ItemsControl for window groups
+        // GroupsList.ItemsPanel = panel;
     }
 
     private void OnWindowItemClick(object sender, RoutedEventArgs e)
@@ -499,10 +537,14 @@ public partial class MainWindow : Window
         var screens = System.Windows.Forms.Screen.AllScreens;
 
         var menu = new System.Windows.Controls.ContextMenu();
+        
+        // Apply premium glassmorphism style
+        menu.Style = (Style)FindResource("PremiumContextMenu");
 
         void AddMenuItem(string header, Action onClick)
         {
             var mi = new System.Windows.Controls.MenuItem { Header = header };
+            mi.Style = (Style)FindResource("PremiumMenuItem");
             mi.Click += (_, _) => onClick();
             menu.Items.Add(mi);
         }
@@ -511,9 +553,11 @@ public partial class MainWindow : Window
         {
             var idx = Array.IndexOf(screens, scr) + 1;
             var sub = new System.Windows.Controls.MenuItem { Header = $"Monitor {idx}" };
+            sub.Style = (Style)FindResource("PremiumMenuItem");
             void Add(string header, Func<int, int, LayoutPreset> factory)
             {
                 var mi = new System.Windows.Controls.MenuItem { Header = header };
+                mi.Style = (Style)FindResource("PremiumMenuItem");
                 mi.Click += (_, _) =>
                 {
                     var b = scr.Bounds;
@@ -750,107 +794,28 @@ public partial class MainWindow : Window
         sessionWindow.ShowDialog();
     }
 
+    private void ShowTasksWindow()
+    {
+        var tasksWindow = new TasksWindow(_todos)
+        {
+            Owner = this
+        };
+        tasksWindow.Show();
+    }
+
     private void ShowTodosMenu()
     {
-        var menu = new System.Windows.Controls.ContextMenu();
-        void Add(string header, Action onClick)
+        // Legacy method - redirects to ShowTasksWindow
+        ShowTasksWindow();
+    }
+
+    private void ShowNotesMenu()
+    {
+        var notesWindow = new NotesWindow(_notes)
         {
-            var mi = new System.Windows.Controls.MenuItem { Header = header };
-            mi.Click += (_, _) => onClick();
-            menu.Items.Add(mi);
-        }
-
-        var activeTodos = _todos.GetActiveTodos();
-        if (activeTodos.Count > 0)
-        {
-            var statsItem = new System.Windows.Controls.MenuItem 
-            { 
-                Header = _todos.GetStatsSummary(),
-                IsEnabled = false
-            };
-            menu.Items.Add(statsItem);
-            menu.Items.Add(new System.Windows.Controls.Separator());
-
-            var todosItem = new System.Windows.Controls.MenuItem { Header = "Active Tasks" };
-            foreach (var todo in activeTodos.Take(8))
-            {
-                var priority = todo.PriorityName;
-                var daysLabel = todo.DaysDueIn() switch
-                {
-                    <= 0 => "Overdue",
-                    1 => "Tomorrow",
-                    var d => $"{d}d"
-                };
-                
-                todosItem.Items.Add(new System.Windows.Controls.MenuItem 
-                { 
-                    Header = $"[{priority}] {todo.Title} ({daysLabel})",
-                    IsEnabled = false
-                });
-            }
-            menu.Items.Add(todosItem);
-            menu.Items.Add(new System.Windows.Controls.Separator());
-        }
-
-        Add("Add Task", () =>
-        {
-            var dlg = new Controls.InputDialog("New Task", "Enter task name:", "");
-            if (dlg.ShowDialog() == true)
-            {
-                var todo = new FocusDock.Data.Models.TodoItem 
-                { 
-                    Title = dlg.ResultText ?? "Untitled",
-                    Priority = 2,
-                    DueDate = DateTime.Now.AddDays(1)
-                };
-                _todos.AddTodo(todo);
-                System.Windows.MessageBox.Show("Task added!");
-            }
-        });
-
-        Add("View All Tasks", () =>
-        {
-            var sb = new System.Text.StringBuilder();
-            var allTodos = _todos.GetAllTodos();
-            sb.AppendLine($"Total: {allTodos.Count} tasks\n");
-            
-            var active = _todos.GetActiveTodos();
-            sb.AppendLine($"Active: {active.Count}");
-            foreach (var t in active.Take(5))
-                sb.AppendLine($"  • [{t.PriorityName}] {t.Title}");
-            
-            System.Windows.MessageBox.Show(sb.ToString(), "Task Overview");
-        });
-
-        Add("Create Study Plan", () =>
-        {
-            var assignments = _calendar.GetUpcomingAssignments(14);
-            if (assignments.Count == 0)
-            {
-                System.Windows.MessageBox.Show("No upcoming assignments. Add Canvas assignments first.", "No Data");
-                return;
-            }
-
-            var dlg = new Controls.InputDialog("Study Plan", "Plan name:", "Midterm Review");
-            if (dlg.ShowDialog() == true)
-            {
-                var plan = _studyPlans.CreatePlanFromAssignments(
-                    dlg.ResultText ?? "Study Plan",
-                    assignments,
-                    assignments.Max(a => a.DueDate));
-                System.Windows.MessageBox.Show($"Study plan created with {plan.Sessions.Count} sessions!", "Success");
-            }
-        });
-
-        Add("Clear Completed", () =>
-        {
-            _todos.DeleteCompleted();
-            System.Windows.MessageBox.Show("Completed tasks cleared!");
-        });
-
-        BtnReminders.ContextMenu = menu;
-        menu.PlacementTarget = BtnReminders;
-        menu.IsOpen = true;
+            Owner = this
+        };
+        notesWindow.Show();
     }
 
     private void ShowSettingsWindow()
@@ -860,6 +825,253 @@ public partial class MainWindow : Window
             Owner = this
         };
         settingsWindow.ShowDialog();
+    }
+    
+    // ═════════════════════════════════════════════════════════════════════════
+    // EXPANDABLE TOOLBAR HANDLERS
+    // ═════════════════════════════════════════════════════════════════════════
+    
+    private System.Windows.Media.Animation.Storyboard? _expandStoryboard;
+    private System.Windows.Media.Animation.Storyboard? _collapseStoryboard;
+    private System.Windows.Threading.DispatcherTimer? _collapseTimer;
+    
+    internal void ExpandToolbar(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        // Cancel any pending collapse
+        _collapseTimer?.Stop();
+        _collapseStoryboard?.Stop();
+        
+        if (_expandStoryboard == null)
+        {
+            _expandStoryboard = new System.Windows.Media.Animation.Storyboard();
+            
+            // Expand MaxWidth animation
+            var widthAnim = new System.Windows.Media.Animation.DoubleAnimation
+            {
+                To = 520,
+                Duration = TimeSpan.FromMilliseconds(250),
+                EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
+            };
+            System.Windows.Media.Animation.Storyboard.SetTargetName(widthAnim, "ToolsPanel");
+            System.Windows.Media.Animation.Storyboard.SetTargetProperty(widthAnim, new PropertyPath(FrameworkElement.MaxWidthProperty));
+            
+            // Fade in animation
+            var opacityAnim = new System.Windows.Media.Animation.DoubleAnimation
+            {
+                To = 1,
+                Duration = TimeSpan.FromMilliseconds(250),
+                EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
+            };
+            System.Windows.Media.Animation.Storyboard.SetTargetName(opacityAnim, "ToolsPanel");
+            System.Windows.Media.Animation.Storyboard.SetTargetProperty(opacityAnim, new PropertyPath(UIElement.OpacityProperty));
+            
+            _expandStoryboard.Children.Add(widthAnim);
+            _expandStoryboard.Children.Add(opacityAnim);
+        }
+        
+        _expandStoryboard.Begin(this);
+    }
+    
+    internal void CollapseToolbar(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        // Use a timer to delay collapse check - prevents premature closing
+        if (_collapseTimer == null)
+        {
+            _collapseTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(100)
+            };
+            _collapseTimer.Tick += (s, args) =>
+            {
+                _collapseTimer.Stop();
+                
+                // Only collapse if mouse is truly outside both button and panel
+                var toolbarButton = this.FindName("BtnToolbar") as System.Windows.Controls.Button;
+                var toolsPanel = this.FindName("ToolsPanel") as StackPanel;
+                
+                bool mouseOverButton = toolbarButton != null && toolbarButton.IsMouseOver;
+                bool mouseOverPanel = toolsPanel != null && toolsPanel.IsMouseOver;
+                
+                if (!mouseOverButton && !mouseOverPanel)
+                {
+                    _expandStoryboard?.Stop();
+                    
+                    if (_collapseStoryboard == null)
+                    {
+                        _collapseStoryboard = new System.Windows.Media.Animation.Storyboard();
+                        
+                        var widthAnim = new System.Windows.Media.Animation.DoubleAnimation
+                        {
+                            To = 0,
+                            Duration = TimeSpan.FromMilliseconds(200),
+                            EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseIn }
+                        };
+                        System.Windows.Media.Animation.Storyboard.SetTargetName(widthAnim, "ToolsPanel");
+                        System.Windows.Media.Animation.Storyboard.SetTargetProperty(widthAnim, new PropertyPath(FrameworkElement.MaxWidthProperty));
+                        
+                        var opacityAnim = new System.Windows.Media.Animation.DoubleAnimation
+                        {
+                            To = 0,
+                            Duration = TimeSpan.FromMilliseconds(200),
+                            EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseIn }
+                        };
+                        System.Windows.Media.Animation.Storyboard.SetTargetName(opacityAnim, "ToolsPanel");
+                        System.Windows.Media.Animation.Storyboard.SetTargetProperty(opacityAnim, new PropertyPath(UIElement.OpacityProperty));
+                        
+                        _collapseStoryboard.Children.Add(widthAnim);
+                        _collapseStoryboard.Children.Add(opacityAnim);
+                    }
+                    
+                    _collapseStoryboard.Begin(this);
+                }
+            };
+        }
+        
+        _collapseTimer.Start();
+    }
+        
+    private System.Windows.Threading.DispatcherTimer? _hideTimer;
+    private const int AUTO_HIDE_OFFSET = -80;
+    private const int VISIBLE_PEEK = 3;
+    
+    private void OnDockMouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        _hideTimer?.Stop();
+        ShowDock();
+    }
+    
+    private void OnDockMouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        // Delay hiding to prevent flickering
+        if (_hideTimer == null)
+        {
+            _hideTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1.5)
+            };
+            _hideTimer.Tick += (s, args) =>
+            {
+                _hideTimer.Stop();
+                if (!this.IsMouseOver)
+                {
+                    HideDock();
+                }
+            };
+        }
+        _hideTimer.Start();
+    }
+    
+    private void ShowDock()
+    {
+        var showAnim = new System.Windows.Media.Animation.DoubleAnimation
+        {
+            To = 0,
+            Duration = TimeSpan.FromMilliseconds(300),
+            EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
+        };
+        this.BeginAnimation(Window.TopProperty, showAnim);
+    }
+    
+    private void HideDock()
+    {
+        var hideAnim = new System.Windows.Media.Animation.DoubleAnimation
+        {
+            To = AUTO_HIDE_OFFSET + VISIBLE_PEEK,
+            Duration = TimeSpan.FromMilliseconds(250),
+            EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseIn }
+        };
+        this.BeginAnimation(Window.TopProperty, hideAnim);
+    }
+    
+    private void UpdateDockWidth()
+    {
+        // Calculate dynamic width based on content
+        int windowCount = VM.WindowGroups?.Sum(g => g.Windows?.Count ?? 0) ?? 0;
+        
+        // Base width: Left section (60) + Right toolbar (~250) + Margins (~50)
+        double baseWidth = 360;
+        
+        // Add width per window chip (approximately 50px per chip)
+        double chipWidth = 50;
+        double contentWidth = baseWidth + (windowCount * chipWidth);
+        
+        // Clamp between min and max
+        double minWidth = 400;
+        double maxWidth = SystemParameters.WorkArea.Width * 0.8; // Max 80% of screen width
+        
+        Width = Math.Max(minWidth, Math.Min(contentWidth, maxWidth));
+    }
+    
+    private void UpdateDockPosition()
+    {
+        var workArea = SystemParameters.WorkArea;
+        
+        // Apply alignment setting
+        switch (_settings.Alignment)
+        {
+            case DockAlignment.Left:
+                Left = workArea.Left + 20;
+                break;
+            case DockAlignment.Right:
+                Left = workArea.Right - Width - 20;
+                break;
+            case DockAlignment.Center:
+            default:
+                Left = workArea.Left + (workArea.Width - Width) / 2;
+                break;
+        }
+    }
+    
+    public void ApplyPositionSettings(AppSettings settings)
+    {
+        _settings = settings;
+        UpdateDockWidth();
+        UpdateDockPosition();
+    }
+    
+    private void OnWindowClick(object sender, MouseButtonEventArgs e)
+    {
+        // Check if the click is outside the toolbar area
+        var toolbarButton = this.FindName("BtnToolbar") as System.Windows.Controls.Button;
+        var toolsPanel = this.FindName("ToolsPanel") as StackPanel;
+        
+        bool clickOnButton = toolbarButton != null && toolbarButton.IsMouseOver;
+        bool clickOnPanel = toolsPanel != null && toolsPanel.IsMouseOver;
+        
+        // If clicked outside toolbar, force it closed immediately
+        if (!clickOnButton && !clickOnPanel)
+        {
+            _collapseTimer?.Stop();
+            _expandStoryboard?.Stop();
+            
+            if (_collapseStoryboard == null)
+            {
+                _collapseStoryboard = new System.Windows.Media.Animation.Storyboard();
+                
+                var widthAnim = new System.Windows.Media.Animation.DoubleAnimation
+                {
+                    To = 0,
+                    Duration = TimeSpan.FromMilliseconds(150),
+                    EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseIn }
+                };
+                System.Windows.Media.Animation.Storyboard.SetTargetName(widthAnim, "ToolsPanel");
+                System.Windows.Media.Animation.Storyboard.SetTargetProperty(widthAnim, new PropertyPath(FrameworkElement.MaxWidthProperty));
+                
+                var opacityAnim = new System.Windows.Media.Animation.DoubleAnimation
+                {
+                    To = 0,
+                    Duration = TimeSpan.FromMilliseconds(150),
+                    EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseIn }
+                };
+                System.Windows.Media.Animation.Storyboard.SetTargetName(opacityAnim, "ToolsPanel");
+                System.Windows.Media.Animation.Storyboard.SetTargetProperty(opacityAnim, new PropertyPath(UIElement.OpacityProperty));
+                
+                _collapseStoryboard.Children.Add(widthAnim);
+                _collapseStoryboard.Children.Add(opacityAnim);
+            }
+            
+            _collapseStoryboard.Begin(this);
+        }
     }
 }
 
@@ -886,10 +1098,14 @@ public class DockViewModel : ObservableObject
         set => SetProperty(ref _lastAppliedPresetName, value);
     }
 
-    private bool _iconOnlyMode;
+    private bool _iconOnlyMode = true; // Default to icon-only mode
     public bool IconOnlyMode
     {
         get => _iconOnlyMode;
         set => SetProperty(ref _iconOnlyMode, value);
     }
 }
+
+
+
+

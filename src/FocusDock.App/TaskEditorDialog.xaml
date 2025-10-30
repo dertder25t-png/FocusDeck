@@ -1,0 +1,150 @@
+<Window x:Class="FocusDock.App.TaskEditorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Task Editor" 
+        Width="600" Height="650"
+        Background="#1A1C1F" 
+        Foreground="#E8EAED"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="SingleBorderWindow">
+    
+    <Window.Resources>
+        <SolidColorBrush x:Key="AccentBrush" Color="#7C5CFF"/>
+        <SolidColorBrush x:Key="DarkBg2" Color="#232528"/>
+        <SolidColorBrush x:Key="DarkBg3" Color="#2C2F33"/>
+        <SolidColorBrush x:Key="StrokeBrush" Color="#3F4550"/>
+        <SolidColorBrush x:Key="TextPrimary" Color="#E8EAED"/>
+        <SolidColorBrush x:Key="TextSecondary" Color="#AAB2BE"/>
+        
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="{StaticResource DarkBg3}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource StrokeBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="CaretBrush" Value="{StaticResource AccentBrush}"/>
+        </Style>
+        
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="{StaticResource DarkBg3}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource StrokeBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        
+        <Style TargetType="DatePicker">
+            <Setter Property="Background" Value="{StaticResource DarkBg3}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource StrokeBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,10"/>
+        </Style>
+        
+        <Style TargetType="Label">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+    </Window.Resources>
+    
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Header -->
+        <TextBlock x:Name="TxtHeader" 
+                   Text="New Task" 
+                   FontSize="24" 
+                   FontWeight="Bold" 
+                   Margin="0,0,0,24"/>
+        
+        <!-- Form -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <!-- Title -->
+                <Label Content="Title *"/>
+                <TextBox x:Name="TxtTitle" Margin="0,0,0,16"/>
+                
+                <!-- Description -->
+                <Label Content="Description"/>
+                <TextBox x:Name="TxtDescription" 
+                         TextWrapping="Wrap" 
+                         AcceptsReturn="True" 
+                         MinHeight="80" 
+                         Margin="0,0,0,16"/>
+                
+                <!-- Priority -->
+                <Label Content="Priority"/>
+                <ComboBox x:Name="CboPriority" Margin="0,0,0,16">
+                    <ComboBoxItem Content="🔵 Low" Tag="1"/>
+                    <ComboBoxItem Content="🟡 Medium" Tag="2" IsSelected="True"/>
+                    <ComboBoxItem Content="🟠 High" Tag="3"/>
+                    <ComboBoxItem Content="🔴 Urgent" Tag="4"/>
+                </ComboBox>
+                
+                <!-- Due Date -->
+                <Label Content="Due Date"/>
+                <DatePicker x:Name="DueDatePicker" Margin="0,0,0,16"/>
+                
+                <!-- Estimated Time -->
+                <Label Content="Estimated Time (minutes)"/>
+                <TextBox x:Name="TxtEstimatedMinutes" Margin="0,0,0,16"/>
+                
+                <!-- Tags -->
+                <Label Content="Tags (comma separated)"/>
+                <TextBox x:Name="TxtTags" 
+                         Margin="0,0,0,16"
+                         ToolTip="e.g., work, personal, urgent"/>
+                
+                <!-- Repeat -->
+                <Label Content="Repeat"/>
+                <ComboBox x:Name="CboRepeat" Margin="0,0,0,16">
+                    <ComboBoxItem Content="None" IsSelected="True"/>
+                    <ComboBoxItem Content="Daily"/>
+                    <ComboBoxItem Content="Weekly"/>
+                    <ComboBoxItem Content="Biweekly"/>
+                </ComboBox>
+                
+                <!-- Show Reminder -->
+                <CheckBox x:Name="ChkReminder" 
+                          Content="Show reminder notification" 
+                          IsChecked="True" 
+                          Foreground="{StaticResource TextPrimary}"
+                          Margin="0,0,0,16"/>
+            </StackPanel>
+        </ScrollViewer>
+        
+        <!-- Actions -->
+        <StackPanel Grid.Row="2" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right" 
+                    Margin="0,24,0,0">
+            <Button Content="Cancel" 
+                    Width="100" 
+                    Height="40" 
+                    Margin="0,0,12,0"
+                    Click="OnCancelClick"
+                    Background="{StaticResource DarkBg3}"
+                    Foreground="{StaticResource TextPrimary}"
+                    BorderThickness="0"
+                    Cursor="Hand"/>
+            <Button x:Name="BtnSave" 
+                    Content="Save Task" 
+                    Width="120" 
+                    Height="40"
+                    Click="OnSaveClick"
+                    Background="{StaticResource AccentBrush}"
+                    Foreground="White"
+                    BorderThickness="0"
+                    FontWeight="SemiBold"
+                    Cursor="Hand"/>
+        </StackPanel>
+    </Grid>
+</Window>
