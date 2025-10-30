@@ -160,11 +160,15 @@ public partial class MainWindow : Window
         // Auto-restore last workspace on startup
         Loaded += (_, _) =>
         {
+            // Configure dock state for auto-hide
+            _dockState.SetEdge(_settings.Edge);
+            _dockState.SetAutoHide(true);
+            
             Top = -77; // Start hidden
             UpdateDockWidth();
             UpdateDockPosition();
             RestoreLastWorkspace();
-            _dockState.Expand();
+            
             // Ensure window is in a visible, normal state on load
             WindowState = WindowState.Normal;
             Topmost = true;
@@ -944,6 +948,17 @@ public partial class MainWindow : Window
         }
         
         _collapseTimer.Start();
+    }
+
+    // Mouse event handlers for dock show/hide
+    private void OnDockMouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        _dockState.OnMouseEnter();
+    }
+
+    private void OnDockMouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        _dockState.OnMouseLeave();
     }
     
     private void UpdateDockWidth()
