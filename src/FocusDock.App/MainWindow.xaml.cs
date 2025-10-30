@@ -456,49 +456,12 @@ public partial class MainWindow : Window
 
     private void ShowAutomationsMenu()
     {
-        var menu = new System.Windows.Controls.ContextMenu();
-        void Add(string header, Action onClick)
-        {
-            var mi = new System.Windows.Controls.MenuItem { Header = header };
-            mi.Click += (_, _) => onClick();
-            menu.Items.Add(mi);
-        }
-
-        Add("Enable Example: Weekdays 9-5 Three Column (Monitor 1)", () =>
-        {
-            var rules = AutomationStore.Load();
-            rules.Rules.Add(new TimeRule
-            {
-                Name = "Workday Layout",
-                DaysOfWeek = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday },
-                Start = "09:00",
-                End = "17:00",
-                Action = RuleAction.ApplyPreset,
-                PresetName = "Three Column",
-                MonitorIndex = 0
-            });
-            AutomationStore.Save(rules);
-            _automation.Config = rules;
-        });
-
-        Add("Enable Example: Evenings Focus Mode 19-23", () =>
-        {
-            var rules = AutomationStore.Load();
-            rules.Rules.Add(new TimeRule
-            {
-                Name = "Evening Focus",
-                DaysOfWeek = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday },
-                Start = "19:00",
-                End = "23:00",
-                Action = RuleAction.FocusModeOn
-            });
-            AutomationStore.Save(rules);
-            _automation.Config = rules;
-        });
-
-        BtnAutomations.ContextMenu = menu;
-        menu.PlacementTarget = BtnAutomations;
-        menu.IsOpen = true;
+        var window = new AutomationsWindow();
+        window.Owner = this;
+        window.ShowDialog();
+        
+        // Reload automation config after dialog closes
+        _automation.Config = AutomationStore.Load();
     }
 
     private bool ApplyPresetByName(string? name)
