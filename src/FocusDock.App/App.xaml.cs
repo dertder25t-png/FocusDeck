@@ -46,8 +46,27 @@ public partial class App : System.Windows.Application
             // Add platform-specific services (Windows)
             services.AddPlatformServices(PlatformType.Windows);
 
+            // Register FocusDock-specific services
+            services.AddSingleton<FocusDock.SystemInterop.WindowTracker>();
+            services.AddSingleton<FocusDock.Core.Services.LayoutManager>();
+            services.AddSingleton<FocusDock.Core.Services.PinService>();
+            services.AddSingleton<FocusDock.Core.Services.ReminderService>();
+            services.AddSingleton<FocusDock.Core.Services.WorkspaceManager>();
+            services.AddSingleton<FocusDock.Core.Services.CalendarService>();
+            services.AddSingleton<FocusDock.Core.Services.TodoService>();
+            services.AddSingleton<FocusDock.Core.Services.NotesService>();
+            services.AddSingleton<FocusDock.Core.Services.StudyPlanService>();
+            services.AddSingleton<FocusDock.Core.Services.AutomationService>();
+            
+            // Register MainWindow
+            services.AddSingleton<MainWindow>();
+
             // Build the service provider
             Services = services.BuildServiceProvider();
+
+            // Resolve and show MainWindow
+            var mainWindow = Services.GetRequiredService<MainWindow>();
+            mainWindow.Show();
 
             System.Diagnostics.Debug.WriteLine("App started - Services initialized");
         }

@@ -19,8 +19,6 @@
         ShowInTaskbar="True"
         Opacity="1.0"
         PreviewMouseDown="OnWindowClick"
-        MouseEnter="OnDockMouseEnter"
-        MouseLeave="OnDockMouseLeave"
         RenderOptions.BitmapScalingMode="HighQuality"
         TextOptions.TextFormattingMode="Display"
         UseLayoutRounding="True"

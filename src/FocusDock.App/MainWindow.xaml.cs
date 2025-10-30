@@ -19,13 +19,13 @@ public partial class MainWindow : Window
     private readonly WindowTracker _windowTracker;
     private readonly LayoutManager _layoutManager;
     private readonly System.Timers.Timer _clockTimer = new(1000);
-    private readonly ReminderService _reminder = new();
-    private readonly PinService _pins = new();
+    private readonly ReminderService _reminder;
+    private readonly PinService _pins;
     private readonly WorkspaceManager _workspaces;
-    private readonly CalendarService _calendar = new();
-    private readonly TodoService _todos = new();
-    private readonly NotesService _notes = new();
-    private readonly StudyPlanService _studyPlans = new();
+    private readonly CalendarService _calendar;
+    private readonly TodoService _todos;
+    private readonly NotesService _notes;
+    private readonly StudyPlanService _studyPlans;
     private AppSettings _settings;
     private AutomationService _automation;
     private System.Windows.Threading.DispatcherTimer _automationPreviewTimer = new();
@@ -37,7 +37,17 @@ public partial class MainWindow : Window
 
     public DockViewModel VM { get; } = new();
 
-    public MainWindow()
+    public MainWindow(
+        FocusDock.SystemInterop.WindowTracker windowTracker,
+        LayoutManager layoutManager,
+        PinService pinService,
+        ReminderService reminderService,
+        WorkspaceManager workspaceManager,
+        CalendarService calendarService,
+        TodoService todoService,
+        NotesService notesService,
+        StudyPlanService studyPlanService,
+        AutomationService automationService)
     {
         InitializeComponent();
 
@@ -51,10 +61,19 @@ public partial class MainWindow : Window
 
         DataContext = VM;
 
+        // Inject dependencies
+        _windowTracker = windowTracker;
+        _layoutManager = layoutManager;
+        _pins = pinService;
+        _reminder = reminderService;
+        _workspaces = workspaceManager;
+        _calendar = calendarService;
+        _todos = todoService;
+        _notes = notesService;
+        _studyPlans = studyPlanService;
+        _automation = automationService;
+        
         _dockState = new DockStateManager(this);
-        _windowTracker = new WindowTracker();
-        _layoutManager = new LayoutManager();
-        _workspaces = new WorkspaceManager(_pins);
         _settings = SettingsStore.LoadSettings();
 
         _windowTracker.WindowsUpdated += (s, e) =>
@@ -100,9 +119,9 @@ public partial class MainWindow : Window
 
         _windowTracker.Start();
 
-        MouseEnter += (_, _) => _dockState.Expand();
-        // Temporarily disable auto-collapse to aid visibility/debugging
-        // MouseLeave += (_, _) => _dockState.CollapseIfAway();
+        // Wire up mouse events to DockStateManager
+        MouseEnter += (_, _) => _dockState.OnMouseEnter();
+        MouseLeave += (_, _) => _dockState.OnMouseLeave();
 
         BtnFocus.Click += (_, _) => _dockState.ToggleFocusMode();
         BtnDock.Click += (_, _) => ShowDockMenu();
@@ -130,8 +149,7 @@ public partial class MainWindow : Window
         };
         _clockTimer.Start();
 
-        // Automation
-        _automation = new AutomationService();
+        // Automation (already injected)
         _automation.Config = AutomationStore.Load();
         _automation.RuleTriggered += OnAutomationRuleTriggered;
         _automation.Start();
@@ -193,26 +211,62 @@ public partial class MainWindow : Window
         var screen = screens[index];
         if (screen is null) return;
         var area = screen.WorkingArea;
+        
+        // Inform DockStateManager about the edge
+        _dockState.SetEdge(_settings.Edge);
+        
+        bool vertical = _settings.Edge == DockEdge.Left || _settings.Edge == DockEdge.Right;
+        
         switch (_settings.Edge)
         {
             case DockEdge.Top:
-                Left = area.Left + 10; Width = area.Width - 20; Height = _dockState.ExpandedHeight; Top = area.Top; break;
+                Left = area.Left + 10; 
+                Width = area.Width - 20; 
+                Height = _dockState.ExpandedHeight; 
+                Top = area.Top; 
+                break;
             case DockEdge.Bottom:
-                Left = area.Left + 10; Width = area.Width - 20; Height = _dockState.ExpandedHeight; Top = area.Bottom - _dockState.CollapsedHeight; break;
+                Left = area.Left + 10; 
+                Width = area.Width - 20; 
+                Height = _dockState.ExpandedHeight; 
+                Top = area.Bottom - _dockState.CollapsedHeight; 
+                break;
             case DockEdge.Left:
-                Left = area.Left + 6; Width = 220; Height = area.Height - 20; Top = area.Top + 10; break;
+                Left = area.Left + 6; 
+                Width = 220; 
+                Height = area.Height - 20; 
+                Top = area.Top + 10;
+                
+                // Switch to vertical layout
+                try
+                {
+                    var panel = (ItemsPanelTemplate)FindResource("VerticalItemsPanel");
+                    if (GroupsList != null)
+                    {
+                        GroupsList.ItemsPanel = panel;
+                    }
+                }
+                catch { /* Resource might not exist yet */ }
+                break;
+                
             case DockEdge.Right:
-                Left = area.Right - 220 - 6; Width = 220; Height = area.Height - 20; Top = area.Top + 10; break;
+                Left = area.Right - 220 - 6; 
+                Width = 220; 
+                Height = area.Height - 20; 
+                Top = area.Top + 10;
+                
+                // Switch to vertical layout
+                try
+                {
+                    var panel = (ItemsPanelTemplate)FindResource("VerticalItemsPanel");
+                    if (GroupsList != null)
+                    {
+                        GroupsList.ItemsPanel = panel;
+                    }
+                }
+                catch { /* Resource might not exist yet */ }
+                break;
         }
-        // Start visible; collapsing is handled on mouse leave and timers
-        // _dockState.Collapse();
-
-        // Adjust UI layout for vertical dock
-        bool vertical = _settings.Edge == DockEdge.Left || _settings.Edge == DockEdge.Right;
-    // TODO: Implement panel orientation changes when UI elements are defined in XAML
-        // var panel = vertical ? (ItemsPanelTemplate)FindResource("VerticalItemsPanel") : (ItemsPanelTemplate)FindResource("HorizontalItemsPanel");
-        // TODO: Reference the correct ItemsControl for window groups
-        // GroupsList.ItemsPanel = panel;
     }
 
     private void OnWindowItemClick(object sender, RoutedEventArgs e)
@@ -368,8 +422,7 @@ public partial class MainWindow : Window
 
     private void ShowRemindersMenu()
     {
-        var tracker = new WindowTracker();
-        var current = tracker.GetCurrentWindows();
+        var current = _windowTracker.GetCurrentWindows();
         _reminder.UpdateSeen(current);
         var stale = _reminder.GetStale(current);
 
@@ -928,59 +981,6 @@ public partial class MainWindow : Window
         }
         
         _collapseTimer.Start();
-    }
-        
-    private System.Windows.Threading.DispatcherTimer? _hideTimer;
-    private const int AUTO_HIDE_OFFSET = -80;
-    private const int VISIBLE_PEEK = 3;
-    
-    private void OnDockMouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
-    {
-        _hideTimer?.Stop();
-        ShowDock();
-    }
-    
-    private void OnDockMouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
-    {
-        // Delay hiding to prevent flickering
-        if (_hideTimer == null)
-        {
-            _hideTimer = new System.Windows.Threading.DispatcherTimer
-            {
-                Interval = TimeSpan.FromSeconds(1.5)
-            };
-            _hideTimer.Tick += (s, args) =>
-            {
-                _hideTimer.Stop();
-                if (!this.IsMouseOver)
-                {
-                    HideDock();
-                }
-            };
-        }
-        _hideTimer.Start();
-    }
-    
-    private void ShowDock()
-    {
-        var showAnim = new System.Windows.Media.Animation.DoubleAnimation
-        {
-            To = 0,
-            Duration = TimeSpan.FromMilliseconds(300),
-            EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
-        };
-        this.BeginAnimation(Window.TopProperty, showAnim);
-    }
-    
-    private void HideDock()
-    {
-        var hideAnim = new System.Windows.Media.Animation.DoubleAnimation
-        {
-            To = AUTO_HIDE_OFFSET + VISIBLE_PEEK,
-            Duration = TimeSpan.FromMilliseconds(250),
-            EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseIn }
-        };
-        this.BeginAnimation(Window.TopProperty, hideAnim);
     }
     
     private void UpdateDockWidth()
