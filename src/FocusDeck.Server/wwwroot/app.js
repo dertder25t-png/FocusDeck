@@ -1,294 +1,870 @@
-// API Base URL
-const API_BASE = '/api';
+// ====================================
+// FocusDeck Web App - Main JavaScript
+// ====================================
 
-// State
-let decks = [];
-let currentDeckId = null;
-
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    loadDecks();
-    updateStats();
-});
-
-// Tab Switching
-function switchTab(tabName) {
-    // Update tab buttons
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    event.target.classList.add('active');
-
-    // Update tab content
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.remove('active');
-    });
-    document.getElementById(tabName).classList.add('active');
-
-    // Load data if switching to decks tab
-    if (tabName === 'decks') {
-        loadDecks();
-    }
-}
-
-// Load Decks
-async function loadDecks() {
-    try {
-        const response = await fetch(`${API_BASE}/decks`);
-        if (!response.ok) throw new Error('Failed to load decks');
+class FocusDeckApp {
+    constructor() {
+        this.currentView = 'dashboard';
+        this.tasks = [];
+        this.decks = [];
+        this.sessions = [];
+        this.timerState = {
+            isRunning: false,
+            isPaused: false,
+            currentTime: 25 * 60,
+            totalTime: 25 * 60,
+            intervalId: null
+        };
+        this.settings = this.loadSettings();
         
-        decks = await response.json();
-        renderDecks();
-        updateStats();
-    } catch (error) {
-        console.error('Error loading decks:', error);
-        showAlert('Error loading decks: ' + error.message, 'error');
-    }
-}
-
-// Render Decks
-function renderDecks() {
-    const container = document.getElementById('decksList');
-    
-    if (decks.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">📚</div>
-                <h3>No decks yet</h3>
-                <p>Create your first deck to get started!</p>
-            </div>
-        `;
-        return;
+        this.init();
     }
 
-    container.innerHTML = decks.map(deck => `
-        <div class="card">
-            <div class="card-header">
-                <span class="card-title">${escapeHtml(deck.name || 'Untitled Deck')}</span>
-                <div class="card-actions">
-                    <button class="btn-primary btn-small" onclick="editDeck('${deck.id}')">✏️ Edit</button>
-                    <button class="btn-danger btn-small" onclick="deleteDeck('${deck.id}')">🗑️ Delete</button>
-                </div>
-            </div>
-            <p style="color: #666; font-size: 14px;">
-                ${deck.cards ? deck.cards.length : 0} cards
-            </p>
-            ${deck.cards && deck.cards.length > 0 ? `
-                <details style="margin-top: 10px;">
-                    <summary style="cursor: pointer; color: #667eea; font-weight: 500;">View Cards</summary>
-                    <ul style="margin-top: 10px; padding-left: 20px;">
-                        ${deck.cards.slice(0, 5).map(card => `<li style="margin: 5px 0;">${escapeHtml(card)}</li>`).join('')}
-                        ${deck.cards.length > 5 ? `<li style="color: #999;">... and ${deck.cards.length - 5} more</li>` : ''}
-                    </ul>
-                </details>
-            ` : ''}
-        </div>
-    `).join('');
-}
-
-// Show Create Deck Modal
-function showCreateDeckModal() {
-    currentDeckId = null;
-    document.getElementById('modalTitle').textContent = 'Create New Deck';
-    document.getElementById('deckForm').reset();
-    document.getElementById('deckId').value = '';
-    document.getElementById('modalAlert').innerHTML = '';
-    document.getElementById('deckModal').classList.add('active');
-}
-
-// Edit Deck
-function editDeck(id) {
-    const deck = decks.find(d => d.id === id);
-    if (!deck) return;
-
-    currentDeckId = id;
-    document.getElementById('modalTitle').textContent = 'Edit Deck';
-    document.getElementById('deckId').value = id;
-    document.getElementById('deckName').value = deck.name || '';
-    document.getElementById('deckCards').value = deck.cards ? deck.cards.join('\n') : '';
-    document.getElementById('modalAlert').innerHTML = '';
-    document.getElementById('deckModal').classList.add('active');
-}
-
-// Save Deck
-async function saveDeck(event) {
-    event.preventDefault();
-
-    const name = document.getElementById('deckName').value.trim();
-    const cardsText = document.getElementById('deckCards').value.trim();
-    const cards = cardsText ? cardsText.split('\n').filter(c => c.trim()) : [];
-    const id = document.getElementById('deckId').value;
-
-    const deckData = {
-        name,
-        cards
-    };
-
-    try {
-        let response;
-        if (id) {
-            // Update existing deck
-            deckData.id = id;
-            response = await fetch(`${API_BASE}/decks/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(deckData)
-            });
-        } else {
-            // Create new deck
-            response = await fetch(`${API_BASE}/decks`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(deckData)
-            });
-        }
-
-        if (!response.ok) {
-            const error = await response.text();
-            throw new Error(error || 'Failed to save deck');
-        }
-
-        showModalAlert(id ? 'Deck updated successfully!' : 'Deck created successfully!', 'success');
-        
+    init() {
+        // Hide loading screen
         setTimeout(() => {
-            closeModal();
-            loadDecks();
-        }, 1000);
-
-    } catch (error) {
-        console.error('Error saving deck:', error);
-        showModalAlert('Error: ' + error.message, 'error');
-    }
-}
-
-// Delete Deck
-async function deleteDeck(id) {
-    if (!confirm('Are you sure you want to delete this deck? This action cannot be undone.')) {
-        return;
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('app').style.display = 'flex';
+            this.initializeApp();
+        }, 800);
     }
 
-    try {
-        const response = await fetch(`${API_BASE}/decks/${id}`, {
-            method: 'DELETE'
+    initializeApp() {
+        this.setupNavigation();
+        this.setupDateTime();
+        this.setupDashboard();
+        this.setupPlanner();
+        this.setupTimer();
+        this.setupDecks();
+        this.setupSettings();
+        this.loadFromAPI();
+        
+        // Set today's date as default for task form
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('taskDueDate').value = today;
+        
+        console.log('FocusDeck initialized');
+    }
+
+    // ====================================
+    // NAVIGATION
+    // ====================================
+
+    setupNavigation() {
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const view = e.currentTarget.dataset.view;
+                this.switchView(view);
+            });
         });
 
-        if (!response.ok) throw new Error('Failed to delete deck');
-
-        showAlert('Deck deleted successfully!', 'success');
-        loadDecks();
-    } catch (error) {
-        console.error('Error deleting deck:', error);
-        showAlert('Error deleting deck: ' + error.message, 'error');
+        // Quick actions
+        document.querySelectorAll('.quick-action-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const action = e.currentTarget.dataset.action;
+                this.handleQuickAction(action);
+            });
+        });
     }
-}
 
-// Close Modal
-function closeModal() {
-    document.getElementById('deckModal').classList.remove('active');
-    document.getElementById('deckForm').reset();
-    currentDeckId = null;
-}
+    switchView(viewName) {
+        // Update navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.view === viewName);
+        });
 
-// Update Statistics
-function updateStats() {
-    document.getElementById('deckCount').textContent = decks.length;
-    
-    const totalCards = decks.reduce((sum, deck) => {
-        return sum + (deck.cards ? deck.cards.length : 0);
-    }, 0);
-    document.getElementById('cardCount').textContent = totalCards;
-}
+        // Update views
+        document.querySelectorAll('.view').forEach(view => {
+            view.classList.remove('active');
+        });
+        document.getElementById(`${viewName}View`).classList.add('active');
 
-// Show Alert
-function showAlert(message, type) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type}`;
-    alertDiv.textContent = message;
-    
-    const content = document.querySelector('.content');
-    content.insertBefore(alertDiv, content.firstChild);
+        this.currentView = viewName;
+    }
 
-    setTimeout(() => alertDiv.remove(), 5000);
-}
+    handleQuickAction(action) {
+        switch(action) {
+            case 'start-timer':
+                this.switchView('timer');
+                break;
+            case 'add-task':
+                this.switchView('planner');
+                document.getElementById('addTaskBtn').click();
+                break;
+            case 'new-deck':
+                this.switchView('decks');
+                this.openDeckModal();
+                break;
+            case 'view-calendar':
+                this.switchView('calendar');
+                break;
+        }
+    }
 
-// Show Modal Alert
-function showModalAlert(message, type) {
-    const alertDiv = document.getElementById('modalAlert');
-    alertDiv.className = `alert alert-${type}`;
-    alertDiv.textContent = message;
-}
+    // ====================================
+    // DATE & TIME
+    // ====================================
 
-// Save Configuration
-function saveConfig() {
-    const config = {
-        port: document.getElementById('serverPort').value,
-        environment: document.getElementById('environment').value,
-        maxDecks: document.getElementById('maxDecks').value,
-        enableAuth: document.getElementById('enableAuth').value === 'true'
-    };
+    setupDateTime() {
+        this.updateDateTime();
+        setInterval(() => this.updateDateTime(), 1000);
+    }
 
-    console.log('Configuration:', config);
-    showAlert('Configuration saved! (Note: This is a demo. Restart server to apply changes.)', 'success');
-}
-
-// Export Data
-async function exportData() {
-    try {
-        const response = await fetch(`${API_BASE}/decks`);
-        if (!response.ok) throw new Error('Failed to export data');
+    updateDateTime() {
+        const now = new Date();
         
-        const data = await response.json();
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        // Update current date
+        const dateOptions = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
+        document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', dateOptions);
+        
+        // Update current time
+        const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+        document.getElementById('currentTime').textContent = now.toLocaleTimeString('en-US', timeOptions);
+    }
+
+    // ====================================
+    // DASHBOARD
+    // ====================================
+
+    setupDashboard() {
+        this.updateDashboard();
+    }
+
+    updateDashboard() {
+        // Update stats
+        const completedToday = this.tasks.filter(t => t.completed && this.isToday(t.completedAt)).length;
+        const totalStudyTime = this.getTotalStudyTime();
+        
+        document.getElementById('dashCompletedTasks').textContent = completedToday;
+        document.getElementById('dashStudyTime').textContent = this.formatTime(totalStudyTime);
+        document.getElementById('dashStreak').textContent = '0'; // Implement streak logic
+        document.getElementById('dashProductivity').textContent = '0%'; // Implement productivity calculation
+        
+        // Update sidebar stats
+        const activeTasks = this.tasks.filter(t => !t.completed).length;
+        document.getElementById('sidebarActiveTasks').textContent = activeTasks;
+        document.getElementById('sidebarCompletedToday').textContent = completedToday;
+        
+        const completionRate = this.tasks.length > 0 
+            ? Math.round((completedToday / this.tasks.length) * 100)
+            : 0;
+        document.getElementById('sidebarCompletionRate').textContent = `${completionRate}%`;
+        
+        this.updateRecentActivity();
+    }
+
+    updateRecentActivity() {
+        const container = document.getElementById('recentActivity');
+        // Implement activity tracking
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📝</div>
+                <p>No recent activity</p>
+            </div>
+        `;
+    }
+
+    getTotalStudyTime() {
+        return this.sessions.reduce((total, session) => total + session.duration, 0);
+    }
+
+    isToday(date) {
+        if (!date) return false;
+        const d = new Date(date);
+        const today = new Date();
+        return d.toDateString() === today.toDateString();
+    }
+
+    // ====================================
+    // PLANNER (MY DAY)
+    // ====================================
+
+    setupPlanner() {
+        // Add Task Button
+        document.getElementById('addTaskBtn').addEventListener('click', () => {
+            document.getElementById('taskInputArea').style.display = 'block';
+            document.getElementById('taskTitle').focus();
+        });
+
+        // Create First Deck (duplicate handler)
+        const createFirstDeck = document.getElementById('createFirstDeck');
+        if (createFirstDeck) {
+            createFirstDeck.addEventListener('click', () => this.openDeckModal());
+        }
+
+        // Cancel Task Button
+        document.getElementById('cancelTaskBtn').addEventListener('click', () => {
+            this.clearTaskForm();
+            document.getElementById('taskInputArea').style.display = 'none';
+        });
+
+        // Save Task Button
+        document.getElementById('saveTaskBtn').addEventListener('click', () => {
+            this.saveTask();
+        });
+
+        // Categories Button
+        document.getElementById('categoriesBtn').addEventListener('click', () => {
+            this.showToast('Category filtering coming soon!', 'info');
+        });
+
+        // Sort Button
+        document.getElementById('sortBtn').addEventListener('click', () => {
+            this.showToast('Sort options coming soon!', 'info');
+        });
+
+        // Filter Button
+        document.getElementById('filterBtn').addEventListener('click', () => {
+            this.showToast('Filter options coming soon!', 'info');
+        });
+
+        this.renderTasks();
+    }
+
+    saveTask() {
+        const title = document.getElementById('taskTitle').value.trim();
+        if (!title) {
+            this.showToast('Please enter a task title', 'error');
+            return;
+        }
+
+        const task = {
+            id: Date.now(),
+            title,
+            category: document.getElementById('taskCategory').value,
+            priority: document.getElementById('taskPriority').value,
+            dueDate: document.getElementById('taskDueDate').value,
+            dueTime: document.getElementById('taskDueTime').value,
+            notes: document.getElementById('taskNotes').value,
+            completed: false,
+            createdAt: new Date().toISOString()
+        };
+
+        this.tasks.push(task);
+        this.saveToLocalStorage();
+        this.renderTasks();
+        this.clearTaskForm();
+        document.getElementById('taskInputArea').style.display = 'none';
+        this.showToast('Task added successfully!', 'success');
+        this.updateDashboard();
+    }
+
+    clearTaskForm() {
+        document.getElementById('taskTitle').value = '';
+        document.getElementById('taskCategory').value = '';
+        document.getElementById('taskPriority').value = 'medium';
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('taskDueDate').value = today;
+        document.getElementById('taskDueTime').value = '';
+        document.getElementById('taskNotes').value = '';
+    }
+
+    renderTasks() {
+        const container = document.getElementById('tasksTimeline');
+        
+        if (this.tasks.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state-large">
+                    <div class="empty-icon-large">✓</div>
+                    <h3>No Tasks Yet</h3>
+                    <p>Click "Add Task" to create your first task</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Group tasks by date
+        const grouped = this.groupTasksByDate(this.tasks);
+        
+        container.innerHTML = Object.keys(grouped).map(dateKey => {
+            const tasks = grouped[dateKey];
+            const isToday = dateKey === new Date().toDateString();
+            
+            return `
+                <div class="day-section">
+                    <div class="day-header">
+                        <span class="day-label">
+                            ${this.formatDateLabel(dateKey)}
+                            ${isToday ? '<span class="today-badge">Today</span>' : ''}
+                        </span>
+                        <span class="task-count">${tasks.length} task${tasks.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div class="tasks-list">
+                        ${tasks.map(task => this.renderTaskItem(task)).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Add event listeners
+        this.attachTaskEventListeners();
+    }
+
+    renderTaskItem(task) {
+        return `
+            <div class="task-item" data-task-id="${task.id}">
+                <div class="task-checkbox">
+                    <input type="checkbox" 
+                           id="task-${task.id}" 
+                           ${task.completed ? 'checked' : ''}
+                           onchange="app.toggleTask(${task.id})" />
+                    <label for="task-${task.id}"></label>
+                </div>
+                <div class="task-content">
+                    <div class="task-title-text ${task.completed ? 'completed' : ''}">${this.escapeHtml(task.title)}</div>
+                    <div class="task-badges">
+                        ${task.category ? `<span class="badge badge-category">${task.category}</span>` : ''}
+                        ${task.priority === 'urgent' ? `<span class="badge badge-urgent">Urgent</span>` : ''}
+                        ${task.priority === 'high' ? `<span class="badge badge-high">High</span>` : ''}
+                    </div>
+                </div>
+                <div class="task-actions">
+                    <button class="task-action-btn" onclick="app.editTask(${task.id})" title="Edit">
+                        <span>✏️</span>
+                    </button>
+                    <button class="task-action-btn delete" onclick="app.deleteTask(${task.id})" title="Delete">
+                        <span>🗑️</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    attachTaskEventListeners() {
+        // Event listeners are handled via inline onclick for simplicity
+    }
+
+    groupTasksByDate(tasks) {
+        const grouped = {};
+        
+        tasks.forEach(task => {
+            const date = task.dueDate ? new Date(task.dueDate).toDateString() : 'No Date';
+            if (!grouped[date]) {
+                grouped[date] = [];
+            }
+            grouped[date].push(task);
+        });
+
+        return grouped;
+    }
+
+    formatDateLabel(dateStr) {
+        if (dateStr === 'No Date') return dateStr;
+        const date = new Date(dateStr);
+        const options = { weekday: 'short', month: 'short', day: 'numeric' };
+        return date.toLocaleDateString('en-US', options);
+    }
+
+    toggleTask(taskId) {
+        const task = this.tasks.find(t => t.id === taskId);
+        if (task) {
+            task.completed = !task.completed;
+            if (task.completed) {
+                task.completedAt = new Date().toISOString();
+            } else {
+                delete task.completedAt;
+            }
+            this.saveToLocalStorage();
+            this.renderTasks();
+            this.updateDashboard();
+        }
+    }
+
+    editTask(taskId) {
+        this.showToast('Edit functionality coming soon!', 'info');
+    }
+
+    deleteTask(taskId) {
+        if (confirm('Are you sure you want to delete this task?')) {
+            this.tasks = this.tasks.filter(t => t.id !== taskId);
+            this.saveToLocalStorage();
+            this.renderTasks();
+            this.updateDashboard();
+            this.showToast('Task deleted', 'success');
+        }
+    }
+
+    // ====================================
+    // STUDY TIMER
+    // ====================================
+
+    setupTimer() {
+        // Preset buttons
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const minutes = parseInt(e.currentTarget.dataset.minutes);
+                this.setTimerMinutes(minutes);
+                
+                // Update active state
+                document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+            });
+        });
+
+        // Custom time input
+        document.getElementById('setCustomTimeBtn').addEventListener('click', () => {
+            const minutes = parseInt(document.getElementById('customMinutes').value);
+            if (minutes && minutes > 0 && minutes <= 180) {
+                this.setTimerMinutes(minutes);
+                document.getElementById('customMinutes').value = '';
+            } else {
+                this.showToast('Please enter a valid time (1-180 minutes)', 'error');
+            }
+        });
+
+        // Control buttons
+        document.getElementById('timerStartBtn').addEventListener('click', () => this.toggleTimer());
+        document.getElementById('timerResetBtn').addEventListener('click', () => this.resetTimer());
+        document.getElementById('timerSkipBtn').addEventListener('click', () => this.skipTimer());
+
+        this.updateTimerDisplay();
+    }
+
+    setTimerMinutes(minutes) {
+        if (this.timerState.isRunning) {
+            this.pauseTimer();
+        }
+        this.timerState.currentTime = minutes * 60;
+        this.timerState.totalTime = minutes * 60;
+        this.updateTimerDisplay();
+    }
+
+    toggleTimer() {
+        if (this.timerState.isRunning) {
+            this.pauseTimer();
+        } else {
+            this.startTimer();
+        }
+    }
+
+    startTimer() {
+        this.timerState.isRunning = true;
+        this.timerState.isPaused = false;
+        
+        const startBtn = document.getElementById('timerStartBtn');
+        startBtn.innerHTML = '<span>⏸</span> Pause';
+        
+        document.getElementById('timerStatus').textContent = 'Focus time! 🎯';
+
+        this.timerState.intervalId = setInterval(() => {
+            this.timerState.currentTime--;
+            this.updateTimerDisplay();
+
+            if (this.timerState.currentTime <= 0) {
+                this.completeTimer();
+            }
+        }, 1000);
+    }
+
+    pauseTimer() {
+        this.timerState.isRunning = false;
+        this.timerState.isPaused = true;
+        clearInterval(this.timerState.intervalId);
+
+        const startBtn = document.getElementById('timerStartBtn');
+        startBtn.innerHTML = '<span>▶</span> Resume';
+        
+        document.getElementById('timerStatus').textContent = 'Paused';
+    }
+
+    resetTimer() {
+        this.timerState.isRunning = false;
+        this.timerState.isPaused = false;
+        clearInterval(this.timerState.intervalId);
+
+        this.timerState.currentTime = this.timerState.totalTime;
+        
+        const startBtn = document.getElementById('timerStartBtn');
+        startBtn.innerHTML = '<span>▶</span> Start';
+        
+        document.getElementById('timerStatus').textContent = 'Ready to focus 🎯';
+        
+        this.updateTimerDisplay();
+    }
+
+    skipTimer() {
+        if (confirm('Skip this session?')) {
+            this.resetTimer();
+            this.showToast('Session skipped', 'info');
+        }
+    }
+
+    completeTimer() {
+        clearInterval(this.timerState.intervalId);
+        this.timerState.isRunning = false;
+
+        // Save session
+        const session = {
+            id: Date.now(),
+            duration: this.timerState.totalTime,
+            notes: document.getElementById('sessionNotes').value,
+            completedAt: new Date().toISOString()
+        };
+        this.sessions.push(session);
+        this.saveToLocalStorage();
+
+        // Reset timer
+        this.resetTimer();
+
+        // Show completion notification
+        this.showToast('Session complete! Great work! 🎉', 'success');
+        
+        // Play sound if enabled
+        if (this.settings.soundEffects) {
+            this.playCompletionSound();
+        }
+
+        // Clear notes
+        document.getElementById('sessionNotes').value = '';
+
+        // Update stats
+        this.updateTimerStats();
+        this.updateDashboard();
+    }
+
+    updateTimerDisplay() {
+        const minutes = Math.floor(this.timerState.currentTime / 60);
+        const seconds = this.timerState.currentTime % 60;
+        const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        document.getElementById('timerDisplay').textContent = display;
+
+        // Update progress circle
+        const progress = (this.timerState.currentTime / this.timerState.totalTime) * 534;
+        const circle = document.getElementById('timerProgress');
+        circle.style.strokeDashoffset = 534 - progress;
+    }
+
+    updateTimerStats() {
+        const todaySessions = this.sessions.filter(s => this.isToday(s.completedAt));
+        const totalTime = todaySessions.reduce((sum, s) => sum + s.duration, 0);
+        const avgTime = todaySessions.length > 0 ? totalTime / todaySessions.length : 0;
+
+        document.getElementById('totalTimeToday').textContent = this.formatTime(totalTime);
+        document.getElementById('sessionsCount').textContent = todaySessions.length;
+        document.getElementById('avgSession').textContent = `${Math.round(avgTime / 60)}m`;
+
+        this.renderSessionHistory(todaySessions);
+    }
+
+    renderSessionHistory(sessions) {
+        const container = document.getElementById('sessionHistory');
+        
+        if (sessions.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state-small">
+                    <div class="empty-icon-small">⏱️</div>
+                    <p>No sessions yet</p>
+                    <small>Start a timer to log your first session</small>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = sessions.map(session => `
+            <div class="session-item">
+                <div class="session-time">${this.formatTime(session.duration)}</div>
+                <div class="session-timestamp">${new Date(session.completedAt).toLocaleTimeString()}</div>
+                ${session.notes ? `<div class="session-notes">${this.escapeHtml(session.notes)}</div>` : ''}
+            </div>
+        `).join('');
+    }
+
+    playCompletionSound() {
+        // Implement sound playback
+    }
+
+    // ====================================
+    // DECKS
+    // ====================================
+
+    setupDecks() {
+        document.getElementById('addDeckBtn').addEventListener('click', () => this.openDeckModal());
+        document.getElementById('closeDeckModal').addEventListener('click', () => this.closeDeckModal());
+        document.getElementById('cancelDeckBtn').addEventListener('click', () => this.closeDeckModal());
+        document.getElementById('saveDeckBtn').addEventListener('click', () => this.saveDeck());
+
+        document.getElementById('importDeckBtn').addEventListener('click', () => {
+            this.showToast('Import functionality coming soon!', 'info');
+        });
+
+        document.getElementById('exportDecksBtn').addEventListener('click', () => {
+            this.exportDecks();
+        });
+
+        this.renderDecks();
+    }
+
+    openDeckModal() {
+        document.getElementById('deckModal').classList.add('active');
+    }
+
+    closeDeckModal() {
+        document.getElementById('deckModal').classList.remove('active');
+        this.clearDeckForm();
+    }
+
+    clearDeckForm() {
+        document.getElementById('deckName').value = '';
+        document.getElementById('deckDescription').value = '';
+        document.getElementById('deckCategory').value = 'study';
+    }
+
+    async saveDeck() {
+        const name = document.getElementById('deckName').value.trim();
+        if (!name) {
+            this.showToast('Please enter a deck name', 'error');
+            return;
+        }
+
+        const deck = {
+            id: Date.now(),
+            name,
+            description: document.getElementById('deckDescription').value,
+            category: document.getElementById('deckCategory').value,
+            cards: [],
+            createdAt: new Date().toISOString()
+        };
+
+        try {
+            // Try to save to API
+            const response = await fetch('/api/decks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(deck)
+            });
+
+            if (response.ok) {
+                this.decks.push(deck);
+                this.saveToLocalStorage();
+                this.renderDecks();
+                this.closeDeckModal();
+                this.showToast('Deck created successfully!', 'success');
+            }
+        } catch (error) {
+            console.error('Error saving deck:', error);
+            // Save locally anyway
+            this.decks.push(deck);
+            this.saveToLocalStorage();
+            this.renderDecks();
+            this.closeDeckModal();
+            this.showToast('Deck created (offline)', 'info');
+        }
+    }
+
+    renderDecks() {
+        const container = document.getElementById('decksGrid');
+        
+        if (this.decks.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state-large">
+                    <div class="empty-icon-large">🗂️</div>
+                    <h3>No Decks Yet</h3>
+                    <p>Create your first deck to organize your study materials</p>
+                    <button class="btn btn-primary mt-1" onclick="app.openDeckModal()">
+                        <span>+</span> Create Deck
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = this.decks.map(deck => `
+            <div class="deck-card">
+                <h3>${this.escapeHtml(deck.name)}</h3>
+                <p>${this.escapeHtml(deck.description || 'No description')}</p>
+                <div class="deck-meta">
+                    <span>${deck.cards?.length || 0} cards</span>
+                    <span>${deck.category}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    exportDecks() {
+        const data = JSON.stringify(this.decks, null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `focusdeck-backup-${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `focusdeck-decks-${Date.now()}.json`;
         a.click();
         URL.revokeObjectURL(url);
+        this.showToast('Decks exported!', 'success');
+    }
+
+    // ====================================
+    // SETTINGS
+    // ====================================
+
+    setupSettings() {
+        document.getElementById('apiEndpoint').textContent = window.location.origin + '/api';
+
+        document.getElementById('clearCacheBtn').addEventListener('click', () => {
+            if (confirm('Clear all cached data?')) {
+                localStorage.clear();
+                this.showToast('Cache cleared', 'success');
+            }
+        });
+
+        document.getElementById('exportDataBtn').addEventListener('click', () => {
+            this.exportAllData();
+        });
+
+        document.getElementById('resetDataBtn').addEventListener('click', () => {
+            if (confirm('⚠️ This will delete ALL your data. Are you sure?')) {
+                this.tasks = [];
+                this.decks = [];
+                this.sessions = [];
+                this.saveToLocalStorage();
+                this.showToast('All data reset', 'info');
+                window.location.reload();
+            }
+        });
+
+        // Save settings on change
+        ['themeSetting', 'notificationsSetting', 'soundSetting', 'pomodoroDefault', 'shortBreakDefault', 'autoStartBreaks'].forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('change', () => this.saveSettings());
+            }
+        });
+    }
+
+    exportAllData() {
+        const data = {
+            tasks: this.tasks,
+            decks: this.decks,
+            sessions: this.sessions,
+            settings: this.settings,
+            exportedAt: new Date().toISOString()
+        };
+
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `focusdeck-backup-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.showToast('Data exported!', 'success');
+    }
+
+    // ====================================
+    // DATA MANAGEMENT
+    // ====================================
+
+    async loadFromAPI() {
+        try {
+            const response = await fetch('/api/decks');
+            if (response.ok) {
+                const apiDecks = await response.json();
+                // Merge with local decks
+                this.decks = [...apiDecks, ...this.decks];
+                this.renderDecks();
+            }
+        } catch (error) {
+            console.log('Loading from local storage only');
+        }
+
+        this.loadFromLocalStorage();
+    }
+
+    loadFromLocalStorage() {
+        try {
+            const data = localStorage.getItem('focusdeck-data');
+            if (data) {
+                const parsed = JSON.parse(data);
+                this.tasks = parsed.tasks || [];
+                this.sessions = parsed.sessions || [];
+                
+                this.renderTasks();
+                this.updateDashboard();
+                this.updateTimerStats();
+            }
+        } catch (error) {
+            console.error('Error loading from localStorage:', error);
+        }
+    }
+
+    saveToLocalStorage() {
+        try {
+            const data = {
+                tasks: this.tasks,
+                decks: this.decks,
+                sessions: this.sessions
+            };
+            localStorage.setItem('focusdeck-data', JSON.stringify(data));
+        } catch (error) {
+            console.error('Error saving to localStorage:', error);
+        }
+    }
+
+    loadSettings() {
+        try {
+            const saved = localStorage.getItem('focusdeck-settings');
+            return saved ? JSON.parse(saved) : {
+                theme: 'dark',
+                notifications: true,
+                soundEffects: true,
+                pomodoroDefault: 25,
+                shortBreak: 5,
+                autoStartBreaks: false
+            };
+        } catch (error) {
+            return {};
+        }
+    }
+
+    saveSettings() {
+        const settings = {
+            theme: document.getElementById('themeSetting')?.value,
+            notifications: document.getElementById('notificationsSetting')?.checked,
+            soundEffects: document.getElementById('soundSetting')?.checked,
+            pomodoroDefault: parseInt(document.getElementById('pomodoroDefault')?.value),
+            shortBreak: parseInt(document.getElementById('shortBreakDefault')?.value),
+            autoStartBreaks: document.getElementById('autoStartBreaks')?.checked
+        };
+
+        this.settings = settings;
+        localStorage.setItem('focusdeck-settings', JSON.stringify(settings));
+        this.showToast('Settings saved', 'success');
+    }
+
+    // ====================================
+    // UTILITIES
+    // ====================================
+
+    showToast(message, type = 'info') {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = `toast ${type} show`;
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+
+    formatTime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
         
-        showAlert('Data exported successfully!', 'success');
-    } catch (error) {
-        console.error('Error exporting data:', error);
-        showAlert('Error exporting data: ' + error.message, 'error');
+        if (hours > 0) {
+            return `${hours}h ${minutes}m`;
+        }
+        return `${minutes}m`;
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 
-// Clear All Data
-async function clearAllData() {
-    if (!confirm('⚠️ WARNING: This will delete ALL decks permanently! Are you absolutely sure?')) {
-        return;
-    }
-
-    if (!confirm('Last chance! This action CANNOT be undone. Delete everything?')) {
-        return;
-    }
-
-    try {
-        // Delete all decks one by one
-        const deletePromises = decks.map(deck => 
-            fetch(`${API_BASE}/decks/${deck.id}`, { method: 'DELETE' })
-        );
-        
-        await Promise.all(deletePromises);
-        
-        showAlert('All data cleared successfully!', 'success');
-        loadDecks();
-    } catch (error) {
-        console.error('Error clearing data:', error);
-        showAlert('Error clearing data: ' + error.message, 'error');
-    }
-}
-
-// Utility: Escape HTML
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// Close modal when clicking outside
-document.getElementById('deckModal').addEventListener('click', (e) => {
-    if (e.target.id === 'deckModal') {
-        closeModal();
-    }
+// Initialize app
+let app;
+document.addEventListener('DOMContentLoaded', () => {
+    app = new FocusDeckApp();
 });

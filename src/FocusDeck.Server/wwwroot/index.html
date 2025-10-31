@@ -3,520 +3,645 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FocusDeck Server - Admin Panel</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        header {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 20px 30px;
-            border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            margin-bottom: 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        h1 {
-            color: #667eea;
-            font-size: 28px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            color: #555;
-        }
-
-        .status-indicator {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #4ade80;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        .tabs {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 15px 30px;
-            border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-            display: flex;
-            gap: 10px;
-            overflow-x: auto;
-        }
-
-        .tab {
-            padding: 10px 20px;
-            border: none;
-            background: transparent;
-            color: #666;
-            cursor: pointer;
-            border-radius: 8px;
-            font-size: 15px;
-            font-weight: 500;
-            transition: all 0.3s;
-            white-space: nowrap;
-        }
-
-        .tab:hover {
-            background: #f0f0f0;
-        }
-
-        .tab.active {
-            background: #667eea;
-            color: white;
-        }
-
-        .content {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            min-height: 400px;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .actions {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-
-        button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-        }
-
-        .btn-danger {
-            background: #ef4444;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #dc2626;
-        }
-
-        .btn-success {
-            background: #10b981;
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #059669;
-        }
-
-        .card {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 15px;
-            transition: all 0.3s;
-        }
-
-        .card:hover {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            transform: translateY(-2px);
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .card-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #333;
-        }
-
-        .card-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .btn-small {
-            padding: 5px 12px;
-            font-size: 12px;
-        }
-
-        input, textarea, select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            font-size: 14px;
-            margin-bottom: 15px;
-            font-family: inherit;
-        }
-
-        input:focus, textarea:focus, select:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 5px;
-            color: #555;
-            font-weight: 500;
-            font-size: 14px;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #999;
-        }
-
-        .empty-state-icon {
-            font-size: 48px;
-            margin-bottom: 10px;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .modal-title {
-            font-size: 22px;
-            font-weight: 600;
-            color: #333;
-        }
-
-        .close-modal {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #999;
-        }
-
-        .close-modal:hover {
-            color: #333;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-
-        .stat-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 12px;
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 36px;
-            font-weight: 700;
-            margin-bottom: 5px;
-        }
-
-        .stat-label {
-            font-size: 14px;
-            opacity: 0.9;
-        }
-
-        .config-section {
-            margin-bottom: 30px;
-        }
-
-        .config-section h3 {
-            color: #667eea;
-            margin-bottom: 15px;
-            font-size: 18px;
-        }
-
-        .alert {
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-        }
-
-        .alert-success {
-            background: #d1fae5;
-            color: #065f46;
-            border: 1px solid #6ee7b7;
-        }
-
-        .alert-error {
-            background: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #fca5a5;
-        }
-
-        .alert-info {
-            background: #dbeafe;
-            color: #1e40af;
-            border: 1px solid #93c5fd;
-        }
-    </style>
+    <title>FocusDeck - Web App</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>
-                <span>🎯</span>
-                FocusDeck Server Admin
-            </h1>
-            <div class="status">
-                <span class="status-indicator"></span>
-                <span>Server Online</span>
-            </div>
-        </header>
-
-        <div class="tabs">
-            <button class="tab active" onclick="switchTab('dashboard')">Dashboard</button>
-            <button class="tab" onclick="switchTab('decks')">Decks</button>
-            <button class="tab" onclick="switchTab('config')">Configuration</button>
-            <button class="tab" onclick="switchTab('api')">API Info</button>
-        </div>
-
-        <div class="content">
-            <!-- Dashboard Tab -->
-            <div id="dashboard" class="tab-content active">
-                <h2 style="margin-bottom: 20px; color: #333;">Server Statistics</h2>
-                <div class="stats">
-                    <div class="stat-card">
-                        <div class="stat-value" id="deckCount">0</div>
-                        <div class="stat-label">Total Decks</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="cardCount">0</div>
-                        <div class="stat-label">Total Cards</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">0</div>
-                        <div class="stat-label">Active Users</div>
-                    </div>
-                </div>
-
-                <div class="alert alert-info">
-                    <strong>Welcome!</strong> This is your FocusDeck server admin panel. Manage your decks, configure settings, and monitor your server from here.
-                </div>
-            </div>
-
-            <!-- Decks Tab -->
-            <div id="decks" class="tab-content">
-                <div class="actions">
-                    <button class="btn-primary" onclick="showCreateDeckModal()">➕ Create New Deck</button>
-                    <button class="btn-success" onclick="loadDecks()">🔄 Refresh</button>
-                </div>
-                <div id="decksList"></div>
-            </div>
-
-            <!-- Configuration Tab -->
-            <div id="config" class="tab-content">
-                <div class="config-section">
-                    <h3>Server Settings</h3>
-                    <label>Server Port</label>
-                    <input type="number" id="serverPort" value="5000" placeholder="5000">
-                    
-                    <label>Environment</label>
-                    <select id="environment">
-                        <option value="Development">Development</option>
-                        <option value="Production" selected>Production</option>
-                    </select>
-                    
-                    <label>Max Decks per User</label>
-                    <input type="number" id="maxDecks" value="100" placeholder="100">
-                </div>
-
-                <div class="config-section">
-                    <h3>Data Management</h3>
-                    <div class="actions">
-                        <button class="btn-success" onclick="exportData()">📥 Export All Data</button>
-                        <button class="btn-danger" onclick="clearAllData()">🗑️ Clear All Data</button>
-                    </div>
-                    <div class="alert alert-info">
-                        <strong>Note:</strong> Currently using in-memory storage. Data will be lost on server restart. Consider adding a database for persistence.
-                    </div>
-                </div>
-
-                <div class="config-section">
-                    <h3>Security</h3>
-                    <label>Enable API Authentication</label>
-                    <select id="enableAuth">
-                        <option value="false" selected>Disabled</option>
-                        <option value="true">Enabled</option>
-                    </select>
-                    <div class="alert alert-info">
-                        <strong>Security Warning:</strong> This server currently has no authentication. Anyone can access your data. Enable authentication in production!
-                    </div>
-                </div>
-
-                <button class="btn-primary" onclick="saveConfig()">💾 Save Configuration</button>
-            </div>
-
-            <!-- API Info Tab -->
-            <div id="api" class="tab-content">
-                <h2 style="margin-bottom: 20px; color: #333;">API Endpoints</h2>
-                
-                <div class="card">
-                    <div class="card-header">
-                        <span class="card-title">GET /api/decks</span>
-                        <span style="background: #10b981; color: white; padding: 4px 12px; border-radius: 6px; font-size: 12px;">GET</span>
-                    </div>
-                    <p style="color: #666; margin-bottom: 10px;">Retrieve all decks</p>
-                    <code style="background: #f3f4f6; padding: 8px; border-radius: 6px; display: block;">curl http://localhost:5000/api/decks</code>
-                </div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <span class="card-title">GET /api/decks/{id}</span>
-                        <span style="background: #10b981; color: white; padding: 4px 12px; border-radius: 6px; font-size: 12px;">GET</span>
-                    </div>
-                    <p style="color: #666; margin-bottom: 10px;">Retrieve a specific deck by ID</p>
-                    <code style="background: #f3f4f6; padding: 8px; border-radius: 6px; display: block;">curl http://localhost:5000/api/decks/{id}</code>
-                </div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <span class="card-title">POST /api/decks</span>
-                        <span style="background: #3b82f6; color: white; padding: 4px 12px; border-radius: 6px; font-size: 12px;">POST</span>
-                    </div>
-                    <p style="color: #666; margin-bottom: 10px;">Create a new deck</p>
-                    <code style="background: #f3f4f6; padding: 8px; border-radius: 6px; display: block; white-space: pre-wrap;">curl -X POST http://localhost:5000/api/decks \
-  -H "Content-Type: application/json" \
-  -d '{"name":"My Deck","cards":["Card 1","Card 2"]}'</code>
-                </div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <span class="card-title">PUT /api/decks/{id}</span>
-                        <span style="background: #f59e0b; color: white; padding: 4px 12px; border-radius: 6px; font-size: 12px;">PUT</span>
-                    </div>
-                    <p style="color: #666; margin-bottom: 10px;">Update an existing deck</p>
-                    <code style="background: #f3f4f6; padding: 8px; border-radius: 6px; display: block; white-space: pre-wrap;">curl -X PUT http://localhost:5000/api/decks/{id} \
-  -H "Content-Type: application/json" \
-  -d '{"id":"{id}","name":"Updated","cards":[]}'</code>
-                </div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <span class="card-title">DELETE /api/decks/{id}</span>
-                        <span style="background: #ef4444; color: white; padding: 4px 12px; border-radius: 6px; font-size: 12px;">DELETE</span>
-                    </div>
-                    <p style="color: #666; margin-bottom: 10px;">Delete a deck</p>
-                    <code style="background: #f3f4f6; padding: 8px; border-radius: 6px; display: block;">curl -X DELETE http://localhost:5000/api/decks/{id}</code>
-                </div>
-            </div>
-        </div>
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading FocusDeck...</div>
     </div>
 
-    <!-- Create/Edit Deck Modal -->
+    <!-- Main Container -->
+    <div id="app" class="app-container" style="display: none;">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">🎯</div>
+                    <span class="logo-text">FocusDeck</span>
+                </div>
+                <div class="status-indicator online" title="Server Online"></div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" data-view="dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-label">Dashboard</span>
+                </button>
+                <button class="nav-item" data-view="planner">
+                    <span class="nav-icon">📅</span>
+                    <span class="nav-label">My Day</span>
+                </button>
+                <button class="nav-item" data-view="timer">
+                    <span class="nav-icon">⏱️</span>
+                    <span class="nav-label">Study Timer</span>
+                </button>
+                <button class="nav-item" data-view="decks">
+                    <span class="nav-icon">🗂️</span>
+                    <span class="nav-label">Decks</span>
+                </button>
+                <button class="nav-item" data-view="analytics">
+                    <span class="nav-icon">📈</span>
+                    <span class="nav-label">Analytics</span>
+                </button>
+                <button class="nav-item" data-view="calendar">
+                    <span class="nav-icon">📆</span>
+                    <span class="nav-label">Calendar</span>
+                </button>
+                <button class="nav-item" data-view="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-label">Settings</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="quick-stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="sidebarActiveTasks">2</div>
+                        <div class="stat-label">Active Tasks</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="sidebarCompletedToday">0</div>
+                        <div class="stat-label">Today</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value completion-rate" id="sidebarCompletionRate">0%</div>
+                        <div class="stat-label">Rate</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Dashboard View -->
+            <div id="dashboardView" class="view active">
+                <header class="view-header">
+                    <h1 class="view-title">Dashboard</h1>
+                    <div class="header-actions">
+                        <div class="date-time">
+                            <div id="currentDate" class="current-date"></div>
+                            <div id="currentTime" class="current-time"></div>
+                        </div>
+                    </div>
+                </header>
+
+                <div class="dashboard-grid">
+                    <!-- Quick Stats Cards -->
+                    <div class="card stats-card">
+                        <h2 class="card-title">Today's Overview</h2>
+                        <div class="stats-grid">
+                            <div class="stat-box">
+                                <div class="stat-icon">✓</div>
+                                <div class="stat-info">
+                                    <div class="stat-number" id="dashCompletedTasks">0</div>
+                                    <div class="stat-text">Completed</div>
+                                </div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-icon">⏰</div>
+                                <div class="stat-info">
+                                    <div class="stat-number" id="dashStudyTime">0h</div>
+                                    <div class="stat-text">Study Time</div>
+                                </div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-icon">🔥</div>
+                                <div class="stat-info">
+                                    <div class="stat-number" id="dashStreak">0</div>
+                                    <div class="stat-text">Streak</div>
+                                </div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-icon">🎯</div>
+                                <div class="stat-info">
+                                    <div class="stat-number" id="dashProductivity">0%</div>
+                                    <div class="stat-text">Focus</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="card quick-actions-card">
+                        <h2 class="card-title">Quick Actions</h2>
+                        <div class="quick-actions-grid">
+                            <button class="quick-action-btn" data-action="start-timer">
+                                <span class="qa-icon">▶</span>
+                                <span class="qa-label">Start Timer</span>
+                            </button>
+                            <button class="quick-action-btn" data-action="add-task">
+                                <span class="qa-icon">+</span>
+                                <span class="qa-label">Add Task</span>
+                            </button>
+                            <button class="quick-action-btn" data-action="new-deck">
+                                <span class="qa-icon">🗂️</span>
+                                <span class="qa-label">New Deck</span>
+                            </button>
+                            <button class="quick-action-btn" data-action="view-calendar">
+                                <span class="qa-icon">📅</span>
+                                <span class="qa-label">Calendar</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="card activity-card">
+                        <h2 class="card-title">Recent Activity</h2>
+                        <div id="recentActivity" class="activity-list">
+                            <div class="empty-state">
+                                <div class="empty-icon">📝</div>
+                                <p>No recent activity</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Planner View (My Day) -->
+            <div id="plannerView" class="view">
+                <header class="view-header">
+                    <div>
+                        <h1 class="view-title">My Day</h1>
+                        <p class="view-subtitle" id="plannerSubtitle">Showing tasks for the next 7 days</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="categoriesBtn">
+                            <span>📁</span> Categories
+                        </button>
+                        <button class="btn btn-secondary" id="sortBtn">
+                            <span>⬇</span> Sort
+                        </button>
+                        <button class="btn btn-secondary" id="filterBtn">
+                            <span>🔍</span> Filter
+                        </button>
+                        <button class="btn btn-primary" id="addTaskBtn">
+                            <span>+</span> Add Task
+                        </button>
+                    </div>
+                </header>
+
+                <div class="planner-layout">
+                    <!-- Task Input Area -->
+                    <div class="task-input-area" id="taskInputArea" style="display: none;">
+                        <div class="card">
+                            <div class="task-form">
+                                <input type="text" id="taskTitle" class="input-field" placeholder="Task title" autofocus />
+                                <div class="form-row">
+                                    <select id="taskCategory" class="select-field">
+                                        <option value="">No Category</option>
+                                        <option value="work">Work</option>
+                                        <option value="study">Study</option>
+                                        <option value="personal">Personal</option>
+                                        <option value="urgent">Urgent</option>
+                                    </select>
+                                    <select id="taskPriority" class="select-field">
+                                        <option value="low">Low Priority</option>
+                                        <option value="medium" selected>Medium Priority</option>
+                                        <option value="high">High Priority</option>
+                                        <option value="urgent">Urgent</option>
+                                    </select>
+                                    <input type="date" id="taskDueDate" class="input-field" />
+                                    <input type="time" id="taskDueTime" class="input-field" />
+                                </div>
+                                <textarea id="taskNotes" class="textarea-field" placeholder="Add notes..." rows="3"></textarea>
+                                <div class="form-actions">
+                                    <button class="btn btn-secondary" id="cancelTaskBtn">Cancel</button>
+                                    <button class="btn btn-primary" id="saveTaskBtn">Save Task</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tasks Timeline -->
+                    <div class="tasks-container">
+                        <div id="tasksTimeline" class="tasks-timeline">
+                            <!-- Sample task for UI preview -->
+                            <div class="day-section">
+                                <div class="day-header">
+                                    <span class="day-label">Thu Oct 30 <span class="today-badge">Today</span></span>
+                                    <span class="task-count">1 task</span>
+                                </div>
+                                <div class="tasks-list">
+                                    <div class="task-item">
+                                        <div class="task-checkbox">
+                                            <input type="checkbox" id="task-sample" />
+                                            <label for="task-sample"></label>
+                                        </div>
+                                        <div class="task-content">
+                                            <div class="task-title-text">tests</div>
+                                            <div class="task-badges">
+                                                <span class="badge badge-today">today</span>
+                                            </div>
+                                        </div>
+                                        <div class="task-actions">
+                                            <button class="task-action-btn" title="Edit">
+                                                <span>✏️</span>
+                                            </button>
+                                            <button class="task-action-btn delete" title="Delete">
+                                                <span>🗑️</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sidebar Stats in Planner -->
+                    <aside class="planner-sidebar">
+                        <div class="card">
+                            <h3 class="card-title-small">QUICK STATS</h3>
+                            <div class="sidebar-stats">
+                                <div class="sidebar-stat">
+                                    <div class="sidebar-stat-value active-color" id="plannerActiveTasks">2</div>
+                                    <div class="sidebar-stat-label">Active Tasks</div>
+                                </div>
+                                <div class="sidebar-stat">
+                                    <div class="sidebar-stat-value completed-color" id="plannerCompletedToday">0</div>
+                                    <div class="sidebar-stat-label">Completed Today</div>
+                                </div>
+                                <div class="sidebar-stat">
+                                    <div class="sidebar-stat-value completion-color" id="plannerCompletionRate">0%</div>
+                                    <div class="sidebar-stat-label">Completion Rate</div>
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+
+            <!-- Study Timer View -->
+            <div id="timerView" class="view">
+                <header class="view-header">
+                    <h1 class="view-title">Study Timer</h1>
+                </header>
+
+                <div class="timer-layout">
+                    <div class="timer-main">
+                        <div class="card timer-card">
+                            <div class="timer-display-wrapper">
+                                <svg class="timer-circle" viewBox="0 0 200 200">
+                                    <circle class="timer-circle-bg" cx="100" cy="100" r="85" />
+                                    <circle class="timer-circle-progress" id="timerProgress" cx="100" cy="100" r="85" />
+                                </svg>
+                                <div class="timer-display" id="timerDisplay">25:00</div>
+                                <div class="timer-label" id="timerLabel">Pomodoro</div>
+                            </div>
+
+                            <div class="timer-status" id="timerStatus">Ready to focus 🎯</div>
+
+                            <div class="timer-controls">
+                                <button class="btn btn-icon" id="timerResetBtn" title="Reset">
+                                    <span>↻</span>
+                                </button>
+                                <button class="btn btn-primary btn-large" id="timerStartBtn">
+                                    <span>▶</span> Start
+                                </button>
+                                <button class="btn btn-icon" id="timerSkipBtn" title="Skip">
+                                    <span>⏭</span>
+                                </button>
+                            </div>
+
+                            <div class="timer-presets">
+                                <button class="preset-btn" data-minutes="15">15 min</button>
+                                <button class="preset-btn active" data-minutes="25">25 min</button>
+                                <button class="preset-btn" data-minutes="45">45 min</button>
+                                <button class="preset-btn" data-minutes="60">60 min</button>
+                            </div>
+
+                            <div class="custom-time-input">
+                                <input type="number" id="customMinutes" class="input-field-small" placeholder="Custom minutes" min="1" max="180" />
+                                <button class="btn btn-secondary btn-small" id="setCustomTimeBtn">Set</button>
+                            </div>
+
+                            <div class="timer-session-notes">
+                                <label class="form-label-small">Session Notes</label>
+                                <textarea id="sessionNotes" class="textarea-field" placeholder="What are you working on?" rows="3"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Session History Sidebar -->
+                    <aside class="timer-sidebar">
+                        <div class="card">
+                            <h2 class="card-title-small">TODAY'S SESSIONS</h2>
+                            <div id="sessionHistory" class="session-history">
+                                <div class="empty-state-small">
+                                    <div class="empty-icon-small">⏱️</div>
+                                    <p>No sessions yet</p>
+                                    <small>Start a timer to log your first session</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card mt-1">
+                            <h2 class="card-title-small">STATISTICS</h2>
+                            <div class="timer-stats">
+                                <div class="timer-stat-item">
+                                    <span class="timer-stat-label">Total Time</span>
+                                    <span class="timer-stat-value" id="totalTimeToday">0h 0m</span>
+                                </div>
+                                <div class="timer-stat-item">
+                                    <span class="timer-stat-label">Sessions</span>
+                                    <span class="timer-stat-value" id="sessionsCount">0</span>
+                                </div>
+                                <div class="timer-stat-item">
+                                    <span class="timer-stat-label">Average</span>
+                                    <span class="timer-stat-value" id="avgSession">0m</span>
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+
+            <!-- Decks View -->
+            <div id="decksView" class="view">
+                <header class="view-header">
+                    <h1 class="view-title">Decks</h1>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="importDeckBtn">
+                            <span>📥</span> Import
+                        </button>
+                        <button class="btn btn-secondary" id="exportDecksBtn">
+                            <span>📤</span> Export
+                        </button>
+                        <button class="btn btn-primary" id="addDeckBtn">
+                            <span>+</span> New Deck
+                        </button>
+                    </div>
+                </header>
+
+                <div class="decks-grid" id="decksGrid">
+                    <div class="empty-state-large">
+                        <div class="empty-icon-large">🗂️</div>
+                        <h3>No Decks Yet</h3>
+                        <p>Create your first deck to organize your study materials</p>
+                        <button class="btn btn-primary mt-1" id="createFirstDeck">
+                            <span>+</span> Create Deck
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics View -->
+            <div id="analyticsView" class="view">
+                <header class="view-header">
+                    <h1 class="view-title">Analytics</h1>
+                    <div class="header-actions">
+                        <select class="select-field" id="analyticsTimeRange">
+                            <option value="7">Last 7 days</option>
+                            <option value="30" selected>Last 30 days</option>
+                            <option value="90">Last 90 days</option>
+                        </select>
+                        <button class="btn btn-secondary" id="refreshAnalyticsBtn">
+                            <span>↻</span> Refresh
+                        </button>
+                    </div>
+                </header>
+
+                <div class="analytics-grid">
+                    <div class="card analytics-overview">
+                        <h2 class="card-title">Overview</h2>
+                        <div class="analytics-overview-grid">
+                            <div class="analytics-stat">
+                                <div class="analytics-stat-icon">⏱️</div>
+                                <div class="analytics-stat-content">
+                                    <div class="analytics-stat-value" id="totalStudyTime">0h 0m</div>
+                                    <div class="analytics-stat-label">Total Study Time</div>
+                                </div>
+                            </div>
+                            <div class="analytics-stat">
+                                <div class="analytics-stat-icon">✓</div>
+                                <div class="analytics-stat-content">
+                                    <div class="analytics-stat-value" id="totalTasksCompleted">0</div>
+                                    <div class="analytics-stat-label">Tasks Completed</div>
+                                </div>
+                            </div>
+                            <div class="analytics-stat">
+                                <div class="analytics-stat-icon">📈</div>
+                                <div class="analytics-stat-content">
+                                    <div class="analytics-stat-value" id="productivityTrend">0%</div>
+                                    <div class="analytics-stat-label">Productivity Trend</div>
+                                </div>
+                            </div>
+                            <div class="analytics-stat">
+                                <div class="analytics-stat-icon">⭐</div>
+                                <div class="analytics-stat-content">
+                                    <div class="analytics-stat-value" id="averageRating">0.0</div>
+                                    <div class="analytics-stat-label">Avg Effectiveness</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h2 class="card-title">Study Time Trend</h2>
+                        <div class="chart-placeholder">
+                            <div class="empty-icon">📊</div>
+                            <p>Start studying to see your trends</p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h2 class="card-title">Category Breakdown</h2>
+                        <div class="chart-placeholder">
+                            <div class="empty-icon">📈</div>
+                            <p>Complete tasks to see breakdown</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calendar View -->
+            <div id="calendarView" class="view">
+                <header class="view-header">
+                    <div>
+                        <h1 class="view-title">Calendar</h1>
+                        <span class="calendar-month-year" id="calendarMonthYear"></span>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="calendarPrevBtn">‹ Prev</button>
+                        <button class="btn btn-secondary" id="calendarTodayBtn">Today</button>
+                        <button class="btn btn-secondary" id="calendarNextBtn">Next ›</button>
+                    </div>
+                </header>
+
+                <div class="calendar-container">
+                    <div class="calendar-grid" id="calendarGrid">
+                        <!-- Calendar will be rendered here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <div id="settingsView" class="view">
+                <header class="view-header">
+                    <h1 class="view-title">Settings</h1>
+                </header>
+
+                <div class="settings-container">
+                    <div class="settings-grid">
+                        <div class="card">
+                            <h2 class="card-title">Appearance</h2>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label class="setting-label">Theme</label>
+                                    <p class="setting-description">Choose your preferred color scheme</p>
+                                </div>
+                                <select class="select-field" id="themeSetting">
+                                    <option value="dark" selected>Dark</option>
+                                    <option value="light">Light</option>
+                                    <option value="auto">Auto</option>
+                                </select>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label class="setting-label">Accent Color</label>
+                                    <p class="setting-description">Primary accent color</p>
+                                </div>
+                                <select class="select-field" id="accentColorSetting">
+                                    <option value="purple" selected>Purple</option>
+                                    <option value="blue">Blue</option>
+                                    <option value="green">Green</option>
+                                    <option value="orange">Orange</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h2 class="card-title">Notifications</h2>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label class="setting-label">Enable Notifications</label>
+                                    <p class="setting-description">Receive timer and task reminders</p>
+                                </div>
+                                <label class="toggle">
+                                    <input type="checkbox" id="notificationsSetting" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label class="setting-label">Sound Effects</label>
+                                    <p class="setting-description">Play sounds for timers and actions</p>
+                                </div>
+                                <label class="toggle">
+                                    <input type="checkbox" id="soundSetting" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h2 class="card-title">Timer Settings</h2>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label class="setting-label">Pomodoro Duration</label>
+                                    <p class="setting-description">Default work session length (minutes)</p>
+                                </div>
+                                <input type="number" class="input-field-small" id="pomodoroDefault" value="25" min="1" max="60" />
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label class="setting-label">Short Break</label>
+                                    <p class="setting-description">Break duration (minutes)</p>
+                                </div>
+                                <input type="number" class="input-field-small" id="shortBreakDefault" value="5" min="1" max="30" />
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label class="setting-label">Auto-start Breaks</label>
+                                    <p class="setting-description">Automatically start break timers</p>
+                                </div>
+                                <label class="toggle">
+                                    <input type="checkbox" id="autoStartBreaks">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h2 class="card-title">Server Info</h2>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label class="setting-label">Status</label>
+                                </div>
+                                <div class="status-badge online">● Online</div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label class="setting-label">API Endpoint</label>
+                                </div>
+                                <code class="code-block" id="apiEndpoint">/api</code>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label class="setting-label">Version</label>
+                                </div>
+                                <span class="version-text">1.0.0</span>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h2 class="card-title">Data Management</h2>
+                            <p class="card-description">Manage your local and server data</p>
+                            <div class="setting-actions">
+                                <button class="btn btn-secondary" id="clearCacheBtn">
+                                    <span>🗑️</span> Clear Cache
+                                </button>
+                                <button class="btn btn-secondary" id="exportDataBtn">
+                                    <span>📤</span> Export All Data
+                                </button>
+                                <button class="btn btn-danger" id="resetDataBtn">
+                                    <span>⚠️</span> Reset All Data
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Deck Modal -->
     <div id="deckModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title" id="modalTitle">Create New Deck</h2>
-                <button class="close-modal" onclick="closeModal()">&times;</button>
+                <h2 class="modal-title" id="deckModalTitle">New Deck</h2>
+                <button class="modal-close" id="closeDeckModal">&times;</button>
             </div>
-            <div id="modalAlert"></div>
-            <form id="deckForm" onsubmit="saveDeck(event)">
-                <input type="hidden" id="deckId">
-                
-                <label>Deck Name *</label>
-                <input type="text" id="deckName" required placeholder="Enter deck name">
-                
-                <label>Cards (one per line)</label>
-                <textarea id="deckCards" rows="10" placeholder="Enter cards, one per line"></textarea>
-                
-                <div class="actions">
-                    <button type="submit" class="btn-primary">💾 Save Deck</button>
-                    <button type="button" class="btn-danger" onclick="closeModal()">Cancel</button>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Deck Name</label>
+                    <input type="text" id="deckName" class="input-field" placeholder="Enter deck name" />
                 </div>
-            </form>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea id="deckDescription" class="textarea-field" placeholder="Enter description (optional)" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select id="deckCategory" class="select-field">
+                        <option value="study">Study</option>
+                        <option value="work">Work</option>
+                        <option value="personal">Personal</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelDeckBtn">Cancel</button>
+                <button class="btn btn-primary" id="saveDeckBtn">Save Deck</button>
+            </div>
         </div>
     </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
 
     <script src="app.js"></script>
 </body>
