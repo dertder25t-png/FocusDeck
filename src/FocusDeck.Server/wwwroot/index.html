@@ -565,6 +565,31 @@
                         </div>
 
                         <div class="card">
+                            <h2 class="card-title">Server Management</h2>
+                            <p class="card-description">Check for updates and manage your server</p>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label class="setting-label">Current Version</label>
+                                    <p class="setting-description">1.0.0 - Dark Theme Release</p>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label class="setting-label">Last Updated</label>
+                                    <p class="setting-description" id="lastUpdateTime">Never</p>
+                                </div>
+                            </div>
+                            <div class="setting-actions">
+                                <button class="btn btn-primary" id="checkUpdatesBtn">
+                                    <span>🔄</span> Check for Updates
+                                </button>
+                                <button class="btn btn-secondary" id="viewUpdateGuideBtn">
+                                    <span>📖</span> Update Guide
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="card">
                             <h2 class="card-title">Server Info</h2>
                             <div class="setting-item">
                                 <div class="setting-info">
@@ -636,6 +661,56 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" id="cancelDeckBtn">Cancel</button>
                 <button class="btn btn-primary" id="saveDeckBtn">Save Deck</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Guide Modal -->
+    <div id="updateModal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2 class="modal-title">🔄 Server Update Guide</h2>
+                <button class="modal-close" id="closeUpdateModal">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                <h3 style="color: var(--accent); margin-bottom: 1rem;">Quick Update (Recommended)</h3>
+                <p style="margin-bottom: 1rem;">SSH into your server and run this single command:</p>
+                <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-bottom: 2rem; position: relative;">
+                    <code style="display: block; color: var(--text-primary); font-size: 13px; line-height: 1.6; word-wrap: break-word;">
+cd ~/FocusDeck && \\<br>
+git pull origin master && \\<br>
+cd src/FocusDeck.Server && \\<br>
+dotnet publish FocusDeck.Server.csproj -c Release -r linux-x64 --self-contained -o ~/focusdeck-server && \\<br>
+sudo systemctl restart focusdeck
+                    </code>
+                    <button class="btn btn-secondary btn-small" id="copyUpdateCmd" style="position: absolute; top: 0.5rem; right: 0.5rem;">
+                        📋 Copy
+                    </button>
+                </div>
+
+                <h3 style="color: var(--accent); margin-bottom: 1rem;">Step-by-Step</h3>
+                <ol style="padding-left: 1.5rem; line-height: 1.8;">
+                    <li><strong>Pull updates:</strong> <code style="background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px;">cd ~/FocusDeck && git pull</code></li>
+                    <li><strong>Rebuild:</strong> <code style="background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px;">cd src/FocusDeck.Server && dotnet publish ...</code></li>
+                    <li><strong>Restart:</strong> <code style="background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px;">sudo systemctl restart focusdeck</code></li>
+                </ol>
+
+                <div style="background: rgba(123, 95, 255, 0.1); border-left: 3px solid var(--accent); padding: 1rem; margin-top: 2rem; border-radius: 4px;">
+                    <strong style="color: var(--accent);">💡 Tip:</strong> Clear your browser cache (Ctrl+Shift+Del) after updating to see the new UI!
+                </div>
+
+                <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px;">
+                    <h4 style="margin-bottom: 0.5rem;">Need Help?</h4>
+                    <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 0.5rem;">View full documentation:</p>
+                    <a href="https://github.com/dertder25t-png/FocusDeck/blob/master/UPDATE_SERVER.md" 
+                       target="_blank" 
+                       style="color: var(--accent); text-decoration: none;">
+                        📖 Complete Update Guide →
+                    </a>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="closeUpdateModalBtn">Got It!</button>
             </div>
         </div>
     </div>

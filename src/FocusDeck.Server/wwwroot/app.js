@@ -135,20 +135,25 @@ class FocusDeckApp {
         const completedToday = this.tasks.filter(t => t.completed && this.isToday(t.completedAt)).length;
         const totalStudyTime = this.getTotalStudyTime();
         
-        document.getElementById('dashCompletedTasks').textContent = completedToday;
-        document.getElementById('dashStudyTime').textContent = this.formatTime(totalStudyTime);
-        document.getElementById('dashStreak').textContent = '0'; // Implement streak logic
-        document.getElementById('dashProductivity').textContent = '0%'; // Implement productivity calculation
+        this.safeSetText('dashCompletedTasks', completedToday);
+        this.safeSetText('dashStudyTime', this.formatTime(totalStudyTime));
+        this.safeSetText('dashStreak', '0'); // Implement streak logic
+        this.safeSetText('dashProductivity', '0%'); // Implement productivity calculation
         
         // Update sidebar stats
         const activeTasks = this.tasks.filter(t => !t.completed).length;
-        document.getElementById('sidebarActiveTasks').textContent = activeTasks;
-        document.getElementById('sidebarCompletedToday').textContent = completedToday;
+        this.safeSetText('sidebarActiveTasks', activeTasks);
+        this.safeSetText('sidebarCompletedToday', completedToday);
         
         const completionRate = this.tasks.length > 0 
             ? Math.round((completedToday / this.tasks.length) * 100)
             : 0;
-        document.getElementById('sidebarCompletionRate').textContent = `${completionRate}%`;
+        this.safeSetText('sidebarCompletionRate', `${completionRate}%`);
+        
+        // Update planner sidebar
+        this.safeSetText('plannerActiveTasks', activeTasks);
+        this.safeSetText('plannerCompletedToday', completedToday);
+        this.safeSetText('plannerCompletionRate', `${completionRate}%`);
         
         this.updateRecentActivity();
     }
@@ -540,9 +545,9 @@ class FocusDeckApp {
         const totalTime = todaySessions.reduce((sum, s) => sum + s.duration, 0);
         const avgTime = todaySessions.length > 0 ? totalTime / todaySessions.length : 0;
 
-        document.getElementById('totalTimeToday').textContent = this.formatTime(totalTime);
-        document.getElementById('sessionsCount').textContent = todaySessions.length;
-        document.getElementById('avgSession').textContent = `${Math.round(avgTime / 60)}m`;
+        this.safeSetText('totalTimeToday', this.formatTime(totalTime));
+        this.safeSetText('sessionsCount', todaySessions.length);
+        this.safeSetText('avgSession', `${Math.round(avgTime / 60)}m`);
 
         this.renderSessionHistory(todaySessions);
     }
@@ -655,6 +660,11 @@ class FocusDeckApp {
     renderDecks() {
         const container = document.getElementById('decksGrid');
         
+        if (!container) {
+            console.warn('Decks container not found');
+            return;
+        }
+        
         if (this.decks.length === 0) {
             container.innerHTML = `
                 <div class="empty-state-large">
@@ -698,7 +708,46 @@ class FocusDeckApp {
     // ====================================
 
     setupSettings() {
-        document.getElementById('apiEndpoint').textContent = window.location.origin + '/api';
+        this.safeSetText('apiEndpoint', window.location.origin + '/api');
+
+        // Update buttons
+        const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
+        if (checkUpdatesBtn) {
+            checkUpdatesBtn.addEventListener('click', () => this.checkForUpdates());
+        }
+
+        const viewUpdateGuideBtn = document.getElementById('viewUpdateGuideBtn');
+        if (viewUpdateGuideBtn) {
+            viewUpdateGuideBtn.addEventListener('click', () => this.showUpdateModal());
+        }
+
+        // Update modal close buttons
+        const closeUpdateModal = document.getElementById('closeUpdateModal');
+        if (closeUpdateModal) {
+            closeUpdateModal.addEventListener('click', () => {
+                document.getElementById('updateModal').classList.remove('active');
+            });
+        }
+
+        const closeUpdateModalBtn = document.getElementById('closeUpdateModalBtn');
+        if (closeUpdateModalBtn) {
+            closeUpdateModalBtn.addEventListener('click', () => {
+                document.getElementById('updateModal').classList.remove('active');
+            });
+        }
+
+        // Copy update command
+        const copyUpdateCmd = document.getElementById('copyUpdateCmd');
+        if (copyUpdateCmd) {
+            copyUpdateCmd.addEventListener('click', () => this.copyUpdateCommand());
+        }
+
+        // Load last update time
+        const lastUpdate = localStorage.getItem('focusdeck-last-update');
+        if (lastUpdate) {
+            const date = new Date(lastUpdate);
+            this.safeSetText('lastUpdateTime', date.toLocaleDateString() + ' ' + date.toLocaleTimeString());
+        }
 
         document.getElementById('clearCacheBtn').addEventListener('click', () => {
             if (confirm('Clear all cached data?')) {
@@ -749,6 +798,56 @@ class FocusDeckApp {
         a.click();
         URL.revokeObjectURL(url);
         this.showToast('Data exported!', 'success');
+    }
+
+    checkForUpdates() {
+        this.showToast('Checking for updates...', 'info');
+        
+        // Check GitHub for latest version
+        fetch('https://api.github.com/repos/dertder25t-png/FocusDeck/commits/master')
+            .then(response => response.json())
+            .then(data => {
+                const lastCommit = data.sha.substring(0, 7);
+                const commitDate = new Date(data.commit.author.date);
+                const message = data.commit.message;
+                
+                this.showToast(`Latest version: ${lastCommit} - ${message}`, 'info');
+                this.showUpdateModal();
+            })
+            .catch(error => {
+                console.error('Error checking updates:', error);
+                this.showToast('Could not check for updates. View update guide instead.', 'info');
+                this.showUpdateModal();
+            });
+    }
+
+    showUpdateModal() {
+        const modal = document.getElementById('updateModal');
+        if (modal) {
+            modal.classList.add('active');
+        }
+    }
+
+    copyUpdateCommand() {
+        const command = `cd ~/FocusDeck && \\
+git pull origin master && \\
+cd src/FocusDeck.Server && \\
+dotnet publish FocusDeck.Server.csproj -c Release -r linux-x64 --self-contained -o ~/focusdeck-server && \\
+sudo systemctl restart focusdeck`;
+
+        navigator.clipboard.writeText(command).then(() => {
+            this.showToast('Command copied to clipboard!', 'success');
+            const btn = document.getElementById('copyUpdateCmd');
+            if (btn) {
+                btn.textContent = '✓ Copied!';
+                setTimeout(() => {
+                    btn.textContent = '📋 Copy';
+                }, 2000);
+            }
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            this.showToast('Please copy the command manually', 'error');
+        });
     }
 
     // ====================================
@@ -835,6 +934,20 @@ class FocusDeckApp {
     // ====================================
     // UTILITIES
     // ====================================
+
+    safeSetText(elementId, text) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.textContent = text;
+        }
+    }
+
+    safeSetHTML(elementId, html) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.innerHTML = html;
+        }
+    }
 
     showToast(message, type = 'info') {
         const toast = document.getElementById('toast');
