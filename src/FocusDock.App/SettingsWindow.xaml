@@ -53,6 +53,21 @@
 
         <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Padding="16" BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1">
             <TabControl Background="{StaticResource PanelBrush}" BorderThickness="0">
+                <!-- Sync Tab -->
+                <TabItem Header="Sync" Foreground="#E8EAED" Background="{StaticResource PanelBrush}">
+                    <ScrollViewer>
+                        <StackPanel Margin="8,12,8,12">
+                            <TextBlock FontSize="16" FontWeight="Bold" Margin="0,0,0,12">Server Sync Setup</TextBlock>
+
+                            <TextBlock Margin="0,0,0,4">Server URL</TextBlock>
+                            <TextBox x:Name="TxtServerUrl" />
+                            <TextBlock FontSize="11" Foreground="#AAB2BE" Margin="0,0,0,10">Example: https://my-focusdeck-server.com</TextBlock>
+                            
+                            <Button x:Name="BtnSaveSyncSettings" Content="Save Sync Settings" Style="{StaticResource PrimaryButton}" Click="OnSaveClick" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+                
                 <!-- Calendar Tab -->
                 <TabItem Header="Calendar" Foreground="#E8EAED" Background="{StaticResource PanelBrush}">
                     <ScrollViewer>

@@ -6,6 +6,8 @@ using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using FocusDeck.Services;
 using FocusDeck.Services.Abstractions;
+using FocusDock.App.Services;
+using FocusDock.Data;
 
 public partial class App : System.Windows.Application
 {
@@ -58,12 +60,23 @@ public partial class App : System.Windows.Application
             services.AddSingleton<FocusDock.Core.Services.StudyPlanService>();
             services.AddSingleton<FocusDock.Core.Services.AutomationService>();
             
+            // Register ApiClient for server communication
+            services.AddSingleton<ApiClient>();
+
             // Register Windows
             services.AddSingleton<MainWindow>();
             services.AddTransient<PlannerWindow>();
 
             // Build the service provider
             Services = services.BuildServiceProvider();
+
+            // Configure ApiClient with saved URL
+            var appSettings = SettingsStore.LoadSettings();
+            var apiClient = Services.GetRequiredService<ApiClient>();
+            if (!string.IsNullOrEmpty(appSettings.ServerUrl))
+            {
+                apiClient.SetServerUrl(appSettings.ServerUrl);
+            }
 
             // Resolve and show MainWindow
             var mainWindow = Services.GetRequiredService<MainWindow>();

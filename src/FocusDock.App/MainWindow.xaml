@@ -614,6 +614,15 @@
                                     ToolTip="Settings"
                                     Margin="0,0,4,0">
                             </Button>
+
+                            <!-- Test Server Button -->
+                            <Button x:Name="BtnTestServer"
+                                    Click="TestServerButton_Click"
+                                    Style="{StaticResource CompactIconButton}"
+                                    Content="&#xE90F;"
+                                    ToolTip="Test Server Connection"
+                                    Margin="0,0,4,0">
+                            </Button>
                         </StackPanel>
                         
                         <!-- Separator -->

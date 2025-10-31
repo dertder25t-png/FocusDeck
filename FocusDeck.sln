@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FocusDeck.Services", "src\F
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FocusDeck.Mobile", "src\FocusDeck.Mobile\FocusDeck.Mobile.csproj", "{E1385EF7-C99C-4AB6-87F6-9BCA03A995F9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FocusDeck.Server", "src\FocusDeck.Server\FocusDeck.Server.csproj", "{95BAF595-6782-4D9A-9C06-50DC6CC16217}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -113,6 +115,18 @@ Global
 		{E1385EF7-C99C-4AB6-87F6-9BCA03A995F9}.Release|x64.Build.0 = Release|Any CPU
 		{E1385EF7-C99C-4AB6-87F6-9BCA03A995F9}.Release|x86.ActiveCfg = Release|Any CPU
 		{E1385EF7-C99C-4AB6-87F6-9BCA03A995F9}.Release|x86.Build.0 = Release|Any CPU
+		{95BAF595-6782-4D9A-9C06-50DC6CC16217}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{95BAF595-6782-4D9A-9C06-50DC6CC16217}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{95BAF595-6782-4D9A-9C06-50DC6CC16217}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{95BAF595-6782-4D9A-9C06-50DC6CC16217}.Debug|x64.Build.0 = Debug|Any CPU
+		{95BAF595-6782-4D9A-9C06-50DC6CC16217}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{95BAF595-6782-4D9A-9C06-50DC6CC16217}.Debug|x86.Build.0 = Debug|Any CPU
+		{95BAF595-6782-4D9A-9C06-50DC6CC16217}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{95BAF595-6782-4D9A-9C06-50DC6CC16217}.Release|Any CPU.Build.0 = Release|Any CPU
+		{95BAF595-6782-4D9A-9C06-50DC6CC16217}.Release|x64.ActiveCfg = Release|Any CPU
+		{95BAF595-6782-4D9A-9C06-50DC6CC16217}.Release|x64.Build.0 = Release|Any CPU
+		{95BAF595-6782-4D9A-9C06-50DC6CC16217}.Release|x86.ActiveCfg = Release|Any CPU
+		{95BAF595-6782-4D9A-9C06-50DC6CC16217}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -125,6 +139,7 @@ Global
 		{DBE16157-BDCF-4A1B-AC51-CA2E4EBCD599} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{ECDFB855-859C-4F9D-B97B-47545513F30B} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{E1385EF7-C99C-4AB6-87F6-9BCA03A995F9} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{95BAF595-6782-4D9A-9C06-50DC6CC16217} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {D0A57DBA-91D1-4171-A627-1ADE8A8ACB04}

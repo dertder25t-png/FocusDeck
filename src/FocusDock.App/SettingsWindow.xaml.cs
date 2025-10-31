@@ -36,6 +36,7 @@ public partial class SettingsWindow : Window
 
     private void LoadSettings()
     {
+        TxtServerUrl.Text = _appSettings.ServerUrl ?? "";
         TxtGoogleClientId.Text = _settings.GoogleClientId ?? "";
         TxtCanvasUrl.Text = _settings.CanvasInstanceUrl ?? "https://canvas.instructure.com";
         ChkEnableGoogle.IsChecked = _settings.EnableGoogleCalendar;
@@ -195,6 +196,9 @@ public partial class SettingsWindow : Window
 
     private void OnSaveClick(object sender, RoutedEventArgs e)
     {
+        _appSettings.ServerUrl = TxtServerUrl.Text;
+        SettingsStore.SaveSettings(_appSettings);
+
         var updatedSettings = new CalendarSettings
         {
             GoogleClientId = TxtGoogleClientId.Text,

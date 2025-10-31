@@ -4,18 +4,22 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Collections.ObjectModel;
+using Microsoft.Extensions.DependencyInjection;
 using FocusDock.Core.Services;
 using FocusDock.SystemInterop;
 using FocusDock.Data;
 using FocusDock.Data.Models;
-using System.Collections.ObjectModel;
+using FocusDock.App.Services;
 using FocusDock.App.Controls;
-using Microsoft.Extensions.DependencyInjection;
+using System.Text;
+using MessageBox = System.Windows.MessageBox;
 
 namespace FocusDock.App;
 
 public partial class MainWindow : Window
 {
+    private readonly IServiceProvider _serviceProvider;
     private readonly DockStateManager _dockState;
     private readonly WindowTracker _windowTracker;
     private readonly LayoutManager _layoutManager;
@@ -36,10 +40,12 @@ public partial class MainWindow : Window
     private StackPanel PanelLeft = new();
     private StackPanel PanelRight = new();
     private PlannerWindow? _plannerWindow = null;
+    private readonly ApiClient _apiClient;
 
     public DockViewModel VM { get; } = new();
 
     public MainWindow(
+        IServiceProvider serviceProvider,
         FocusDock.SystemInterop.WindowTracker windowTracker,
         LayoutManager layoutManager,
         PinService pinService,
@@ -49,21 +55,11 @@ public partial class MainWindow : Window
         TodoService todoService,
         NotesService notesService,
         StudyPlanService studyPlanService,
-        AutomationService automationService)
+        AutomationService automationService,
+        ApiClient apiClient)
     {
         InitializeComponent();
-
-        // Optimize process priority for minimal resource usage
-        try
-        {
-            using var process = System.Diagnostics.Process.GetCurrentProcess();
-            process.PriorityClass = System.Diagnostics.ProcessPriorityClass.BelowNormal;
-        }
-        catch { /* Ignore if unable to set priority */ }
-
-        DataContext = VM;
-
-        // Inject dependencies
+        _serviceProvider = serviceProvider;
         _windowTracker = windowTracker;
         _layoutManager = layoutManager;
         _pins = pinService;
@@ -74,7 +70,19 @@ public partial class MainWindow : Window
         _notes = notesService;
         _studyPlans = studyPlanService;
         _automation = automationService;
-        
+        _apiClient = apiClient;
+
+        this.DataContext = this;
+        this.Loaded += OnMainWindowLoaded;
+
+        // Optimize process priority for minimal resource usage
+        try
+        {
+            using var process = System.Diagnostics.Process.GetCurrentProcess();
+            process.PriorityClass = System.Diagnostics.ProcessPriorityClass.BelowNormal;
+        }
+        catch { /* Ignore if unable to set priority */ }
+
         _dockState = new DockStateManager(this);
         _settings = SettingsStore.LoadSettings();
 
@@ -950,6 +958,67 @@ public partial class MainWindow : Window
         }
     }
     
+    private void OnMainWindowLoaded(object sender, RoutedEventArgs e)
+    {
+        // Configure dock state for auto-hide
+        _dockState.SetEdge(_settings.Edge);
+        _dockState.SetAutoHide(true);
+        
+        Top = -77; // Start hidden
+        UpdateDockWidth();
+        UpdateDockPosition();
+        RestoreLastWorkspace();
+        
+        // Ensure window is in a visible, normal state on load
+        WindowState = WindowState.Normal;
+        Topmost = true;
+        try { Focus(); } catch { }
+    }
+
+    private async void TestServerButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            // 1. Create a new deck to send to the server
+            var newDeck = new FocusDeck.Shared.Models.Deck
+            {
+                Name = $"Test Deck {DateTime.Now:HH:mm:ss}",
+                Cards = new List<string> { "Card 1", "Card 2", "Card 3" }
+            };
+
+            var createdDeck = await _apiClient.CreateDeckAsync(newDeck);
+            if (createdDeck == null)
+            {
+                MessageBox.Show("Failed to create a new deck on the server.", "Server Test Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // 2. Get all decks from the server
+            var decks = await _apiClient.GetDecksAsync();
+
+            // 3. Display the result
+            if (decks.Any())
+            {
+                var deckNames = new StringBuilder();
+                deckNames.AppendLine("Successfully connected to server and synced decks!");
+                deckNames.AppendLine("Decks on server:");
+                foreach (var deck in decks)
+                {
+                    deckNames.AppendLine($"- {deck.Name}");
+                }
+                MessageBox.Show(deckNames.ToString(), "Server Test Successful", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            else
+            {
+                MessageBox.Show("Connected to server, but no decks were found.", "Server Test Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"An error occurred while testing the server connection:\n\n{ex.Message}", "Server Test Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     public void ApplyPositionSettings(AppSettings settings)
     {
         _settings = settings;
