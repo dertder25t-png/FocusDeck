@@ -749,6 +749,8 @@ class FocusDeckApp {
             this.safeSetText('lastUpdateTime', date.toLocaleDateString() + ' ' + date.toLocaleTimeString());
         }
 
+        document.getElementById('updateServerBtn').addEventListener('click', () => this.updateServer());
+
         document.getElementById('clearCacheBtn').addEventListener('click', () => {
             if (confirm('Clear all cached data?')) {
                 localStorage.clear();
@@ -973,6 +975,38 @@ sudo systemctl restart focusdeck`;
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    async updateServer() {
+        if (!confirm('Are you sure you want to update the server? The application will be unavailable for a moment.')) {
+            return;
+        }
+
+        this.showToast('🚀 Starting server update... Please wait.', 'info');
+        const updateButton = document.getElementById('updateServerBtn');
+        updateButton.disabled = true;
+        updateButton.innerHTML = '<span>Updating...</span>';
+
+        try {
+            const response = await fetch('/api/server/update', {
+                method: 'POST',
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                this.showToast('✅ Update started! Server is restarting. Please refresh in a minute.', 'success');
+                // Don't re-enable the button, the page will be refreshed by the user.
+            } else {
+                this.showToast(`❌ Update failed: ${result.message}`, 'error');
+                updateButton.disabled = false;
+                updateButton.innerHTML = '<span>🚀</span> Update Server Now';
+            }
+        } catch (error) {
+            this.showToast(`❌ An error occurred: ${error.message}`, 'error');
+            updateButton.disabled = false;
+            updateButton.innerHTML = '<span>🚀</span> Update Server Now';
+        }
     }
 }
 

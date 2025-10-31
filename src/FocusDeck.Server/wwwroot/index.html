@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FocusDeck - Web App</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=1.1.0">
 </head>
 <body>
     <!-- Loading Screen -->
@@ -566,49 +566,19 @@
 
                         <div class="card">
                             <h2 class="card-title">Server Management</h2>
-                            <p class="card-description">Check for updates and manage your server</p>
+                            <p class="card-description">Update your server to the latest version with one click.</p>
                             <div class="setting-item">
                                 <div class="setting-info">
                                     <label class="setting-label">Current Version</label>
                                     <p class="setting-description">1.0.0 - Dark Theme Release</p>
                                 </div>
                             </div>
-                            <div class="setting-item">
-                                <div class="setting-info">
-                                    <label class="setting-label">Last Updated</label>
-                                    <p class="setting-description" id="lastUpdateTime">Never</p>
-                                </div>
-                            </div>
                             <div class="setting-actions">
-                                <button class="btn btn-primary" id="checkUpdatesBtn">
-                                    <span>🔄</span> Check for Updates
-                                </button>
-                                <button class="btn btn-secondary" id="viewUpdateGuideBtn">
-                                    <span>📖</span> Update Guide
+                                <button class="btn btn-primary" id="updateServerBtn">
+                                    <span>�</span> Update Server Now
                                 </button>
                             </div>
-                        </div>
-
-                        <div class="card">
-                            <h2 class="card-title">Server Info</h2>
-                            <div class="setting-item">
-                                <div class="setting-info">
-                                    <label class="setting-label">Status</label>
-                                </div>
-                                <div class="status-badge online">● Online</div>
-                            </div>
-                            <div class="setting-item">
-                                <div class="setting-info">
-                                    <label class="setting-label">API Endpoint</label>
-                                </div>
-                                <code class="code-block" id="apiEndpoint">/api</code>
-                            </div>
-                            <div class="setting-item">
-                                <div class="setting-info">
-                                    <label class="setting-label">Version</label>
-                                </div>
-                                <span class="version-text">1.0.0</span>
-                            </div>
+                            <p class="card-footer-note">This will pull the latest code, rebuild, and restart the server. The process takes about a minute.</p>
                         </div>
 
                         <div class="card">
@@ -718,6 +688,6 @@ sudo systemctl restart focusdeck
     <!-- Toast Notification -->
     <div id="toast" class="toast"></div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=1.1.0"></script>
 </body>
 </html>
