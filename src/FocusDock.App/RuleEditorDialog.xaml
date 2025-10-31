@@ -64,53 +64,163 @@
                              FontSize="14"
                              Margin="0,0,0,20"/>
                     
-                    <!-- Days of Week -->
-                    <TextBlock Text="Days of Week"
+                    <!-- Trigger Type -->
+                    <TextBlock Text="Trigger Type"
                                FontSize="13"
                                FontWeight="SemiBold"
                                Foreground="{StaticResource TextSecondary}"
                                Margin="0,0,0,8"/>
-                    <WrapPanel x:Name="DaysPanel" Margin="0,0,0,20">
-                        <CheckBox x:Name="ChkMonday" Content="Monday" Margin="0,0,12,8"/>
-                        <CheckBox x:Name="ChkTuesday" Content="Tuesday" Margin="0,0,12,8"/>
-                        <CheckBox x:Name="ChkWednesday" Content="Wednesday" Margin="0,0,12,8"/>
-                        <CheckBox x:Name="ChkThursday" Content="Thursday" Margin="0,0,12,8"/>
-                        <CheckBox x:Name="ChkFriday" Content="Friday" Margin="0,0,12,8"/>
-                        <CheckBox x:Name="ChkSaturday" Content="Saturday" Margin="0,0,12,8"/>
-                        <CheckBox x:Name="ChkSunday" Content="Sunday" Margin="0,0,12,8"/>
-                    </WrapPanel>
+                    <ComboBox x:Name="CmbTriggerType"
+                              Background="{StaticResource DarkBg3}"
+                              Foreground="{StaticResource TextPrimary}"
+                              BorderBrush="{StaticResource StrokeBrush}"
+                              BorderThickness="1"
+                              Padding="12"
+                              FontSize="14"
+                              Margin="0,0,0,16"
+                              SelectionChanged="OnTriggerTypeChanged">
+                        <ComboBoxItem Content="⏰ Time Schedule" Tag="Time"/>
+                        <ComboBoxItem Content="📶 WiFi Network" Tag="WiFi"/>
+                        <ComboBoxItem Content="💻 Application Focus" Tag="App"/>
+                    </ComboBox>
                     
-                    <!-- Time Range -->
-                    <TextBlock Text="Time Range"
-                               FontSize="13"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource TextSecondary}"
-                               Margin="0,0,0,8"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
-                        <TextBox x:Name="TxtStartTime"
-                                 Text="09:00"
-                                 Background="{StaticResource DarkBg3}"
-                                 Foreground="{StaticResource TextPrimary}"
-                                 BorderBrush="{StaticResource StrokeBrush}"
-                                 BorderThickness="1"
-                                 Padding="12"
-                                 FontSize="14"
-                                 Width="100"
-                                 Margin="0,0,12,0"/>
-                        <TextBlock Text="to"
-                                   FontSize="14"
+                    <!-- Time-based Trigger Panel -->
+                    <StackPanel x:Name="TimeTriggerPanel" Visibility="Visible">
+                        <!-- Days of Week -->
+                        <TextBlock Text="Days of Week"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
                                    Foreground="{StaticResource TextSecondary}"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,12,0"/>
-                        <TextBox x:Name="TxtEndTime"
-                                 Text="17:00"
+                                   Margin="0,0,0,8"/>
+                        <WrapPanel x:Name="DaysPanel" Margin="0,0,0,20">
+                            <CheckBox x:Name="ChkMonday" Content="Monday" Margin="0,0,12,8"/>
+                            <CheckBox x:Name="ChkTuesday" Content="Tuesday" Margin="0,0,12,8"/>
+                            <CheckBox x:Name="ChkWednesday" Content="Wednesday" Margin="0,0,12,8"/>
+                            <CheckBox x:Name="ChkThursday" Content="Thursday" Margin="0,0,12,8"/>
+                            <CheckBox x:Name="ChkFriday" Content="Friday" Margin="0,0,12,8"/>
+                            <CheckBox x:Name="ChkSaturday" Content="Saturday" Margin="0,0,12,8"/>
+                            <CheckBox x:Name="ChkSunday" Content="Sunday" Margin="0,0,12,8"/>
+                        </WrapPanel>
+                        
+                        <!-- Time Range -->
+                        <TextBlock Text="Time Range"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondary}"
+                                   Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                            <TextBox x:Name="TxtStartTime"
+                                     Text="09:00"
+                                     Background="{StaticResource DarkBg3}"
+                                     Foreground="{StaticResource TextPrimary}"
+                                     BorderBrush="{StaticResource StrokeBrush}"
+                                     BorderThickness="1"
+                                     Padding="12"
+                                     FontSize="14"
+                                     Width="100"
+                                     Margin="0,0,12,0"/>
+                            <TextBlock Text="to"
+                                       FontSize="14"
+                                       Foreground="{StaticResource TextSecondary}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,12,0"/>
+                            <TextBox x:Name="TxtEndTime"
+                                     Text="17:00"
+                                     Background="{StaticResource DarkBg3}"
+                                     Foreground="{StaticResource TextPrimary}"
+                                     BorderBrush="{StaticResource StrokeBrush}"
+                                     BorderThickness="1"
+                                     Padding="12"
+                                     FontSize="14"
+                                     Width="100"/>
+                        </StackPanel>
+                    </StackPanel>
+                    
+                    <!-- WiFi-based Trigger Panel -->
+                    <StackPanel x:Name="WiFiTriggerPanel" Visibility="Collapsed">
+                        <TextBlock Text="WiFi Network (SSID)"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondary}"
+                                   Margin="0,0,0,8"/>
+                        <ComboBox x:Name="CmbWiFiNetwork"
+                                  Background="{StaticResource DarkBg3}"
+                                  Foreground="{StaticResource TextPrimary}"
+                                  BorderBrush="{StaticResource StrokeBrush}"
+                                  BorderThickness="1"
+                                  Padding="12"
+                                  FontSize="14"
+                                  IsEditable="True"
+                                  Margin="0,0,0,12"/>
+                        
+                        <Button Content="🔄 Scan Networks"
+                                Background="{StaticResource DarkBg3}"
+                                Foreground="{StaticResource TextPrimary}"
+                                BorderThickness="0"
+                                Padding="12,8"
+                                FontSize="13"
+                                Margin="0,0,0,16"
+                                Click="OnScanNetworksClick"/>
+                        
+                        <TextBlock Text="Trigger When"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondary}"
+                                   Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                            <RadioButton x:Name="RbOnConnect" Content="Connect to network" 
+                                        GroupName="WiFiTrigger" IsChecked="True" 
+                                        Foreground="{StaticResource TextPrimary}" Margin="0,0,16,0"/>
+                            <RadioButton x:Name="RbOnDisconnect" Content="Disconnect from network" 
+                                        GroupName="WiFiTrigger" 
+                                        Foreground="{StaticResource TextPrimary}"/>
+                        </StackPanel>
+                    </StackPanel>
+                    
+                    <!-- App-based Trigger Panel -->
+                    <StackPanel x:Name="AppTriggerPanel" Visibility="Collapsed">
+                        <TextBlock Text="Application Name"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondary}"
+                                   Margin="0,0,0,8"/>
+                        <ComboBox x:Name="CmbApplication"
+                                  Background="{StaticResource DarkBg3}"
+                                  Foreground="{StaticResource TextPrimary}"
+                                  BorderBrush="{StaticResource StrokeBrush}"
+                                  BorderThickness="1"
+                                  Padding="12"
+                                  FontSize="14"
+                                  IsEditable="True"
+                                  Margin="0,0,0,12"/>
+                        
+                        <Button Content="🔍 Detect Running Apps"
+                                Background="{StaticResource DarkBg3}"
+                                Foreground="{StaticResource TextPrimary}"
+                                BorderThickness="0"
+                                Padding="12,8"
+                                FontSize="13"
+                                Margin="0,0,0,16"
+                                Click="OnDetectAppsClick"/>
+                        
+                        <TextBlock Text="Process Name (Optional)"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondary}"
+                                   Margin="0,0,0,8"/>
+                        <TextBox x:Name="TxtProcessName"
                                  Background="{StaticResource DarkBg3}"
                                  Foreground="{StaticResource TextPrimary}"
                                  BorderBrush="{StaticResource StrokeBrush}"
                                  BorderThickness="1"
                                  Padding="12"
                                  FontSize="14"
-                                 Width="100"/>
+                                 Margin="0,0,0,20"/>
+                        <TextBlock Text="Example: Code.exe, chrome.exe, notepad.exe"
+                                   FontSize="11"
+                                   FontStyle="Italic"
+                                   Foreground="{StaticResource TextSecondary}"
+                                   Margin="0,-16,0,20"/>
                     </StackPanel>
                     
                     <!-- Action Type -->

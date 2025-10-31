@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Diagnostics; // For process detection
 using FocusDock.Data;
 using FocusDock.Data.Models;
 
@@ -25,6 +26,7 @@ public partial class RuleEditorDialog : Window
         else
         {
             // Set defaults for new rule
+            CmbTriggerType.SelectedIndex = 0; // Time trigger
             CmbAction.SelectedIndex = 0;
             ChkMonday.IsChecked = ChkTuesday.IsChecked = ChkWednesday.IsChecked = 
                 ChkThursday.IsChecked = ChkFriday.IsChecked = true;
@@ -32,22 +34,51 @@ public partial class RuleEditorDialog : Window
         
         LoadPresets();
         LoadMonitors();
+        PopulateCommonApplications();
     }
 
     private void PopulateFields(TimeRule rule)
     {
         TxtRuleName.Text = rule.Name;
-        TxtStartTime.Text = rule.Start;
-        TxtEndTime.Text = rule.End;
         
-        // Check days
-        ChkMonday.IsChecked = rule.DaysOfWeek.Contains(DayOfWeek.Monday);
-        ChkTuesday.IsChecked = rule.DaysOfWeek.Contains(DayOfWeek.Tuesday);
-        ChkWednesday.IsChecked = rule.DaysOfWeek.Contains(DayOfWeek.Wednesday);
-        ChkThursday.IsChecked = rule.DaysOfWeek.Contains(DayOfWeek.Thursday);
-        ChkFriday.IsChecked = rule.DaysOfWeek.Contains(DayOfWeek.Friday);
-        ChkSaturday.IsChecked = rule.DaysOfWeek.Contains(DayOfWeek.Saturday);
-        ChkSunday.IsChecked = rule.DaysOfWeek.Contains(DayOfWeek.Sunday);
+        // Set trigger type
+        CmbTriggerType.SelectedIndex = rule.TriggerType switch
+        {
+            RuleTriggerType.Time => 0,
+            RuleTriggerType.WiFiNetwork => 1,
+            RuleTriggerType.ApplicationFocus => 2,
+            _ => 0
+        };
+        
+        // Time trigger fields
+        if (rule.TriggerType == RuleTriggerType.Time)
+        {
+            TxtStartTime.Text = rule.Start;
+            TxtEndTime.Text = rule.End;
+            
+            ChkMonday.IsChecked = rule.DaysOfWeek.Contains(DayOfWeek.Monday);
+            ChkTuesday.IsChecked = rule.DaysOfWeek.Contains(DayOfWeek.Tuesday);
+            ChkWednesday.IsChecked = rule.DaysOfWeek.Contains(DayOfWeek.Wednesday);
+            ChkThursday.IsChecked = rule.DaysOfWeek.Contains(DayOfWeek.Thursday);
+            ChkFriday.IsChecked = rule.DaysOfWeek.Contains(DayOfWeek.Friday);
+            ChkSaturday.IsChecked = rule.DaysOfWeek.Contains(DayOfWeek.Saturday);
+            ChkSunday.IsChecked = rule.DaysOfWeek.Contains(DayOfWeek.Sunday);
+        }
+        
+        // WiFi trigger fields
+        if (rule.TriggerType == RuleTriggerType.WiFiNetwork)
+        {
+            CmbWiFiNetwork.Text = rule.WiFiSSID ?? "";
+            RbOnConnect.IsChecked = rule.OnConnect;
+            RbOnDisconnect.IsChecked = !rule.OnConnect;
+        }
+        
+        // App trigger fields
+        if (rule.TriggerType == RuleTriggerType.ApplicationFocus)
+        {
+            CmbApplication.Text = rule.ApplicationName ?? "";
+            TxtProcessName.Text = rule.ProcessName ?? "";
+        }
         
         // Set action
         CmbAction.SelectedIndex = rule.Action switch
@@ -74,6 +105,33 @@ public partial class RuleEditorDialog : Window
             {
                 CmbMonitor.SelectedIndex = rule.MonitorIndex.Value;
             }
+        }
+    }
+
+    private void PopulateCommonApplications()
+    {
+        // Add common applications to the combo box
+        var commonApps = new[]
+        {
+            "Visual Studio Code",
+            "Visual Studio",
+            "Google Chrome",
+            "Microsoft Edge",
+            "Firefox",
+            "Slack",
+            "Microsoft Teams",
+            "Discord",
+            "Spotify",
+            "Notepad++",
+            "Sublime Text",
+            "IntelliJ IDEA",
+            "PyCharm",
+            "Zoom"
+        };
+        
+        foreach (var app in commonApps)
+        {
+            CmbApplication.Items.Add(new ComboBoxItem { Content = app });
         }
     }
 
@@ -128,6 +186,144 @@ public partial class RuleEditorDialog : Window
         }
     }
 
+    private void OnTriggerTypeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CmbTriggerType == null) return;
+        
+        // Hide all trigger panels
+        if (TimeTriggerPanel != null) TimeTriggerPanel.Visibility = Visibility.Collapsed;
+        if (WiFiTriggerPanel != null) WiFiTriggerPanel.Visibility = Visibility.Collapsed;
+        if (AppTriggerPanel != null) AppTriggerPanel.Visibility = Visibility.Collapsed;
+        
+        // Show the selected trigger panel
+        switch (CmbTriggerType.SelectedIndex)
+        {
+            case 0: // Time
+                if (TimeTriggerPanel != null) TimeTriggerPanel.Visibility = Visibility.Visible;
+                break;
+            case 1: // WiFi
+                if (WiFiTriggerPanel != null) WiFiTriggerPanel.Visibility = Visibility.Visible;
+                break;
+            case 2: // App
+                if (AppTriggerPanel != null) AppTriggerPanel.Visibility = Visibility.Visible;
+                break;
+        }
+    }
+
+    private void OnScanNetworksClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            CmbWiFiNetwork.Items.Clear();
+            
+            // Try to get WiFi networks using netsh command
+            var processInfo = new ProcessStartInfo
+            {
+                FileName = "netsh",
+                Arguments = "wlan show networks mode=bssid",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                CreateNoWindow = true
+            };
+            
+            using var process = Process.Start(processInfo);
+            if (process != null)
+            {
+                var output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+                
+                // Parse SSIDs from output
+                var lines = output.Split('\n');
+                foreach (var line in lines)
+                {
+                    if (line.Contains("SSID") && !line.Contains("BSSID"))
+                    {
+                        var parts = line.Split(':');
+                        if (parts.Length > 1)
+                        {
+                            var ssid = parts[1].Trim();
+                            if (!string.IsNullOrEmpty(ssid))
+                            {
+                                CmbWiFiNetwork.Items.Add(new ComboBoxItem { Content = ssid });
+                            }
+                        }
+                    }
+                }
+                
+                if (CmbWiFiNetwork.Items.Count == 0)
+                {
+                    CmbWiFiNetwork.Items.Add(new ComboBoxItem { Content = "No networks found" });
+                }
+                else
+                {
+                    CmbWiFiNetwork.SelectedIndex = 0;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show($"Failed to scan networks: {ex.Message}", 
+                "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void OnDetectAppsClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            CmbApplication.Items.Clear();
+            
+            // Get all running processes with main windows
+            var processes = Process.GetProcesses()
+                .Where(p => !string.IsNullOrEmpty(p.MainWindowTitle))
+                .OrderBy(p => p.ProcessName)
+                .ToList();
+            
+            var added = new System.Collections.Generic.HashSet<string>();
+            
+            foreach (var process in processes)
+            {
+                try
+                {
+                    var name = string.IsNullOrEmpty(process.MainWindowTitle) 
+                        ? process.ProcessName 
+                        : process.MainWindowTitle;
+                    
+                    if (!added.Contains(name) && !string.IsNullOrWhiteSpace(name))
+                    {
+                        CmbApplication.Items.Add(new ComboBoxItem 
+                        { 
+                            Content = name,
+                            Tag = process.ProcessName + ".exe"
+                        });
+                        added.Add(name);
+                    }
+                }
+                catch { /* Skip processes we can't access */ }
+            }
+            
+            if (CmbApplication.Items.Count == 0)
+            {
+                CmbApplication.Items.Add(new ComboBoxItem { Content = "No applications detected" });
+            }
+            else
+            {
+                CmbApplication.SelectedIndex = 0;
+                
+                // Auto-populate process name if available
+                if (CmbApplication.SelectedItem is ComboBoxItem item && item.Tag is string processName)
+                {
+                    TxtProcessName.Text = processName;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show($"Failed to detect applications: {ex.Message}", 
+                "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private void OnSaveClick(object sender, RoutedEventArgs e)
     {
         // Validate inputs
@@ -138,29 +334,81 @@ public partial class RuleEditorDialog : Window
             return;
         }
 
-        // Get selected days
-        var days = new System.Collections.Generic.List<DayOfWeek>();
-        if (ChkMonday.IsChecked == true) days.Add(DayOfWeek.Monday);
-        if (ChkTuesday.IsChecked == true) days.Add(DayOfWeek.Tuesday);
-        if (ChkWednesday.IsChecked == true) days.Add(DayOfWeek.Wednesday);
-        if (ChkThursday.IsChecked == true) days.Add(DayOfWeek.Thursday);
-        if (ChkFriday.IsChecked == true) days.Add(DayOfWeek.Friday);
-        if (ChkSaturday.IsChecked == true) days.Add(DayOfWeek.Saturday);
-        if (ChkSunday.IsChecked == true) days.Add(DayOfWeek.Sunday);
-
-        if (days.Count == 0)
+        var triggerType = CmbTriggerType.SelectedIndex switch
         {
-            System.Windows.MessageBox.Show("Please select at least one day.", "Validation Error", 
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
+            0 => RuleTriggerType.Time,
+            1 => RuleTriggerType.WiFiNetwork,
+            2 => RuleTriggerType.ApplicationFocus,
+            _ => RuleTriggerType.Time
+        };
 
-        // Validate time format
-        if (!IsValidTime(TxtStartTime.Text) || !IsValidTime(TxtEndTime.Text))
+        // Create base rule
+        Rule = new TimeRule
         {
-            System.Windows.MessageBox.Show("Please enter valid times in HH:mm format (e.g., 09:00).", 
-                "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
+            Name = TxtRuleName.Text.Trim(),
+            TriggerType = triggerType,
+            IsEnabled = true
+        };
+
+        // Validate and populate trigger-specific fields
+        switch (triggerType)
+        {
+            case RuleTriggerType.Time:
+                // Get selected days
+                var days = new System.Collections.Generic.List<DayOfWeek>();
+                if (ChkMonday.IsChecked == true) days.Add(DayOfWeek.Monday);
+                if (ChkTuesday.IsChecked == true) days.Add(DayOfWeek.Tuesday);
+                if (ChkWednesday.IsChecked == true) days.Add(DayOfWeek.Wednesday);
+                if (ChkThursday.IsChecked == true) days.Add(DayOfWeek.Thursday);
+                if (ChkFriday.IsChecked == true) days.Add(DayOfWeek.Friday);
+                if (ChkSaturday.IsChecked == true) days.Add(DayOfWeek.Saturday);
+                if (ChkSunday.IsChecked == true) days.Add(DayOfWeek.Sunday);
+
+                if (days.Count == 0)
+                {
+                    System.Windows.MessageBox.Show("Please select at least one day.", "Validation Error", 
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                // Validate time format
+                if (!IsValidTime(TxtStartTime.Text) || !IsValidTime(TxtEndTime.Text))
+                {
+                    System.Windows.MessageBox.Show("Please enter valid times in HH:mm format (e.g., 09:00).", 
+                        "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                Rule.DaysOfWeek = days;
+                Rule.Start = TxtStartTime.Text.Trim();
+                Rule.End = TxtEndTime.Text.Trim();
+                break;
+
+            case RuleTriggerType.WiFiNetwork:
+                var ssid = CmbWiFiNetwork.Text.Trim();
+                if (string.IsNullOrWhiteSpace(ssid) || ssid == "No networks found")
+                {
+                    System.Windows.MessageBox.Show("Please enter or select a WiFi network name (SSID).", 
+                        "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                Rule.WiFiSSID = ssid;
+                Rule.OnConnect = RbOnConnect.IsChecked == true;
+                break;
+
+            case RuleTriggerType.ApplicationFocus:
+                var appName = CmbApplication.Text.Trim();
+                if (string.IsNullOrWhiteSpace(appName) || appName == "No applications detected")
+                {
+                    System.Windows.MessageBox.Show("Please enter or select an application name.", 
+                        "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                Rule.ApplicationName = appName;
+                Rule.ProcessName = TxtProcessName.Text.Trim();
+                break;
         }
 
         // Get action
@@ -172,15 +420,8 @@ public partial class RuleEditorDialog : Window
             _ => RuleAction.ApplyPreset
         };
 
-        // Create rule
-        Rule = new TimeRule
-        {
-            Name = TxtRuleName.Text.Trim(),
-            DaysOfWeek = days,
-            Start = TxtStartTime.Text.Trim(),
-            End = TxtEndTime.Text.Trim(),
-            Action = action
-        };
+        Rule.Action = action;
+        Rule.Action = action;
 
         // Set preset-specific fields if applicable
         if (action == RuleAction.ApplyPreset && CmbPreset.SelectedItem is ComboBoxItem presetItem)

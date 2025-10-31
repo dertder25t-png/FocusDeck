@@ -62,7 +62,18 @@ public partial class AutomationsWindow : Window
         // Left side: Rule info
         var leftStack = new StackPanel();
 
-        // Rule name
+        // Rule name with status indicator
+        var namePanel = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
+        
+        var statusDot = new TextBlock
+        {
+            Text = rule.IsEnabled ? "🟢" : "🔴",
+            FontSize = 12,
+            Margin = new Thickness(0, 0, 8, 0),
+            VerticalAlignment = System.Windows.VerticalAlignment.Center
+        };
+        namePanel.Children.Add(statusDot);
+        
         var nameText = new TextBlock
         {
             Text = rule.Name,
@@ -70,7 +81,8 @@ public partial class AutomationsWindow : Window
             FontWeight = FontWeights.SemiBold,
             Foreground = (SolidColorBrush)FindResource("TextPrimary")
         };
-        leftStack.Children.Add(nameText);
+        namePanel.Children.Add(nameText);
+        leftStack.Children.Add(namePanel);
 
         // Rule details
         var detailsStack = new StackPanel
@@ -79,14 +91,33 @@ public partial class AutomationsWindow : Window
             Margin = new Thickness(0, 8, 0, 0)
         };
 
-        // Time chip
-        var timeChip = CreateChip($"🕐 {rule.Start} - {rule.End}", (SolidColorBrush)FindResource("DarkBg3"));
-        detailsStack.Children.Add(timeChip);
+        // Trigger type chip
+        var triggerIcon = rule.TriggerType switch
+        {
+            RuleTriggerType.Time => "⏰",
+            RuleTriggerType.WiFiNetwork => "📶",
+            RuleTriggerType.ApplicationFocus => "💻",
+            _ => "❓"
+        };
 
-        // Days chip
-        var daysText = string.Join(", ", rule.DaysOfWeek.Select(d => d.ToString().Substring(0, 3)));
-        var daysChip = CreateChip($"📅 {daysText}", (SolidColorBrush)FindResource("DarkBg3"));
-        detailsStack.Children.Add(daysChip);
+        var triggerText = rule.TriggerType switch
+        {
+            RuleTriggerType.Time => $"Time: {rule.Start} - {rule.End}",
+            RuleTriggerType.WiFiNetwork => $"WiFi: {rule.WiFiSSID} ({(rule.OnConnect ? "Connect" : "Disconnect")})",
+            RuleTriggerType.ApplicationFocus => $"App: {rule.ApplicationName}",
+            _ => "Unknown Trigger"
+        };
+
+        var triggerChip = CreateChip($"{triggerIcon} {triggerText}", (SolidColorBrush)FindResource("DarkBg3"));
+        detailsStack.Children.Add(triggerChip);
+
+        // Days chip (only for time-based triggers)
+        if (rule.TriggerType == RuleTriggerType.Time)
+        {
+            var daysText = string.Join(", ", rule.DaysOfWeek.Select(d => d.ToString().Substring(0, 3)));
+            var daysChip = CreateChip($"📅 {daysText}", (SolidColorBrush)FindResource("DarkBg3"));
+            detailsStack.Children.Add(daysChip);
+        }
 
         // Action chip
         var actionColor = rule.Action switch
@@ -118,6 +149,24 @@ public partial class AutomationsWindow : Window
             Orientation = System.Windows.Controls.Orientation.Horizontal,
             VerticalAlignment = VerticalAlignment.Center
         };
+
+        // Toggle Enable/Disable button
+        var toggleBtn = new System.Windows.Controls.Button
+        {
+            Content = rule.IsEnabled ? "⏸️ Disable" : "▶️ Enable",
+            Background = rule.IsEnabled 
+                ? (SolidColorBrush)FindResource("WarningBrush") 
+                : (SolidColorBrush)FindResource("SuccessBrush"),
+            Foreground = System.Windows.Media.Brushes.White,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(16, 8, 16, 8),
+            Margin = new Thickness(0, 0, 8, 0),
+            Cursor = System.Windows.Input.Cursors.Hand,
+            FontSize = 13
+        };
+        toggleBtn.Click += (s, e) => ToggleRule(rule);
+        ApplyButtonStyle(toggleBtn);
+        rightStack.Children.Add(toggleBtn);
 
         // Edit button
         var editBtn = new System.Windows.Controls.Button
@@ -155,6 +204,13 @@ public partial class AutomationsWindow : Window
 
         card.Child = grid;
         return card;
+    }
+
+    private void ToggleRule(TimeRule rule)
+    {
+        rule.IsEnabled = !rule.IsEnabled;
+        AutomationStore.Save(_config);
+        RenderRules();
     }
 
     private Border CreateChip(string text, SolidColorBrush background)
