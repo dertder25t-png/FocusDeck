@@ -21,6 +21,12 @@ public partial class StudyTimerViewModel : ObservableObject
     private readonly ISessionRepository _sessionRepository;
     private readonly ICloudSyncService _cloudSyncService;
     private StudySession? _currentSession;
+    
+    // Caching for display strings to avoid redundant formatting
+    private string _cachedDisplayTime = "00:00";
+    private string _cachedElapsedTime = "00:00:00";
+    private string _cachedRemainingTime = "00:00:00";
+    private double _cachedProgressPercentage = 0.0;
 
     /// <summary>
     /// Total time set for this session (user-configurable)
@@ -182,7 +188,8 @@ public partial class StudyTimerViewModel : ObservableObject
 #pragma warning restore CS8602
         if (_timer != null)
         {
-            _timer.Interval = TimeSpan.FromMilliseconds(100);
+            // Optimization: Reduced from 100ms to 500ms interval (5x fewer updates)
+            _timer.Interval = TimeSpan.FromMilliseconds(500);
             _timer.Tick += OnTimerTick;
         }
     }
@@ -396,12 +403,42 @@ public partial class StudyTimerViewModel : ObservableObject
             // Calculate elapsed time from session start
             ElapsedTime = DateTime.Now - _sessionStartTime;
 
-            // Update display properties
-            OnPropertyChanged(nameof(DisplayTime));
-            OnPropertyChanged(nameof(FormattedElapsedTime));
-            OnPropertyChanged(nameof(FormattedRemainingTime));
-            OnPropertyChanged(nameof(ProgressPercentage));
-            OnPropertyChanged(nameof(RemainingTime));
+            // Optimization: Only update properties if they actually changed
+            var newDisplayTime = RemainingTime.ToString(@"mm\:ss");
+            if (newDisplayTime != _cachedDisplayTime)
+            {
+                _cachedDisplayTime = newDisplayTime;
+                OnPropertyChanged(nameof(DisplayTime));
+            }
+
+            var newElapsedTime = ElapsedTime.ToString(@"hh\:mm\:ss");
+            if (newElapsedTime != _cachedElapsedTime)
+            {
+                _cachedElapsedTime = newElapsedTime;
+                OnPropertyChanged(nameof(FormattedElapsedTime));
+            }
+
+            var newRemainingTime = RemainingTime.ToString(@"hh\:mm\:ss");
+            if (newRemainingTime != _cachedRemainingTime)
+            {
+                _cachedRemainingTime = newRemainingTime;
+                OnPropertyChanged(nameof(FormattedRemainingTime));
+            }
+
+            var newProgress = TotalTime.TotalSeconds > 0 
+                ? (ElapsedTime.TotalSeconds / TotalTime.TotalSeconds) * 100 
+                : 0;
+            if (Math.Abs(newProgress - _cachedProgressPercentage) > 0.01) // Only update if changed by >0.01%
+            {
+                _cachedProgressPercentage = newProgress;
+                OnPropertyChanged(nameof(ProgressPercentage));
+            }
+
+            // RemainingTime is computed property, notify only if display changed
+            if (newDisplayTime != _cachedDisplayTime || newRemainingTime != _cachedRemainingTime)
+            {
+                OnPropertyChanged(nameof(RemainingTime));
+            }
 
             // Check if time is up
             if (ElapsedTime >= TotalTime)

@@ -29,6 +29,10 @@ public partial class PlannerWindow : Window
     private DateTime? _selectedTimelineDate = DateTime.Today;
     private readonly Dictionary<DateTime, Border> _timelineDayContainers = new();
     private bool _isSyncingQuickControls = false;
+    
+    // Debouncing for RefreshView
+    private System.Threading.Timer? _refreshDebounceTimer;
+    private readonly object _refreshLock = new();
 
     public PlannerWindow(TodoService todoService, CalendarService calendarService)
     {
@@ -36,12 +40,12 @@ public partial class PlannerWindow : Window
         _todoService = todoService;
         _calendarService = calendarService;
         
-        // Subscribe to changes
+        // Subscribe to changes with debouncing
         _todoService.TodosChanged += (s, e) => 
         {
             try 
             { 
-                Dispatcher.BeginInvoke(new Action(() => RefreshView())); 
+                RefreshView(); // This will debounce
             } 
             catch { /* Ignore if window is closing */ }
         };
@@ -1289,7 +1293,23 @@ public partial class PlannerWindow : Window
     
     // ===== Main View Rendering =====
 
+    // Debounced RefreshView - delays actual refresh by 150ms
     private void RefreshView()
+    {
+        lock (_refreshLock)
+        {
+            _refreshDebounceTimer?.Dispose();
+            _refreshDebounceTimer = new System.Threading.Timer(
+                _ => Dispatcher.BeginInvoke(RefreshViewInternal),
+                null,
+                150, // 150ms debounce
+                System.Threading.Timeout.Infinite
+            );
+        }
+    }
+
+    // Actual refresh implementation
+    private void RefreshViewInternal()
     {
         if (TasksList == null) return;
         

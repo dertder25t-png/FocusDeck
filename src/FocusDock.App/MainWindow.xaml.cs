@@ -80,26 +80,26 @@ public partial class MainWindow : Window
 
         _windowTracker.WindowsUpdated += (s, e) =>
         {
-            // Filter out FocusDock itself from the window list
-            var filteredWindows = e.Where(w => 
-                !w.ProcessName.Equals("FocusDock", StringComparison.OrdinalIgnoreCase) &&
-                !w.ProcessName.Equals("FocusDock.App", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-            
-            var groups = filteredWindows.GroupBy(w => w.ProcessName)
+            // Single-pass processing: filter, update pin status, and group
+            var groups = e
+                .Where(w => 
+                    !w.ProcessName.Equals("FocusDock", StringComparison.OrdinalIgnoreCase) &&
+                    !w.ProcessName.Equals("FocusDock.App", StringComparison.OrdinalIgnoreCase))
+                .Select(w =>
+                {
+                    w.IsPinned = _pins.IsPinned(w); // Update pin status inline
+                    return w;
+                })
+                .GroupBy(w => w.ProcessName)
                 .Select(g => new WindowGroup
                 {
                     GroupName = g.Key,
                     Windows = g.ToList()
-                }).ToList();
-            foreach (var g in groups)
-            {
-                foreach (var w in g.Windows)
-                {
-                    w.IsPinned = _pins.IsPinned(w);
-                }
-            }
-            _reminder.UpdateSeen(filteredWindows);
+                })
+                .ToList();
+            
+            // Update reminder service with all filtered windows
+            _reminder.UpdateSeen(groups.SelectMany(g => g.Windows).ToList());
             
             // Use BeginInvoke with Background priority for better performance
             Dispatcher.BeginInvoke(new Action(() => 
