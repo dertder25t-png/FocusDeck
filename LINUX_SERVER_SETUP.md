@@ -47,8 +47,8 @@ cd FocusDeck
 # Navigate to the server project
 cd src/FocusDeck.Server
 
-# Publish for Linux
-dotnet publish -c Release -r linux-x64 --self-contained -o ~/focusdeck-server
+# Publish ONLY the server project (not the entire solution)
+dotnet publish FocusDeck.Server.csproj -c Release -r linux-x64 --self-contained -o ~/focusdeck-server
 ```
 
 This creates a self-contained deployment in `~/focusdeck-server` that includes everything needed to run.
