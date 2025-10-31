@@ -58,8 +58,9 @@ public partial class App : System.Windows.Application
             services.AddSingleton<FocusDock.Core.Services.StudyPlanService>();
             services.AddSingleton<FocusDock.Core.Services.AutomationService>();
             
-            // Register MainWindow
+            // Register Windows
             services.AddSingleton<MainWindow>();
+            services.AddTransient<PlannerWindow>();
 
             // Build the service provider
             Services = services.BuildServiceProvider();

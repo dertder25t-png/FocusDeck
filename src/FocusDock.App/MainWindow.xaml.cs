@@ -10,6 +10,7 @@ using FocusDock.Data;
 using FocusDock.Data.Models;
 using System.Collections.ObjectModel;
 using FocusDock.App.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FocusDock.App;
 
@@ -34,6 +35,7 @@ public partial class MainWindow : Window
     // Placeholder panels to satisfy legacy references when running with modern XAML that doesn't define these named elements.
     private StackPanel PanelLeft = new();
     private StackPanel PanelRight = new();
+    private PlannerWindow? _plannerWindow = null;
 
     public DockViewModel VM { get; } = new();
 
@@ -125,8 +127,8 @@ public partial class MainWindow : Window
 
         BtnFocus.Click += (_, _) => _dockState.ToggleFocusMode();
         BtnDock.Click += (_, _) => ShowDockMenu();
-        BtnCalendar.Click += (_, _) => ShowCalendarMenu();
-        BtnReminders.Click += (_, _) => ShowTasksWindow();
+        BtnCalendar.Click += (_, _) => ShowPlannerWindow();
+        BtnReminders.Click += (_, _) => ShowPlannerWindow();
         BtnNotes.Click += (_, _) => ShowNotesMenu();
         BtnStudySession.Click += (_, _) => ShowStudySessionMenu();
         BtnWorkspace.Click += (_, _) => ShowWorkspaceMenu();
@@ -674,83 +676,34 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ShowPlannerWindow()
+    {
+        // Check if window already exists and is open
+        if (_plannerWindow != null)
+        {
+            // If window is already open, just activate it
+            if (_plannerWindow.IsLoaded && _plannerWindow.IsVisible)
+            {
+                _plannerWindow.Activate();
+                _plannerWindow.Focus();
+                return;
+            }
+        }
+        
+        // Create new window if needed
+        _plannerWindow = ((App)System.Windows.Application.Current).Services.GetRequiredService<PlannerWindow>();
+        _plannerWindow.Owner = this;
+        
+        // Handle window closing to clean up reference
+        _plannerWindow.Closed += (s, e) => _plannerWindow = null;
+        
+        _plannerWindow.Show();
+    }
+
     private void ShowCalendarMenu()
     {
-        var menu = new System.Windows.Controls.ContextMenu();
-        void Add(string header, Action onClick)
-        {
-            var mi = new System.Windows.Controls.MenuItem { Header = header };
-            mi.Click += (_, _) => onClick();
-            menu.Items.Add(mi);
-        }
-
-        var upcoming = _calendar.GetUpcomingEvents(7);
-        if (upcoming.Count > 0)
-        {
-            var eventsItem = new System.Windows.Controls.MenuItem { Header = "📅 Upcoming Events" };
-            foreach (var evt in upcoming.Take(5))
-            {
-                var time = evt.StartTime.ToString("M/d h:mm tt");
-                eventsItem.Items.Add(new System.Windows.Controls.MenuItem 
-                { 
-                    Header = $"{evt.Title} - {time}",
-                    IsEnabled = false
-                });
-            }
-            menu.Items.Add(eventsItem);
-        }
-
-        var assignments = _calendar.GetUpcomingAssignments(14);
-        if (assignments.Count > 0)
-        {
-            var assignItem = new System.Windows.Controls.MenuItem { Header = "📋 Canvas Assignments" };
-            foreach (var asn in assignments.Take(5))
-            {
-                var due = asn.DueDate.ToString("M/d h:mm tt");
-                assignItem.Items.Add(new System.Windows.Controls.MenuItem 
-                { 
-                    Header = $"{asn.CourseName}: {asn.Title} - {due}",
-                    IsEnabled = false
-                });
-            }
-            menu.Items.Add(assignItem);
-        }
-
-        if (menu.Items.Count > 0)
-        {
-            menu.Items.Add(new System.Windows.Controls.Separator());
-        }
-
-        Add("Calendar Settings...", () =>
-        {
-            System.Windows.MessageBox.Show(
-                "Calendar sync disabled - Configure in Settings\n\n" +
-                "To enable Google Calendar:\n" +
-                "1. Get API token from Google Cloud Console\n" +
-                "2. Add in Calendar Settings\n\n" +
-                "To enable Canvas:\n" +
-                "1. Get API token from Canvas settings\n" +
-                "2. Add Canvas instance URL",
-                "Calendar Configuration");
-        });
-
-        Add("Refresh Now", async () => await _calendar.ManualSync());
-        Add("Create Test Event", () =>
-        {
-            var testEvent = new FocusDock.Data.Models.CalendarEvent
-            {
-                Title = "Test Class",
-                StartTime = DateTime.Now.AddHours(2),
-                EndTime = DateTime.Now.AddHours(3),
-                Source = "GoogleCalendar"
-            };
-            _calendar.AddEvent(testEvent);
-            System.Windows.MessageBox.Show("Test event added!");
-        });
-
-        BtnCalendar.ContextMenu = menu;
-        menu.PlacementTarget = BtnCalendar;
-        menu.IsOpen = true;
+        // Legacy method - redirects to ShowPlannerWindow
+        ShowPlannerWindow();
     }
 
     private void ShowStudySessionMenu()
@@ -816,17 +769,14 @@ public partial class MainWindow : Window
 
     private void ShowTasksWindow()
     {
-        var tasksWindow = new TasksWindow(_todos)
-        {
-            Owner = this
-        };
-        tasksWindow.Show();
+        // Legacy method - redirects to ShowPlannerWindow
+        ShowPlannerWindow();
     }
 
     private void ShowTodosMenu()
     {
-        // Legacy method - redirects to ShowTasksWindow
-        ShowTasksWindow();
+        // Legacy method - redirects to ShowPlannerWindow
+        ShowPlannerWindow();
     }
 
     private void ShowNotesMenu()
