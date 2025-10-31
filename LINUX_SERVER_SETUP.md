@@ -181,9 +181,24 @@ sudo ufw allow 'Nginx Full'
 sudo ufw enable
 ```
 
-## Step 9: Test the API
+## Step 9: Access the Web Admin Panel
 
-From any computer, open a web browser and navigate to:
+The server includes a beautiful web-based admin interface! Open a web browser and navigate to:
+
+```
+http://your-domain.com
+```
+
+You'll see the **FocusDeck Server Admin Panel** where you can:
+- 📊 View server statistics
+- 📚 Create, edit, and delete decks
+- ⚙️ Configure server settings
+- 📥 Export/import data
+- 📖 View API documentation
+
+### Test the API Directly
+
+You can also test the API endpoints directly:
 
 ```
 http://your-domain.com/api/decks
