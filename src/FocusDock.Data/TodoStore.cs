@@ -1,6 +1,7 @@
 namespace FocusDock.Data;
 
 using System.Text.Json;
+using System.Threading.Tasks;
 using FocusDock.Data.Models;
 
 public static class TodoStore
@@ -19,14 +20,15 @@ public static class TodoStore
         Directory.CreateDirectory(StorePath);
     }
 
-    public static List<TodoItem> LoadTodos()
+    // Async versions for better performance
+    public static async Task<List<TodoItem>> LoadTodosAsync()
     {
         try
         {
             if (!File.Exists(TodosPath))
                 return new();
 
-            var json = File.ReadAllText(TodosPath);
+            var json = await File.ReadAllTextAsync(TodosPath);
             return JsonSerializer.Deserialize<List<TodoItem>>(json) ?? new();
         }
         catch
@@ -35,24 +37,24 @@ public static class TodoStore
         }
     }
 
-    public static void SaveTodos(List<TodoItem> todos)
+    public static async Task SaveTodosAsync(List<TodoItem> todos)
     {
         try
         {
             var json = JsonSerializer.Serialize(todos, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(TodosPath, json);
+            await File.WriteAllTextAsync(TodosPath, json);
         }
         catch { }
     }
 
-    public static List<StudyPlan> LoadPlans()
+    public static async Task<List<StudyPlan>> LoadPlansAsync()
     {
         try
         {
             if (!File.Exists(PlansPath))
                 return new();
 
-            var json = File.ReadAllText(PlansPath);
+            var json = await File.ReadAllTextAsync(PlansPath);
             return JsonSerializer.Deserialize<List<StudyPlan>>(json) ?? new();
         }
         catch
@@ -61,24 +63,24 @@ public static class TodoStore
         }
     }
 
-    public static void SavePlans(List<StudyPlan> plans)
+    public static async Task SavePlansAsync(List<StudyPlan> plans)
     {
         try
         {
             var json = JsonSerializer.Serialize(plans, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(PlansPath, json);
+            await File.WriteAllTextAsync(PlansPath, json);
         }
         catch { }
     }
 
-    public static List<StudySessionLog> LoadSessionLogs()
+    public static async Task<List<StudySessionLog>> LoadSessionLogsAsync()
     {
         try
         {
             if (!File.Exists(SessionLogsPath))
                 return new();
 
-            var json = File.ReadAllText(SessionLogsPath);
+            var json = await File.ReadAllTextAsync(SessionLogsPath);
             return JsonSerializer.Deserialize<List<StudySessionLog>>(json) ?? new();
         }
         catch
@@ -87,38 +89,48 @@ public static class TodoStore
         }
     }
 
-    public static void SaveSessionLogs(List<StudySessionLog> logs)
+    public static async Task SaveSessionLogsAsync(List<StudySessionLog> logs)
     {
         try
         {
             var json = JsonSerializer.Serialize(logs, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(SessionLogsPath, json);
+            await File.WriteAllTextAsync(SessionLogsPath, json);
         }
         catch { }
     }
 
     /// <summary>
-    /// Add or update a single todo item
+    /// Add or update a single todo item (async)
     /// </summary>
-    public static void SaveTodo(TodoItem todo)
+    public static async Task SaveTodoAsync(TodoItem todo)
     {
-        var todos = LoadTodos();
+        var todos = await LoadTodosAsync();
         var existing = todos.FirstOrDefault(t => t.Id == todo.Id);
         
         if (existing != null)
             todos.Remove(existing);
         
         todos.Add(todo);
-        SaveTodos(todos);
+        await SaveTodosAsync(todos);
     }
 
     /// <summary>
-    /// Delete a todo by ID
+    /// Delete a todo by ID (async)
     /// </summary>
-    public static void DeleteTodo(string id)
+    public static async Task DeleteTodoAsync(string id)
     {
-        var todos = LoadTodos();
+        var todos = await LoadTodosAsync();
         todos.RemoveAll(t => t.Id == id);
-        SaveTodos(todos);
+        await SaveTodosAsync(todos);
     }
+    
+    // Keep synchronous versions for backward compatibility
+    public static List<TodoItem> LoadTodos() => LoadTodosAsync().GetAwaiter().GetResult();
+    public static void SaveTodos(List<TodoItem> todos) => SaveTodosAsync(todos).GetAwaiter().GetResult();
+    public static List<StudyPlan> LoadPlans() => LoadPlansAsync().GetAwaiter().GetResult();
+    public static void SavePlans(List<StudyPlan> plans) => SavePlansAsync(plans).GetAwaiter().GetResult();
+    public static List<StudySessionLog> LoadSessionLogs() => LoadSessionLogsAsync().GetAwaiter().GetResult();
+    public static void SaveSessionLogs(List<StudySessionLog> logs) => SaveSessionLogsAsync(logs).GetAwaiter().GetResult();
+    public static void SaveTodo(TodoItem todo) => SaveTodoAsync(todo).GetAwaiter().GetResult();
+    public static void DeleteTodo(string id) => DeleteTodoAsync(id).GetAwaiter().GetResult();
 }

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using FocusDeck.Services.Abstractions;
 
@@ -14,25 +15,62 @@ using FocusDeck.Services.Abstractions;
 /// </summary>
 public class StudySessionService : IStudySessionService
 {
-    private readonly string _storagePath;
-    private readonly string _sessionsFile;
+    private readonly IPlatformService _platformService;
+    private string? _storagePath;
+    private string? _sessionsFile;
     private List<StudySessionDto> _sessions = new();
+    private readonly SemaphoreSlim _initLock = new(1, 1);
+    private bool _initialized = false;
 
     public StudySessionService(IPlatformService platformService)
     {
-        _storagePath = platformService.GetAppDataPath().Result;
-        _sessionsFile = Path.Combine(_storagePath, "sessions.json");
+        _platformService = platformService ?? throw new ArgumentNullException(nameof(platformService));
         
-        // Ensure directory exists
-        Directory.CreateDirectory(_storagePath);
-        
-        // Load existing sessions
-        _ = LoadSessionsAsync();
+        // Initialize asynchronously without blocking constructor
+        _ = InitializeAsync();
+    }
+
+    /// <summary>
+    /// Initializes the service asynchronously (called from constructor)
+    /// </summary>
+    private async Task InitializeAsync()
+    {
+        await _initLock.WaitAsync();
+        try
+        {
+            if (_initialized) return;
+
+            _storagePath = await _platformService.GetAppDataPath();
+            _sessionsFile = Path.Combine(_storagePath, "sessions.json");
+            
+            // Ensure directory exists
+            Directory.CreateDirectory(_storagePath);
+            
+            // Load existing sessions
+            await LoadSessionsAsync();
+            
+            _initialized = true;
+        }
+        finally
+        {
+            _initLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Ensures the service is initialized before operations
+    /// </summary>
+    private async Task EnsureInitializedAsync()
+    {
+        if (_initialized) return;
+        await InitializeAsync();
     }
 
     /// <summary>Creates a new study session</summary>
-    public Task<StudySessionDto> CreateSessionAsync(string subject, DateTime startTime)
+    public async Task<StudySessionDto> CreateSessionAsync(string subject, DateTime startTime)
     {
+        await EnsureInitializedAsync();
+        
         try
         {
             var session = new StudySessionDto
@@ -48,7 +86,7 @@ public class StudySessionService : IStudySessionService
             _sessions.Add(session);
             System.Diagnostics.Debug.WriteLine($"Session created: {session.Id} ({subject})");
 
-            return Task.FromResult(session);
+            return session;
         }
         catch (Exception ex)
         {
@@ -58,8 +96,10 @@ public class StudySessionService : IStudySessionService
     }
 
     /// <summary>Ends a study session and saves it</summary>
-    public Task<StudySessionDto> EndSessionAsync(string sessionId, int effectiveness, string? notes = null)
+    public async Task<StudySessionDto> EndSessionAsync(string sessionId, int effectiveness, string? notes = null)
     {
+        await EnsureInitializedAsync();
+        
         try
         {
             var session = _sessions.FirstOrDefault(s => s.Id == sessionId);
@@ -80,7 +120,7 @@ public class StudySessionService : IStudySessionService
             // Save to file
             _ = SaveAllSessionsAsync();
 
-            return Task.FromResult(session);
+            return session;
         }
         catch (Exception ex)
         {
@@ -90,23 +130,27 @@ public class StudySessionService : IStudySessionService
     }
 
     /// <summary>Gets a specific study session by ID</summary>
-    public Task<StudySessionDto?> GetSessionAsync(string sessionId)
+    public async Task<StudySessionDto?> GetSessionAsync(string sessionId)
     {
+        await EnsureInitializedAsync();
+        
         try
         {
             var session = _sessions.FirstOrDefault(s => s.Id == sessionId);
-            return Task.FromResult(session);
+            return session;
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error getting session: {ex.Message}");
-            return Task.FromResult((StudySessionDto?)null);
+            return null;
         }
     }
 
     /// <summary>Gets all sessions for a date range</summary>
-    public Task<List<StudySessionDto>> GetSessionsAsync(DateTime startDate, DateTime endDate)
+    public async Task<List<StudySessionDto>> GetSessionsAsync(DateTime startDate, DateTime endDate)
     {
+        await EnsureInitializedAsync();
+        
         try
         {
             var sessions = _sessions
@@ -114,18 +158,20 @@ public class StudySessionService : IStudySessionService
                 .OrderByDescending(s => s.StartTime)
                 .ToList();
 
-            return Task.FromResult(sessions);
+            return sessions;
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error getting sessions: {ex.Message}");
-            return Task.FromResult(new List<StudySessionDto>());
+            return new List<StudySessionDto>();
         }
     }
 
     /// <summary>Gets sessions for a specific subject</summary>
-    public Task<List<StudySessionDto>> GetSessionsBySubjectAsync(string subject, int days = 30)
+    public async Task<List<StudySessionDto>> GetSessionsBySubjectAsync(string subject, int days = 30)
     {
+        await EnsureInitializedAsync();
+        
         try
         {
             var cutoffDate = DateTime.UtcNow.AddDays(-days);
@@ -134,18 +180,21 @@ public class StudySessionService : IStudySessionService
                 .OrderByDescending(s => s.StartTime)
                 .ToList();
 
-            return Task.FromResult(sessions);
+            return sessions;
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error getting sessions by subject: {ex.Message}");
-            return Task.FromResult(new List<StudySessionDto>());
+            return new List<StudySessionDto>();
         }
     }
 
     /// <summary>Updates session notes</summary>
-    public Task UpdateSessionNotesAsync(string sessionId, string notes)
+    /// <summary>Updates session notes</summary>
+    public async Task UpdateSessionNotesAsync(string sessionId, string notes)
     {
+        await EnsureInitializedAsync();
+        
         try
         {
             var session = _sessions.FirstOrDefault(s => s.Id == sessionId);
@@ -158,44 +207,44 @@ public class StudySessionService : IStudySessionService
             session.LastModified = DateTime.UtcNow;
             session.NeedsSynced = true;
 
-            _ = SaveAllSessionsAsync();
-
-            return Task.CompletedTask;
+            await SaveAllSessionsAsync();
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error updating session notes: {ex.Message}");
-            return Task.CompletedTask;
         }
     }
 
     /// <summary>Deletes a session</summary>
-    public Task DeleteSessionAsync(string sessionId)
+    public async Task DeleteSessionAsync(string sessionId)
     {
+        await EnsureInitializedAsync();
+        
         try
         {
             var session = _sessions.FirstOrDefault(s => s.Id == sessionId);
             if (session != null)
             {
                 _sessions.Remove(session);
-                _ = SaveAllSessionsAsync();
+                await SaveAllSessionsAsync();
                 System.Diagnostics.Debug.WriteLine($"Session deleted: {sessionId}");
             }
-
-            return Task.CompletedTask;
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error deleting session: {ex.Message}");
-            return Task.CompletedTask;
         }
     }
 
     /// <summary>Saves all sessions to file</summary>
     public async Task SaveAllSessionsAsync()
     {
+        await EnsureInitializedAsync();
+        
         try
         {
+            if (_sessionsFile == null) return; // Not initialized yet
+            
             var json = JsonSerializer.Serialize(_sessions, new JsonSerializerOptions { WriteIndented = true });
             await File.WriteAllTextAsync(_sessionsFile, json);
             System.Diagnostics.Debug.WriteLine($"Sessions saved: {_sessions.Count} sessions");
@@ -207,8 +256,10 @@ public class StudySessionService : IStudySessionService
     }
 
     /// <summary>Marks a session as synced to server</summary>
-    public Task MarkSyncedAsync(string sessionId, DateTime syncedAt)
+    public async Task MarkSyncedAsync(string sessionId, DateTime syncedAt)
     {
+        await EnsureInitializedAsync();
+        
         try
         {
             var session = _sessions.FirstOrDefault(s => s.Id == sessionId);
@@ -216,15 +267,12 @@ public class StudySessionService : IStudySessionService
             {
                 session.SyncedAt = syncedAt;
                 session.NeedsSynced = false;
-                _ = SaveAllSessionsAsync();
+                await SaveAllSessionsAsync();
             }
-
-            return Task.CompletedTask;
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error marking session as synced: {ex.Message}");
-            return Task.CompletedTask;
         }
     }
 
@@ -232,7 +280,7 @@ public class StudySessionService : IStudySessionService
     {
         try
         {
-            if (File.Exists(_sessionsFile))
+            if (_sessionsFile != null && File.Exists(_sessionsFile))
             {
                 var json = await File.ReadAllTextAsync(_sessionsFile);
                 _sessions = JsonSerializer.Deserialize<List<StudySessionDto>>(json) ?? new();

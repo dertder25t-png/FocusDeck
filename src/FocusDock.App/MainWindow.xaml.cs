@@ -80,25 +80,29 @@ public partial class MainWindow : Window
 
         _windowTracker.WindowsUpdated += (s, e) =>
         {
-            // Filter out FocusDock itself from the window list
+            // Filter out FocusDock itself from the window list - use a single pass
             var filteredWindows = e.Where(w => 
                 !w.ProcessName.Equals("FocusDock", StringComparison.OrdinalIgnoreCase) &&
                 !w.ProcessName.Equals("FocusDock.App", StringComparison.OrdinalIgnoreCase))
                 .ToList();
             
+            // Group windows and update pin status in a single enumeration
             var groups = filteredWindows.GroupBy(w => w.ProcessName)
-                .Select(g => new WindowGroup
+                .Select(g => 
                 {
-                    GroupName = g.Key,
-                    Windows = g.ToList()
+                    var windowsList = g.ToList();
+                    // Update pin status for all windows in group
+                    foreach (var w in windowsList)
+                    {
+                        w.IsPinned = _pins.IsPinned(w);
+                    }
+                    return new WindowGroup
+                    {
+                        GroupName = g.Key,
+                        Windows = windowsList
+                    };
                 }).ToList();
-            foreach (var g in groups)
-            {
-                foreach (var w in g.Windows)
-                {
-                    w.IsPinned = _pins.IsPinned(w);
-                }
-            }
+            
             _reminder.UpdateSeen(filteredWindows);
             
             // Use BeginInvoke with Background priority for better performance

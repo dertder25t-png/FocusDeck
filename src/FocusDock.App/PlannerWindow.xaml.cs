@@ -29,6 +29,10 @@ public partial class PlannerWindow : Window
     private DateTime? _selectedTimelineDate = DateTime.Today;
     private readonly Dictionary<DateTime, Border> _timelineDayContainers = new();
     private bool _isSyncingQuickControls = false;
+    
+    // Debouncing for RefreshView to improve performance
+    private System.Windows.Threading.DispatcherTimer? _refreshDebounceTimer;
+    private const int RefreshDebounceMs = 150; // Wait 150ms after last call before refreshing
 
     public PlannerWindow(TodoService todoService, CalendarService calendarService)
     {
@@ -36,7 +40,18 @@ public partial class PlannerWindow : Window
         _todoService = todoService;
         _calendarService = calendarService;
         
-        // Subscribe to changes
+        // Initialize debounce timer
+        _refreshDebounceTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(RefreshDebounceMs)
+        };
+        _refreshDebounceTimer.Tick += (s, e) =>
+        {
+            _refreshDebounceTimer?.Stop();
+            RefreshViewInternal();
+        };
+        
+        // Subscribe to changes with debouncing
         _todoService.TodosChanged += (s, e) => 
         {
             try 
@@ -1290,6 +1305,13 @@ public partial class PlannerWindow : Window
     // ===== Main View Rendering =====
 
     private void RefreshView()
+    {
+        // Debounce: restart timer on each call to batch multiple rapid refresh requests
+        _refreshDebounceTimer?.Stop();
+        _refreshDebounceTimer?.Start();
+    }
+    
+    private void RefreshViewInternal()
     {
         if (TasksList == null) return;
         

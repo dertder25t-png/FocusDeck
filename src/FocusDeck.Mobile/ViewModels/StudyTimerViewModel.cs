@@ -182,7 +182,8 @@ public partial class StudyTimerViewModel : ObservableObject
 #pragma warning restore CS8602
         if (_timer != null)
         {
-            _timer.Interval = TimeSpan.FromMilliseconds(100);
+            // Reduced from 100ms to 500ms for better performance (updates twice per second instead of 10 times)
+            _timer.Interval = TimeSpan.FromMilliseconds(500);
             _timer.Tick += OnTimerTick;
         }
     }
@@ -394,14 +395,19 @@ public partial class StudyTimerViewModel : ObservableObject
                 return;
 
             // Calculate elapsed time from session start
+            var previousDisplayTime = DisplayTime;
             ElapsedTime = DateTime.Now - _sessionStartTime;
 
-            // Update display properties
-            OnPropertyChanged(nameof(DisplayTime));
-            OnPropertyChanged(nameof(FormattedElapsedTime));
-            OnPropertyChanged(nameof(FormattedRemainingTime));
-            OnPropertyChanged(nameof(ProgressPercentage));
-            OnPropertyChanged(nameof(RemainingTime));
+            // Only notify UI if display value actually changed (optimization to reduce UI updates)
+            if (DisplayTime != previousDisplayTime)
+            {
+                // Batch property notifications for efficiency
+                OnPropertyChanged(nameof(DisplayTime));
+                OnPropertyChanged(nameof(FormattedElapsedTime));
+                OnPropertyChanged(nameof(FormattedRemainingTime));
+                OnPropertyChanged(nameof(ProgressPercentage));
+                OnPropertyChanged(nameof(RemainingTime));
+            }
 
             // Check if time is up
             if (ElapsedTime >= TotalTime)

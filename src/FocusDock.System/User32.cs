@@ -107,6 +107,8 @@ public enum SetWindowPosFlags : uint
 public class WindowTracker
 {
     private readonly System.Timers.Timer _timer = new(2000); // Increased to 2 seconds for better performance
+    private readonly StringBuilder _stringBuilder = new(256); // Reusable StringBuilder to reduce allocations
+    
     public event EventHandler<List<WindowInfo>>? WindowsUpdated;
 
     public WindowTracker()
@@ -134,9 +136,11 @@ public class WindowTracker
             int length = User32.GetWindowTextLength(hWnd);
             if (length == 0) return true;
 
-            var builder = new StringBuilder(length + 1);
-            User32.GetWindowText(hWnd, builder, builder.Capacity);
-            string title = builder.ToString();
+            // Reuse StringBuilder for better performance (avoid allocating new one per window)
+            _stringBuilder.Clear();
+            _stringBuilder.EnsureCapacity(length + 1);
+            User32.GetWindowText(hWnd, _stringBuilder, _stringBuilder.Capacity);
+            string title = _stringBuilder.ToString();
 
             if (string.IsNullOrWhiteSpace(title)) return true;
 
