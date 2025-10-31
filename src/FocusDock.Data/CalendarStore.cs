@@ -1,6 +1,7 @@
 namespace FocusDock.Data;
 
 using System.Text.Json;
+using System.Threading.Tasks;
 using FocusDock.Data.Models;
 
 public static class CalendarStore
@@ -19,14 +20,15 @@ public static class CalendarStore
         Directory.CreateDirectory(StorePath);
     }
 
-    public static List<CalendarEvent> LoadEvents()
+    // Async versions for better performance
+    public static async Task<List<CalendarEvent>> LoadEventsAsync()
     {
         try
         {
             if (!File.Exists(EventsPath))
                 return new();
 
-            var json = File.ReadAllText(EventsPath);
+            var json = await File.ReadAllTextAsync(EventsPath);
             return JsonSerializer.Deserialize<List<CalendarEvent>>(json) ?? new();
         }
         catch
@@ -35,24 +37,24 @@ public static class CalendarStore
         }
     }
 
-    public static void SaveEvents(List<CalendarEvent> events)
+    public static async Task SaveEventsAsync(List<CalendarEvent> events)
     {
         try
         {
             var json = JsonSerializer.Serialize(events, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(EventsPath, json);
+            await File.WriteAllTextAsync(EventsPath, json);
         }
         catch { }
     }
 
-    public static List<CanvasAssignment> LoadAssignments()
+    public static async Task<List<CanvasAssignment>> LoadAssignmentsAsync()
     {
         try
         {
             if (!File.Exists(AssignmentsPath))
                 return new();
 
-            var json = File.ReadAllText(AssignmentsPath);
+            var json = await File.ReadAllTextAsync(AssignmentsPath);
             return JsonSerializer.Deserialize<List<CanvasAssignment>>(json) ?? new();
         }
         catch
@@ -61,24 +63,24 @@ public static class CalendarStore
         }
     }
 
-    public static void SaveAssignments(List<CanvasAssignment> assignments)
+    public static async Task SaveAssignmentsAsync(List<CanvasAssignment> assignments)
     {
         try
         {
             var json = JsonSerializer.Serialize(assignments, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(AssignmentsPath, json);
+            await File.WriteAllTextAsync(AssignmentsPath, json);
         }
         catch { }
     }
 
-    public static CalendarSettings LoadSettings()
+    public static async Task<CalendarSettings> LoadSettingsAsync()
     {
         try
         {
             if (!File.Exists(SettingsPath))
                 return new();
 
-            var json = File.ReadAllText(SettingsPath);
+            var json = await File.ReadAllTextAsync(SettingsPath);
             return JsonSerializer.Deserialize<CalendarSettings>(json) ?? new();
         }
         catch
@@ -87,23 +89,33 @@ public static class CalendarStore
         }
     }
 
-    public static void SaveSettings(CalendarSettings settings)
+    public static async Task SaveSettingsAsync(CalendarSettings settings)
     {
         try
         {
             var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(SettingsPath, json);
+            await File.WriteAllTextAsync(SettingsPath, json);
         }
         catch { }
     }
 
-    public static void ClearCache()
+    public static async Task ClearCacheAsync()
     {
         try
         {
             if (File.Exists(EventsPath)) File.Delete(EventsPath);
             if (File.Exists(AssignmentsPath)) File.Delete(AssignmentsPath);
+            await Task.CompletedTask; // Make it properly async
         }
         catch { }
     }
+    
+    // Keep synchronous versions for backward compatibility
+    public static List<CalendarEvent> LoadEvents() => LoadEventsAsync().GetAwaiter().GetResult();
+    public static void SaveEvents(List<CalendarEvent> events) => SaveEventsAsync(events).GetAwaiter().GetResult();
+    public static List<CanvasAssignment> LoadAssignments() => LoadAssignmentsAsync().GetAwaiter().GetResult();
+    public static void SaveAssignments(List<CanvasAssignment> assignments) => SaveAssignmentsAsync(assignments).GetAwaiter().GetResult();
+    public static CalendarSettings LoadSettings() => LoadSettingsAsync().GetAwaiter().GetResult();
+    public static void SaveSettings(CalendarSettings settings) => SaveSettingsAsync(settings).GetAwaiter().GetResult();
+    public static void ClearCache() => ClearCacheAsync().GetAwaiter().GetResult();
 }

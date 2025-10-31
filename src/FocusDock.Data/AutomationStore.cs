@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Threading.Tasks;
 using FocusDock.Data.Models;
 
 namespace FocusDock.Data;
@@ -13,21 +14,27 @@ public static class AutomationStore
 
     private static string FilePath => Path.Combine(Root, "automation.json");
 
-    public static AutomationConfig Load()
+    public static async Task<AutomationConfig> LoadAsync()
     {
         Directory.CreateDirectory(Root);
         if (!File.Exists(FilePath)) return new AutomationConfig();
         try
         {
-            return JsonSerializer.Deserialize<AutomationConfig>(File.ReadAllText(FilePath)) ?? new AutomationConfig();
+            var json = await File.ReadAllTextAsync(FilePath);
+            return JsonSerializer.Deserialize<AutomationConfig>(json) ?? new AutomationConfig();
         }
         catch { return new AutomationConfig(); }
     }
 
-    public static void Save(AutomationConfig cfg)
+    public static async Task SaveAsync(AutomationConfig cfg)
     {
         Directory.CreateDirectory(Root);
-        File.WriteAllText(FilePath, JsonSerializer.Serialize(cfg, new JsonSerializerOptions { WriteIndented = true }));
+        var json = JsonSerializer.Serialize(cfg, new JsonSerializerOptions { WriteIndented = true });
+        await File.WriteAllTextAsync(FilePath, json);
     }
+    
+    // Keep synchronous versions for backward compatibility
+    public static AutomationConfig Load() => LoadAsync().GetAwaiter().GetResult();
+    public static void Save(AutomationConfig cfg) => SaveAsync(cfg).GetAwaiter().GetResult();
 }
 
