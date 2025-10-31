@@ -394,12 +394,13 @@ public partial class StudyTimerViewModel : ObservableObject
             if (CurrentState != TimerState.Running)
                 return;
 
-            // Calculate elapsed time from session start
+            // Calculate elapsed time from session start and cache display time for comparison
             var previousDisplayTime = DisplayTime;
             ElapsedTime = DateTime.Now - _sessionStartTime;
+            var currentDisplayTime = DisplayTime;
 
             // Only notify UI if display value actually changed (optimization to reduce UI updates)
-            if (DisplayTime != previousDisplayTime)
+            if (currentDisplayTime != previousDisplayTime)
             {
                 // Batch property notifications for efficiency
                 OnPropertyChanged(nameof(DisplayTime));

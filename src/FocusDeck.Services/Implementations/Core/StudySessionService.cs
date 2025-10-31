@@ -190,7 +190,6 @@ public class StudySessionService : IStudySessionService
     }
 
     /// <summary>Updates session notes</summary>
-    /// <summary>Updates session notes</summary>
     public async Task UpdateSessionNotesAsync(string sessionId, string notes)
     {
         await EnsureInitializedAsync();

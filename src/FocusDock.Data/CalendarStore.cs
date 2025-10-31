@@ -103,9 +103,17 @@ public static class CalendarStore
     {
         try
         {
-            if (File.Exists(EventsPath)) File.Delete(EventsPath);
-            if (File.Exists(AssignmentsPath)) File.Delete(AssignmentsPath);
-            await Task.CompletedTask; // Make it properly async
+            // Delete files asynchronously if they exist
+            var tasks = new List<Task>();
+            
+            if (File.Exists(EventsPath))
+                tasks.Add(Task.Run(() => File.Delete(EventsPath)));
+            
+            if (File.Exists(AssignmentsPath))
+                tasks.Add(Task.Run(() => File.Delete(AssignmentsPath)));
+            
+            if (tasks.Count > 0)
+                await Task.WhenAll(tasks);
         }
         catch { }
     }
