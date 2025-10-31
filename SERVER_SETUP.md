@@ -17,10 +17,13 @@ That's it! The script will:
 
 ## What You Get
 
-- 🌐 **Web Admin Panel** - Beautiful UI to manage your data
+- 🌐 **Full Web App** - Complete dark-themed productivity app (matches Windows design)
+- 📅 **Task Management** - Create, organize, and track tasks with priorities & due dates
+- ⏱️ **Pomodoro Timer** - Study timer with session tracking and statistics
+- 🗂️ **Deck Management** - Organize study materials and flashcards
+- 📊 **Analytics Dashboard** - Real-time productivity statistics and trends
 - 🔌 **REST API** - Sync with Windows/Mobile apps
-- 📊 **Dashboard** - Real-time statistics
-- 💾 **Data Management** - Export/import functionality
+- 💾 **Data Management** - Export/import functionality with offline support
 
 ## Access Your Server
 
@@ -218,8 +221,16 @@ sudo chown -R $USER:$USER ~/focusdeck-server
 ## Features
 
 ### Web UI
-- Dashboard with statistics
-- Create/edit/delete decks
+- **Dashboard** - Today's overview with stats and quick actions
+- **My Day Planner** - Full task management with categories, priorities, due dates
+- **Pomodoro Timer** - Configurable study sessions with circular progress display
+- **Deck Management** - Create/edit/delete decks and organize study materials
+- **Analytics** - Study time trends, productivity scores, session history
+- **Calendar View** - Month view with navigation
+- **Settings** - Customize theme, notifications, timer preferences
+- **Dark Theme** - Matches Windows app design with purple accents
+- **Responsive Design** - Works on desktop, tablet, and mobile
+- **Offline Support** - LocalStorage persistence for offline work
 - View all cards
 - Export/import data
 - Server configuration
