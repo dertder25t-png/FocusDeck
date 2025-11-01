@@ -229,5 +229,114 @@ rm -f ""$0""
                 return StatusCode(500, new { message = $"Failed to check status: {ex.Message}" });
             }
         }
+
+        [HttpGet("check-updates")]
+        public async Task<IActionResult> CheckForUpdates()
+        {
+            try
+            {
+                _logger.LogInformation("Checking for updates from GitHub...");
+
+                // Get current local commit
+                string currentCommit = "unknown";
+                string currentCommitDate = "unknown";
+                
+                var repoPath = Environment.GetEnvironmentVariable("FOCUSDECK_REPO") ?? "/home/focusdeck/FocusDeck";
+                
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && Directory.Exists(repoPath))
+                {
+                    // Get current commit hash
+                    var commitProcess = new Process
+                    {
+                        StartInfo = new ProcessStartInfo
+                        {
+                            FileName = "git",
+                            Arguments = "-C " + repoPath + " rev-parse HEAD",
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true,
+                            UseShellExecute = false,
+                            CreateNoWindow = true,
+                        }
+                    };
+                    commitProcess.Start();
+                    currentCommit = (await commitProcess.StandardOutput.ReadToEndAsync()).Trim();
+                    await commitProcess.WaitForExitAsync();
+
+                    // Get commit date
+                    var dateProcess = new Process
+                    {
+                        StartInfo = new ProcessStartInfo
+                        {
+                            FileName = "git",
+                            Arguments = "-C " + repoPath + " log -1 --format=%cd --date=iso",
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true,
+                            UseShellExecute = false,
+                            CreateNoWindow = true,
+                        }
+                    };
+                    dateProcess.Start();
+                    currentCommitDate = (await dateProcess.StandardOutput.ReadToEndAsync()).Trim();
+                    await dateProcess.WaitForExitAsync();
+                }
+
+                // Fetch latest commit from GitHub API
+                using var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.Add("User-Agent", "FocusDeck-Server");
+                
+                var response = await httpClient.GetAsync("https://api.github.com/repos/dertder25t-png/FocusDeck/commits/master");
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    return Ok(new 
+                    { 
+                        updateAvailable = false,
+                        message = "Unable to check GitHub for updates",
+                        currentCommit = currentCommit.Substring(0, Math.Min(7, currentCommit.Length)),
+                        currentDate = currentCommitDate
+                    });
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                var githubData = System.Text.Json.JsonDocument.Parse(json);
+                var latestCommit = githubData.RootElement.GetProperty("sha").GetString() ?? "";
+                var latestDate = githubData.RootElement.GetProperty("commit").GetProperty("committer").GetProperty("date").GetString() ?? "";
+                var latestMessage = githubData.RootElement.GetProperty("commit").GetProperty("message").GetString() ?? "";
+
+                bool updateAvailable = !currentCommit.Equals(latestCommit, StringComparison.OrdinalIgnoreCase);
+
+                return Ok(new 
+                { 
+                    updateAvailable = updateAvailable,
+                    currentCommit = currentCommit.Substring(0, Math.Min(7, currentCommit.Length)),
+                    currentDate = currentCommitDate,
+                    latestCommit = latestCommit.Substring(0, Math.Min(7, latestCommit.Length)),
+                    latestDate = latestDate,
+                    latestMessage = latestMessage,
+                    message = updateAvailable ? "Updates available!" : "You're up to date!"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking for updates");
+                return Ok(new 
+                { 
+                    updateAvailable = false,
+                    message = "Error checking for updates: " + ex.Message
+                });
+            }
+        }
+
+        [HttpGet("health")]
+        public IActionResult HealthCheck()
+        {
+            return Ok(new 
+            { 
+                status = "healthy",
+                timestamp = DateTime.UtcNow,
+                platform = RuntimeInformation.OSDescription,
+                uptime = Environment.TickCount64 / 1000
+            });
+        }
     }
 }

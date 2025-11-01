@@ -1346,14 +1346,73 @@ sudo systemctl restart focusdeck`;
         return div.innerHTML;
     }
 
+    async checkForUpdates() {
+        const checkButton = document.getElementById('checkUpdatesBtn');
+        const updateButton = document.getElementById('updateServerBtn');
+        const updateInfo = document.getElementById('updateAvailableInfo');
+        const currentInfo = document.getElementById('currentVersionInfo');
+        const latestInfo = document.getElementById('latestVersionInfo');
+
+        if (checkButton) {
+            checkButton.disabled = true;
+            checkButton.innerHTML = '<span>⏳</span> Checking...';
+        }
+
+        try {
+            const response = await fetch('/api/server/check-updates');
+            const result = await response.json();
+
+            if (response.ok) {
+                // Update current version info
+                if (currentInfo) {
+                    currentInfo.textContent = `${result.currentCommit} - ${new Date(result.currentDate).toLocaleDateString()}`;
+                }
+
+                if (result.updateAvailable) {
+                    // Show update available
+                    if (updateInfo) updateInfo.style.display = 'block';
+                    if (latestInfo) {
+                        latestInfo.innerHTML = `<strong>${result.latestCommit}</strong> - ${new Date(result.latestDate).toLocaleDateString()}<br/>${this.escapeHtml(result.latestMessage)}`;
+                    }
+                    if (updateButton) updateButton.style.display = 'inline-flex';
+                    this.showToast('✨ Updates available!', 'success');
+                } else {
+                    // No updates
+                    if (updateInfo) updateInfo.style.display = 'none';
+                    if (updateButton) updateButton.style.display = 'none';
+                    this.showToast('✅ You\'re up to date!', 'success');
+                }
+            } else {
+                this.showToast(`❌ ${result.message}`, 'error');
+            }
+        } catch (error) {
+            this.showToast(`❌ Failed to check for updates: ${error.message}`, 'error');
+        } finally {
+            if (checkButton) {
+                checkButton.disabled = false;
+                checkButton.innerHTML = '<span>🔍</span> Check for Updates';
+            }
+        }
+    }
+
     async updateServer() {
         if (!confirm('⚠️ This will update and restart the server.\n\nThe server will be unavailable for 30-60 seconds.\n\nContinue?')) {
             return;
         }
 
         const updateButton = document.getElementById('updateServerBtn');
-        updateButton.disabled = true;
-        updateButton.innerHTML = '<span>⏳</span> Updating...';
+        const checkButton = document.getElementById('checkUpdatesBtn');
+        const statusBox = document.getElementById('updateStatusBox');
+        const statusTitle = document.getElementById('updateStatusTitle');
+        const statusMessage = document.getElementById('updateStatusMessage');
+
+        // Disable buttons and show status
+        if (updateButton) {
+            updateButton.disabled = true;
+            updateButton.innerHTML = '<span>⏳</span> Updating...';
+        }
+        if (checkButton) checkButton.disabled = true;
+        if (statusBox) statusBox.style.display = 'block';
 
         try {
             this.showToast('🚀 Starting server update... This will take 30-60 seconds.', 'info');
@@ -1367,46 +1426,79 @@ sudo systemctl restart focusdeck`;
             if (response.ok) {
                 this.showToast(`✅ ${result.message}`, 'success');
                 
-                // Start checking update status
-                let countdown = 60;
-                updateButton.innerHTML = `<span>⏳</span> Restarting... (${countdown}s)`;
+                if (statusTitle) statusTitle.textContent = 'Server is updating...';
+                if (statusMessage) statusMessage.textContent = 'Rebuilding and restarting. The page will reload automatically when complete.';
                 
-                const countdownInterval = setInterval(() => {
-                    countdown--;
-                    updateButton.innerHTML = `<span>⏳</span> Restarting... (${countdown}s)`;
+                // Start checking for server to come back online
+                let attempts = 0;
+                const maxAttempts = 60; // 60 seconds
+                
+                const checkServerInterval = setInterval(async () => {
+                    attempts++;
                     
-                    if (countdown <= 0) {
-                        clearInterval(countdownInterval);
-                        updateButton.innerHTML = '<span>🔄</span> Refresh Page';
-                        updateButton.disabled = false;
-                        updateButton.onclick = () => window.location.reload();
-                        this.showToast('✅ Update complete! Click the button to refresh the page.', 'success');
+                    if (statusMessage) {
+                        statusMessage.textContent = `Waiting for server to restart... (${attempts}/${maxAttempts}s)`;
+                    }
+                    
+                    try {
+                        const healthCheck = await fetch('/api/server/health', { 
+                            method: 'GET',
+                            cache: 'no-cache'
+                        });
+                        
+                        if (healthCheck.ok) {
+                            clearInterval(checkServerInterval);
+                            
+                            if (statusTitle) statusTitle.textContent = 'Update complete!';
+                            if (statusMessage) statusMessage.textContent = 'Server is back online. Reloading page in 2 seconds...';
+                            
+                            this.showToast('✅ Update complete! Reloading page...', 'success');
+                            
+                            // Store update time
+                            localStorage.setItem('focusdeck-last-update', new Date().toISOString());
+                            
+                            // Reload page
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 2000);
+                        }
+                    } catch (err) {
+                        // Server still down, keep waiting
+                    }
+                    
+                    if (attempts >= maxAttempts) {
+                        clearInterval(checkServerInterval);
+                        
+                        if (statusTitle) statusTitle.textContent = 'Update may be complete';
+                        if (statusMessage) statusMessage.textContent = 'Please manually refresh the page (F5 or Ctrl+R)';
+                        if (updateButton) {
+                            updateButton.disabled = false;
+                            updateButton.innerHTML = '<span>🔄</span> Refresh Page';
+                            updateButton.onclick = () => window.location.reload();
+                        }
+                        if (checkButton) checkButton.disabled = false;
+                        
+                        this.showToast('⚠️ Server may be updated. Please refresh manually.', 'warning');
                     }
                 }, 1000);
 
-                // Try to reconnect after 30 seconds
-                setTimeout(async () => {
-                    try {
-                        const healthCheck = await fetch('/api/health', { method: 'GET' });
-                        if (healthCheck.ok) {
-                            clearInterval(countdownInterval);
-                            this.showToast('✅ Server is back online! Refreshing...', 'success');
-                            setTimeout(() => window.location.reload(), 2000);
-                        }
-                    } catch (err) {
-                        // Server still restarting, countdown will continue
-                    }
-                }, 30000);
-
             } else {
                 this.showToast(`❌ Update failed: ${result.message}`, 'error');
-                updateButton.disabled = false;
-                updateButton.innerHTML = '<span>🚀</span> Update Server Now';
+                if (updateButton) {
+                    updateButton.disabled = false;
+                    updateButton.innerHTML = '<span>�</span> Update Server Now';
+                }
+                if (checkButton) checkButton.disabled = false;
+                if (statusBox) statusBox.style.display = 'none';
             }
         } catch (error) {
             this.showToast(`❌ Update request failed: ${error.message}`, 'error');
-            updateButton.disabled = false;
-            updateButton.innerHTML = '<span>🚀</span> Update Server Now';
+            if (updateButton) {
+                updateButton.disabled = false;
+                updateButton.innerHTML = '<span>�</span> Update Server Now';
+            }
+            if (checkButton) checkButton.disabled = false;
+            if (statusBox) statusBox.style.display = 'none';
         }
     }
 

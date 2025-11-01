@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -607,19 +607,40 @@
 
                         <div class="card">
                             <h2 class="card-title">Server Management</h2>
-                            <p class="card-description">Update your server to the latest version with one click.</p>
+                            <p class="card-description">Keep your server up to date with the latest features and fixes.</p>
+                            
                             <div class="setting-item">
                                 <div class="setting-info">
                                     <label class="setting-label">Current Version</label>
-                                    <p class="setting-description">1.0.0 - Dark Theme Release</p>
+                                    <p class="setting-description" id="currentVersionInfo">Loading...</p>
                                 </div>
                             </div>
+
+                            <div class="setting-item" id="updateAvailableInfo" style="display: none;">
+                                <div class="setting-info">
+                                    <label class="setting-label">Update Available</label>
+                                    <p class="setting-description" id="latestVersionInfo"></p>
+                                </div>
+                            </div>
+                            
                             <div class="setting-actions">
-                                <button class="btn btn-primary" id="updateServerBtn">
-                                    <span>�</span> Update Server Now
+                                <button class="btn btn-secondary" id="checkUpdatesBtn">
+                                    <span>🔍</span> Check for Updates
+                                </button>
+                                <button class="btn btn-primary" id="updateServerBtn" style="display: none;">
+                                    <span>🔄</span> Update Server Now
                                 </button>
                             </div>
-                            <p class="card-footer-note">This will pull the latest code, rebuild, and restart the server. The process takes about a minute.</p>
+                            
+                            <div id="updateStatusBox" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--card-bg); border-radius: 8px; border-left: 4px solid var(--accent-color);">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                    <div class="loading-spinner" style="width: 20px; height: 20px;"></div>
+                                    <strong id="updateStatusTitle">Updating server...</strong>
+                                </div>
+                                <p id="updateStatusMessage" style="margin: 0; font-size: 0.9rem; color: var(--text-secondary);">This may take up to 60 seconds. The page will reload automatically.</p>
+                            </div>
+                            
+                            <p class="card-footer-note">Updates pull the latest code from GitHub, rebuild, and restart the server automatically. The process takes about 30-60 seconds.</p>
                         </div>
 
                         <div class="card">
@@ -827,3 +848,4 @@ sudo systemctl restart focusdeck
     <script src="app.js?v=1.1.0"></script>
 </body>
 </html>
+
