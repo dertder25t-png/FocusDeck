@@ -218,7 +218,12 @@ app.UseStaticFiles(new StaticFileOptions
 // Enable CORS (must be after UseRouting if you have it)
 app.UseCors("FocusDeckCors");
 
-app.UseHttpsRedirection();
+// Only redirect to HTTPS in development (not behind Cloudflare proxy)
+// Cloudflare handles HTTPS termination, sends HTTP to our server
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 // AuthN/Z
 app.UseAuthentication();
