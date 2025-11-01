@@ -2199,6 +2199,17 @@ sudo systemctl restart focusdeck`;
         }
     }
 
+    // Safely set an element property (e.g., value) if the element exists
+    safeSetProperty(elementId, prop, value) {
+        const element = document.getElementById(elementId) || document.querySelector(`#${elementId}, ${elementId}`);
+        if (!element) return;
+        try {
+            element[prop] = value;
+        } catch (e) {
+            // no-op
+        }
+    }
+
     showToast(message, type = 'info') {
         const toast = document.getElementById('toast');
         toast.textContent = message;
