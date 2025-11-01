@@ -732,11 +732,11 @@ class FocusDeckApp {
                 this.openConnectServiceModal();
             }
 
-            // Service cards
+            // Service cards: open setup guide instead of connecting immediately
             const serviceCard = e.target.closest('.service-card');
             if (serviceCard) {
                 const service = serviceCard.dataset.service;
-                this.connectService(service);
+                this.openServiceSetup(service);
             }
         });
 
@@ -746,7 +746,12 @@ class FocusDeckApp {
         document.getElementById('saveAutomationBtn')?.addEventListener('click', () => this.saveAutomation());
         document.getElementById('addActionBtn')?.addEventListener('click', () => this.addActionField());
 
-        document.getElementById('closeConnectServiceModal')?.addEventListener('click', () => this.closeConnectServiceModal());
+    document.getElementById('closeConnectServiceModal')?.addEventListener('click', () => this.closeConnectServiceModal());
+
+    // Service setup modal buttons
+    document.getElementById('closeServiceSetupModal')?.addEventListener('click', () => this.closeServiceSetupModal());
+    document.getElementById('cancelServiceSetupBtn')?.addEventListener('click', () => this.closeServiceSetupModal());
+    document.getElementById('startServiceSetupBtn')?.addEventListener('click', () => this.startServiceSetup());
 
         // History modal buttons
         document.getElementById('closeHistoryModal')?.addEventListener('click', () => this.closeAutomationHistoryModal());
@@ -961,6 +966,195 @@ class FocusDeckApp {
 
     closeConnectServiceModal() {
         document.getElementById('connectServiceModal').classList.remove('active');
+    }
+
+    // =============================
+    // SERVICE SETUP (Guided)
+    // =============================
+    getServiceGuides() {
+        // Inspired by Home Assistant integrations: show clear steps, links, and required items
+        return {
+            GoogleCalendar: {
+                title: 'Connect Google Calendar',
+                icon: '📅',
+                description: 'Sync your study schedule with your Google Calendar.',
+                steps: [
+                    'Create a Google Cloud project and enable the Calendar API',
+                    'Create OAuth 2.0 Client credentials',
+                    'Add authorized redirect URI: https://your-domain.tld/api/services/google/callback (coming soon)',
+                    'Click Start Setup to open the Google consent screen'
+                ],
+                links: [
+                    { label: 'Enable Calendar API', url: 'https://console.cloud.google.com/apis/library/calendar-json.googleapis.com' },
+                    { label: 'OAuth Credentials', url: 'https://console.cloud.google.com/apis/credentials' }
+                ],
+                flow: 'oauth'
+            },
+            Spotify: {
+                title: 'Connect Spotify', icon: '🎵',
+                description: 'Control music playback during study sessions.',
+                steps: ['Create a Spotify application and set redirect URI (coming soon)', 'Click Start Setup to authorize FocusDeck'],
+                links: [ { label: 'Spotify Developer Dashboard', url: 'https://developer.spotify.com/dashboard' } ],
+                flow: 'oauth'
+            },
+            HomeAssistant: {
+                title: 'Connect Home Assistant', icon: '🏠',
+                description: 'Trigger lights, scenes, and devices during focus sessions.',
+                steps: [
+                    'Open your Home Assistant profile and create a Long-Lived Access Token',
+                    'Copy your Base URL (e.g., http://homeassistant.local:8123)',
+                    'Paste both below and click Connect'
+                ],
+                links: [
+                    { label: 'Create Long-Lived Access Token', url: 'https://my.home-assistant.io/redirect/profile/' },
+                    { label: 'Home Assistant Docs: Long-Lived Tokens', url: 'https://www.home-assistant.io/docs/authentication/#your-account-profile' }
+                ],
+                fields: [
+                    { id: 'haBaseUrl', label: 'Base URL', placeholder: 'http://homeassistant.local:8123' },
+                    { id: 'haToken', label: 'Long-Lived Access Token', placeholder: 'Paste your token' }
+                ],
+                flow: 'token'
+            },
+            Notion: {
+                title: 'Connect Notion', icon: '📓',
+                description: 'Sync notes and tasks between FocusDeck and Notion.',
+                steps: ['Create a Notion internal integration', 'Share your database with the integration'],
+                links: [ { label: 'Notion Integrations', url: 'https://www.notion.so/my-integrations' } ],
+                flow: 'token'
+            },
+            Todoist: {
+                title: 'Connect Todoist', icon: '✅',
+                description: 'Sync tasks with your Todoist projects.',
+                steps: ['Create a Todoist app and obtain a token'],
+                links: [ { label: 'Todoist Developers', url: 'https://developer.todoist.com/appconsole.html' } ],
+                flow: 'token'
+            },
+            Slack: {
+                title: 'Connect Slack', icon: '💬', description: 'Send study notifications to Slack channels.',
+                steps: ['Create a Slack app and OAuth token (bot token)'],
+                links: [ { label: 'Slack API Apps', url: 'https://api.slack.com/apps' } ], flow: 'oauth'
+            },
+            Discord: {
+                title: 'Connect Discord', icon: '🎮', description: 'Send notifications to your Discord server.',
+                steps: ['Create a bot and invite it to your server; use a bot token or webhook'],
+                links: [ { label: 'Discord Developer Portal', url: 'https://discord.com/developers/applications' } ], flow: 'token'
+            },
+            PhilipsHue: {
+                title: 'Connect Philips Hue', icon: '💡', description: 'Control your lighting scenes.',
+                steps: ['Create a Hue developer app and get a token; or use local bridge pairing'],
+                links: [ { label: 'Philips Hue Developer', url: 'https://developers.meethue.com/' } ], flow: 'token'
+            },
+            Canvas: {
+                title: 'Connect Canvas LMS', icon: '🎓', description: 'Get assignments and grades into FocusDeck.',
+                steps: ['Create an access token from your Canvas profile settings'],
+                links: [ { label: 'Canvas: Create Access Token', url: 'https://community.canvaslms.com/t5/Instructor-Guide/How-do-I-obtain-an-API-access-token-for-an-account/ta-p/278' } ], flow: 'token'
+            },
+            IFTTT: { title: 'Connect IFTTT', icon: '🔗', description: 'Integrate with thousands of services.', steps: ['Create a webhook key'], links: [ { label: 'IFTTT Webhooks', url: 'https://ifttt.com/maker_webhooks' } ], flow: 'token' },
+            Zapier: { title: 'Connect Zapier', icon: '⚡', description: 'Automate workflows with Zapier.', steps: ['Create a Zap with Webhooks'], links: [ { label: 'Zapier Webhooks', url: 'https://zapier.com/apps/webhook/integrations' } ], flow: 'token' },
+            AppleMusic: { title: 'Connect Apple Music', icon: '🎧', description: 'Control Apple Music playback.', steps: ['Apple Music requires MusicKit tokens'], links: [ { label: 'MusicKit', url: 'https://developer.apple.com/documentation/musickit' } ], flow: 'token' }
+        };
+    }
+
+    openServiceSetup(service) {
+        const guides = this.getServiceGuides();
+        const guide = guides[service] || { title: `Connect ${service}`, icon: '🔗', description: 'Follow the steps to connect this service.', steps: [], links: [], flow: 'token' };
+        this.currentServiceSetup = { service, guide };
+
+        // Compose body
+        const body = document.getElementById('serviceSetupBody');
+        const title = document.getElementById('serviceSetupTitle');
+        if (title) title.textContent = `${guide.icon} ${guide.title}`;
+
+        const stepsHtml = guide.steps?.length ? `
+            <h3 class="section-title">Setup steps</h3>
+            <ol class="setup-steps">${guide.steps.map(s => `<li>${this.escapeHtml(s)}</li>`).join('')}</ol>
+        ` : '';
+
+        const linksHtml = guide.links?.length ? `
+            <h3 class="section-title">Helpful links</h3>
+            <div class="links-list">
+                ${guide.links.map(l => `<a href="${l.url}" target="_blank" class="doc-link">${this.escapeHtml(l.label)} →</a>`).join('')}
+            </div>
+        ` : '';
+
+        const fieldsHtml = (guide.fields || []).map(f => `
+            <div class="form-group">
+                <label class="form-label" for="${f.id}">${this.escapeHtml(f.label)}</label>
+                <input type="text" id="${f.id}" class="input-field" placeholder="${this.escapeHtml(f.placeholder || '')}">
+            </div>
+        `).join('');
+
+        if (body) {
+            body.innerHTML = `
+                <p class="setup-description">${this.escapeHtml(guide.description || '')}</p>
+                ${stepsHtml}
+                ${linksHtml}
+                ${fieldsHtml ? `<h3 class="section-title">Required information</h3>${fieldsHtml}` : ''}
+                <div class="help-text" style="margin-top: .5rem; color: var(--text-secondary);">
+                    Mode: <strong>${guide.flow.toUpperCase()}</strong>
+                </div>
+            `;
+        }
+
+        // Show modal
+        document.getElementById('serviceSetupModal')?.classList.add('active');
+    }
+
+    closeServiceSetupModal() {
+        document.getElementById('serviceSetupModal')?.classList.remove('active');
+    }
+
+    async startServiceSetup() {
+        if (!this.currentServiceSetup) return;
+        const { service, guide } = this.currentServiceSetup;
+
+        try {
+            if (guide.flow === 'oauth') {
+                // Try to get an OAuth URL from the server
+                const resp = await fetch(`/api/services/oauth/${service}/url`);
+                if (resp.ok) {
+                    const { url } = await resp.json();
+                    if (url) {
+                        window.open(url, '_blank');
+                        this.showToast('Opened provider authorization in a new tab', 'info');
+                        return;
+                    }
+                }
+                this.showToast('OAuth flow not available yet. Use the docs links above.', 'warning');
+                return;
+            }
+
+            // Token/manual flow — collect fields if any and connect
+            const payload = {};
+            if (guide.fields) {
+                for (const f of guide.fields) {
+                    const el = document.getElementById(f.id);
+                    if (el && el.value) {
+                        if (f.id.toLowerCase().includes('token')) payload['access_token'] = el.value;
+                        else payload[f.id] = el.value;
+                    }
+                }
+            }
+
+            const response = await fetch(`/api/services/connect/${service}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+            });
+            if (response.ok) {
+                this.showToast(`${service} connected!`, 'success');
+                this.loadConnectedServices();
+                this.closeServiceSetupModal();
+                this.closeConnectServiceModal();
+            } else {
+                const text = await response.text();
+                let msg = 'Failed to connect';
+                try { const j = JSON.parse(text); msg = j.message || msg; } catch {}
+                if (!msg || msg === 'undefined') msg = response.statusText || 'Failed to connect';
+                this.showToast(msg, 'error');
+            }
+        } catch (err) {
+            console.error('Service setup error:', err);
+            this.showToast('Failed to start setup. See console for details.', 'error');
+        }
     }
 
     updateTriggerTypes() {
@@ -1306,8 +1500,11 @@ class FocusDeckApp {
                 this.loadConnectedServices();
                 this.closeConnectServiceModal();
             } else {
-                const result = await response.json();
-                this.showToast(`Failed to connect: ${result.message}`, 'error');
+                const text = await response.text();
+                let msg = 'Failed to connect';
+                try { const j = JSON.parse(text); msg = j.message || msg; } catch {}
+                if (!msg || msg === 'undefined') msg = response.statusText || 'Failed to connect';
+                this.showToast(`Failed to connect: ${msg}`, 'error');
             }
         } catch (error) {
             console.error('Error connecting service:', error);
