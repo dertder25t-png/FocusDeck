@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using FocusDeck.Shared.Models.Automations;
+using FocusDeck.Server.Data;
 
 namespace FocusDeck.Server.Controllers
 {
@@ -7,84 +9,235 @@ namespace FocusDeck.Server.Controllers
     [Route("api/[controller]")]
     public class AutomationsController : ControllerBase
     {
-        private static readonly List<Automation> _automations = new();
+        private readonly AutomationDbContext _db;
+        private readonly ILogger<AutomationsController> _logger;
 
-        public static List<Automation> GetAutomations() => _automations;
+        public AutomationsController(AutomationDbContext db, ILogger<AutomationsController> logger)
+        {
+            _db = db;
+            _logger = logger;
+        }
 
         [HttpGet]
-        public ActionResult<List<Automation>> GetAll()
+        public async Task<ActionResult<List<Automation>>> GetAll()
         {
-            return Ok(_automations);
+            try
+            {
+                var automations = await _db.Automations
+                    .OrderByDescending(a => a.CreatedAt)
+                    .ToListAsync();
+                return Ok(automations);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving automations");
+                return StatusCode(500, new { message = "Error retrieving automations" });
+            }
         }
 
         [HttpGet("{id}")]
-        public ActionResult<Automation> GetById(Guid id)
+        public async Task<ActionResult<Automation>> GetById(Guid id)
         {
-            var automation = _automations.FirstOrDefault(a => a.Id == id);
-            if (automation == null)
-                return NotFound();
+            try
+            {
+                var automation = await _db.Automations.FindAsync(id);
+                if (automation == null)
+                    return NotFound(new { message = "Automation not found" });
 
-            return Ok(automation);
+                return Ok(automation);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving automation {Id}", id);
+                return StatusCode(500, new { message = "Error retrieving automation" });
+            }
         }
 
         [HttpPost]
-        public ActionResult<Automation> Create([FromBody] Automation automation)
+        public async Task<ActionResult<Automation>> Create([FromBody] Automation automation)
         {
-            automation.Id = Guid.NewGuid();
-            automation.CreatedAt = DateTime.UtcNow;
-            _automations.Add(automation);
+            try
+            {
+                automation.Id = Guid.NewGuid();
+                automation.CreatedAt = DateTime.UtcNow;
+                automation.UpdatedAt = DateTime.UtcNow;
+                
+                _db.Automations.Add(automation);
+                await _db.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetById), new { id = automation.Id }, automation);
+                _logger.LogInformation("Created automation: {Name} (ID: {Id})", automation.Name, automation.Id);
+                return CreatedAtAction(nameof(GetById), new { id = automation.Id }, automation);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating automation");
+                return StatusCode(500, new { message = "Error creating automation" });
+            }
         }
 
         [HttpPut("{id}")]
-        public ActionResult<Automation> Update(Guid id, [FromBody] Automation automation)
+        public async Task<ActionResult<Automation>> Update(Guid id, [FromBody] Automation automation)
         {
-            var existing = _automations.FirstOrDefault(a => a.Id == id);
-            if (existing == null)
-                return NotFound();
+            if (id != automation.Id)
+                return BadRequest(new { message = "ID mismatch" });
 
-            existing.Name = automation.Name;
-            existing.IsEnabled = automation.IsEnabled;
-            existing.Trigger = automation.Trigger;
-            existing.Actions = automation.Actions;
+            try
+            {
+                var existing = await _db.Automations.FindAsync(id);
+                if (existing == null)
+                    return NotFound(new { message = "Automation not found" });
 
-            return Ok(existing);
+                existing.Name = automation.Name;
+                existing.Description = automation.Description;
+                existing.IsEnabled = automation.IsEnabled;
+                existing.Trigger = automation.Trigger;
+                existing.Actions = automation.Actions;
+                existing.UpdatedAt = DateTime.UtcNow;
+
+                await _db.SaveChangesAsync();
+
+                _logger.LogInformation("Updated automation: {Name} (ID: {Id})", automation.Name, id);
+                return Ok(existing);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating automation {Id}", id);
+                return StatusCode(500, new { message = "Error updating automation" });
+            }
         }
 
         [HttpDelete("{id}")]
-        public ActionResult Delete(Guid id)
+        public async Task<ActionResult> Delete(Guid id)
         {
-            var automation = _automations.FirstOrDefault(a => a.Id == id);
-            if (automation == null)
-                return NotFound();
+            try
+            {
+                var automation = await _db.Automations.FindAsync(id);
+                if (automation == null)
+                    return NotFound(new { message = "Automation not found" });
 
-            _automations.Remove(automation);
-            return NoContent();
+                _db.Automations.Remove(automation);
+                
+                // Also delete execution history
+                var executions = await _db.AutomationExecutions
+                    .Where(e => e.AutomationId == id)
+                    .ToListAsync();
+                _db.AutomationExecutions.RemoveRange(executions);
+                
+                await _db.SaveChangesAsync();
+
+                _logger.LogInformation("Deleted automation: {Name} (ID: {Id})", automation.Name, id);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting automation {Id}", id);
+                return StatusCode(500, new { message = "Error deleting automation" });
+            }
         }
 
         [HttpPost("{id}/toggle")]
-        public ActionResult<Automation> ToggleEnabled(Guid id)
+        public async Task<ActionResult<Automation>> ToggleEnabled(Guid id)
         {
-            var automation = _automations.FirstOrDefault(a => a.Id == id);
-            if (automation == null)
-                return NotFound();
+            try
+            {
+                var automation = await _db.Automations.FindAsync(id);
+                if (automation == null)
+                    return NotFound(new { message = "Automation not found" });
 
-            automation.IsEnabled = !automation.IsEnabled;
-            return Ok(automation);
+                automation.IsEnabled = !automation.IsEnabled;
+                automation.UpdatedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync();
+
+                _logger.LogInformation("Toggled automation: {Name} (ID: {Id}) to {State}", 
+                    automation.Name, id, automation.IsEnabled ? "enabled" : "disabled");
+                
+                return Ok(automation);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error toggling automation {Id}", id);
+                return StatusCode(500, new { message = "Error toggling automation" });
+            }
         }
 
         [HttpPost("{id}/run")]
-        public ActionResult RunManually(Guid id)
+        public async Task<ActionResult> RunManually(Guid id)
         {
-            var automation = _automations.FirstOrDefault(a => a.Id == id);
-            if (automation == null)
-                return NotFound();
+            try
+            {
+                var automation = await _db.Automations.FindAsync(id);
+                if (automation == null)
+                    return NotFound(new { message = "Automation not found" });
 
-            // Trigger the automation manually
-            automation.LastRunAt = DateTime.UtcNow;
-            
-            return Ok(new { message = "Automation triggered successfully", automation });
+                // Trigger the automation manually
+                automation.LastRunAt = DateTime.UtcNow;
+                automation.UpdatedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync();
+                
+                _logger.LogInformation("Manually triggered automation: {Name} (ID: {Id})", automation.Name, id);
+                return Ok(new { message = "Automation triggered successfully", automation });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error running automation {Id}", id);
+                return StatusCode(500, new { message = "Error running automation" });
+            }
+        }
+
+        [HttpGet("{id}/history")]
+        public async Task<ActionResult<List<AutomationExecution>>> GetHistory(Guid id, [FromQuery] int limit = 50)
+        {
+            try
+            {
+                var automation = await _db.Automations.FindAsync(id);
+                if (automation == null)
+                    return NotFound(new { message = "Automation not found" });
+
+                var history = await _db.AutomationExecutions
+                    .Where(e => e.AutomationId == id)
+                    .OrderByDescending(e => e.ExecutedAt)
+                    .Take(limit)
+                    .ToListAsync();
+
+                return Ok(history);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving automation history for {Id}", id);
+                return StatusCode(500, new { message = "Error retrieving automation history" });
+            }
+        }
+
+        [HttpGet("stats")]
+        public async Task<ActionResult> GetStats()
+        {
+            try
+            {
+                var totalAutomations = await _db.Automations.CountAsync();
+                var enabledAutomations = await _db.Automations.CountAsync(a => a.IsEnabled);
+                var totalExecutions = await _db.AutomationExecutions.CountAsync();
+                var successfulExecutions = await _db.AutomationExecutions.CountAsync(e => e.Success);
+                
+                var last24Hours = DateTime.UtcNow.AddHours(-24);
+                var executionsLast24h = await _db.AutomationExecutions
+                    .CountAsync(e => e.ExecutedAt >= last24Hours);
+
+                return Ok(new
+                {
+                    totalAutomations,
+                    enabledAutomations,
+                    totalExecutions,
+                    successfulExecutions,
+                    failedExecutions = totalExecutions - successfulExecutions,
+                    successRate = totalExecutions > 0 ? (double)successfulExecutions / totalExecutions * 100 : 0,
+                    executionsLast24h
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving automation stats");
+                return StatusCode(500, new { message = "Error retrieving stats" });
+            }
         }
     }
 }

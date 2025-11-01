@@ -34,3 +34,9 @@ desktop.ini
 
 # Publish output
 publish/
+
+# SQLite database files (local data)
+*.db
+*.db-shm
+*.db-wal
+

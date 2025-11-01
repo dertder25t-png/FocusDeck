@@ -1,10 +1,17 @@
 using FocusDeck.Server.Services;
+using FocusDeck.Server.Data;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+
+// Add Database
+builder.Services.AddDbContext<AutomationDbContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") 
+        ?? "Data Source=focusdeck.db"));
 
 // Add background services
 builder.Services.AddHostedService<AutomationEngine>();
@@ -21,6 +28,13 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Initialize database
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+    db.Database.EnsureCreated();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
