@@ -81,6 +81,10 @@ public partial class App : System.Windows.Application
             {
                 apiClient.SetServerUrl(appSettings.ServerUrl);
             }
+            if (!string.IsNullOrEmpty(appSettings.JwtToken))
+            {
+                apiClient.SetJwtToken(appSettings.JwtToken);
+            }
 
             // Initialize background sync (best-effort, non-blocking)
             try

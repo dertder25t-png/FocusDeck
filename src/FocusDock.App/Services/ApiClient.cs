@@ -12,6 +12,7 @@ namespace FocusDock.App.Services
     {
         private readonly HttpClient _httpClient;
         private string _serverUrl = "http://localhost:5000"; // Default for local testing, will be configurable
+        private string? _jwtToken;
         private SyncClientService? _sync;
 
         public ApiClient()
@@ -29,6 +30,18 @@ namespace FocusDock.App.Services
             if (!string.IsNullOrWhiteSpace(serverUrl))
             {
                 _serverUrl = serverUrl;
+            }
+        }
+
+        public void SetJwtToken(string? jwtToken)
+        {
+            _jwtToken = jwtToken;
+            
+            // Update the HttpClient's default Authorization header
+            _httpClient.DefaultRequestHeaders.Remove("Authorization");
+            if (!string.IsNullOrWhiteSpace(_jwtToken))
+            {
+                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_jwtToken}");
             }
         }
 

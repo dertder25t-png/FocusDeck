@@ -205,11 +205,15 @@ public partial class SettingsWindow : Window
         _appSettings.JwtToken = PwdJwtToken.Password;
         SettingsStore.SaveSettings(_appSettings);
 
-        // Update ApiClient base URL immediately
+        // Update ApiClient base URL and JWT token immediately
         try
         {
             var apiClient = ((App)System.Windows.Application.Current).Services.GetService(typeof(ApiClient)) as ApiClient;
-            apiClient?.SetServerUrl(_appSettings.ServerUrl);
+            if (apiClient != null)
+            {
+                apiClient.SetServerUrl(_appSettings.ServerUrl);
+                apiClient.SetJwtToken(_appSettings.JwtToken);
+            }
             var syncClient = ((App)System.Windows.Application.Current).Services.GetService(typeof(SyncClientService)) as SyncClientService;
             if (syncClient != null)
             {
