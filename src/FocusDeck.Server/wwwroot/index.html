@@ -50,6 +50,10 @@
                     <span class="nav-icon">📆</span>
                     <span class="nav-label">Calendar</span>
                 </button>
+                <button class="nav-item" data-view="automations">
+                    <span class="nav-icon">🤖</span>
+                    <span class="nav-label">Automations</span>
+                </button>
                 <button class="nav-item" data-view="settings">
                     <span class="nav-icon">⚙️</span>
                     <span class="nav-label">Settings</span>
@@ -477,6 +481,43 @@
                 </div>
             </div>
 
+            <!-- Automations View -->
+            <div id="automationsView" class="view">
+                <header class="view-header">
+                    <h1 class="view-title">Automations</h1>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" id="createAutomationBtn">
+                            <span>+</span> Create Automation
+                        </button>
+                    </div>
+                </header>
+
+                <div class="automations-container">
+                    <!-- Connected Services -->
+                    <div class="card">
+                        <h2 class="card-title">Connected Services</h2>
+                        <p class="card-description">Manage your external service integrations</p>
+                        <div id="connectedServicesList" class="services-grid">
+                            <!-- Services will be loaded here -->
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary" id="connectServiceBtn">
+                                <span>🔗</span> Connect New Service
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Active Automations -->
+                    <div class="card">
+                        <h2 class="card-title">Your Automations</h2>
+                        <p class="card-description">Manage your automated workflows</p>
+                        <div id="automationsList" class="automations-list">
+                            <!-- Automations will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Settings View -->
             <div id="settingsView" class="view">
                 <header class="view-header">
@@ -600,6 +641,101 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Automation Modal -->
+    <div id="automationModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2 class="modal-title" id="automationModalTitle">Create Automation</h2>
+                <button class="modal-close" id="closeAutomationModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Automation Name</label>
+                    <input type="text" id="automationName" class="input-field" placeholder="e.g., Start timer when study event begins" />
+                </div>
+
+                <div class="form-section">
+                    <h3 class="section-title">🎯 When This Happens... (Trigger)</h3>
+                    <div class="form-group">
+                        <label class="form-label">Service</label>
+                        <select id="triggerService" class="select-field">
+                            <option value="FocusDeck">FocusDeck</option>
+                            <option value="GoogleCalendar">Google Calendar</option>
+                            <option value="Canvas">Canvas LMS</option>
+                            <option value="HomeAssistant">Home Assistant</option>
+                            <option value="Spotify">Spotify</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Trigger Type</label>
+                        <select id="triggerType" class="select-field">
+                            <!-- Options populated based on service -->
+                        </select>
+                    </div>
+                    <div id="triggerSettings" class="form-settings">
+                        <!-- Dynamic settings fields -->
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3 class="section-title">⚡ Do This... (Actions)</h3>
+                    <div id="actionsList" class="actions-list">
+                        <!-- Actions will be added here -->
+                    </div>
+                    <button class="btn btn-secondary" id="addActionBtn">
+                        <span>+</span> Add Action
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelAutomationBtn">Cancel</button>
+                <button class="btn btn-primary" id="saveAutomationBtn">Save Automation</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connect Service Modal -->
+    <div id="connectServiceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Connect Service</h2>
+                <button class="modal-close" id="closeConnectServiceModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="services-list">
+                    <button class="service-card" data-service="GoogleCalendar">
+                        <div class="service-icon">📅</div>
+                        <div class="service-info">
+                            <h3>Google Calendar</h3>
+                            <p>Trigger automations based on calendar events</p>
+                        </div>
+                    </button>
+                    <button class="service-card" data-service="Canvas">
+                        <div class="service-icon">🎓</div>
+                        <div class="service-info">
+                            <h3>Canvas LMS</h3>
+                            <p>Get notified about assignments and grades</p>
+                        </div>
+                    </button>
+                    <button class="service-card" data-service="HomeAssistant">
+                        <div class="service-icon">🏠</div>
+                        <div class="service-info">
+                            <h3>Home Assistant</h3>
+                            <p>Control your smart home devices</p>
+                        </div>
+                    </button>
+                    <button class="service-card" data-service="Spotify">
+                        <div class="service-icon">🎵</div>
+                        <div class="service-info">
+                            <h3>Spotify</h3>
+                            <p>Control music playback</p>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Deck Modal -->

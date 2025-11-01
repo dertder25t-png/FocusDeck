@@ -8,6 +8,8 @@ class FocusDeckApp {
         this.tasks = [];
         this.decks = [];
         this.sessions = [];
+        this.automations = [];
+        this.connectedServices = [];
         this.timerState = {
             isRunning: false,
             isPaused: false,
@@ -36,6 +38,7 @@ class FocusDeckApp {
         this.setupPlanner();
         this.setupTimer();
         this.setupDecks();
+        this.setupAutomations();
         this.setupSettings();
         this.loadFromAPI();
         
@@ -701,6 +704,372 @@ class FocusDeckApp {
         a.click();
         URL.revokeObjectURL(url);
         this.showToast('Decks exported!', 'success');
+    }
+
+    // ====================================
+    // AUTOMATIONS
+    // ====================================
+
+    setupAutomations() {
+        // Create Automation Button
+        const createBtn = document.getElementById('createAutomationBtn');
+        if (createBtn) {
+            createBtn.addEventListener('click', () => this.openAutomationModal());
+        }
+
+        // Connect Service Button
+        const connectBtn = document.getElementById('connectServiceBtn');
+        if (connectBtn) {
+            connectBtn.addEventListener('click', () => this.openConnectServiceModal());
+        }
+
+        // Modal buttons
+        document.getElementById('closeAutomationModal')?.addEventListener('click', () => this.closeAutomationModal());
+        document.getElementById('cancelAutomationBtn')?.addEventListener('click', () => this.closeAutomationModal());
+        document.getElementById('saveAutomationBtn')?.addEventListener('click', () => this.saveAutomation());
+        document.getElementById('addActionBtn')?.addEventListener('click', () => this.addActionField());
+
+        document.getElementById('closeConnectServiceModal')?.addEventListener('click', () => this.closeConnectServiceModal());
+
+        // Service cards
+        document.querySelectorAll('.service-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                const service = e.currentTarget.dataset.service;
+                this.connectService(service);
+            });
+        });
+
+        // Trigger service change
+        const triggerService = document.getElementById('triggerService');
+        if (triggerService) {
+            triggerService.addEventListener('change', () => this.updateTriggerTypes());
+        }
+
+        this.loadAutomations();
+        this.loadConnectedServices();
+    }
+
+    async loadAutomations() {
+        try {
+            const response = await fetch('/api/automations');
+            if (response.ok) {
+                this.automations = await response.json();
+                this.renderAutomations();
+            }
+        } catch (error) {
+            console.error('Error loading automations:', error);
+            // Load from localStorage fallback
+            const stored = localStorage.getItem('automations');
+            if (stored) {
+                this.automations = JSON.parse(stored);
+                this.renderAutomations();
+            }
+        }
+    }
+
+    async loadConnectedServices() {
+        try {
+            const response = await fetch('/api/services');
+            if (response.ok) {
+                this.connectedServices = await response.json();
+                this.renderConnectedServices();
+            }
+        } catch (error) {
+            console.error('Error loading services:', error);
+        }
+    }
+
+    renderAutomations() {
+        const container = document.getElementById('automationsList');
+        if (!container) return;
+
+        if (this.automations.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">🤖</div>
+                    <h3>No Automations Yet</h3>
+                    <p>Create your first automation to connect your workflow</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = this.automations.map(automation => `
+            <div class="automation-card ${automation.isEnabled ? 'enabled' : 'disabled'}">
+                <div class="automation-header">
+                    <div class="automation-info">
+                        <h3 class="automation-name">${this.escapeHtml(automation.name)}</h3>
+                        <p class="automation-description">
+                            <span class="trigger-badge">${this.getServiceIcon(automation.trigger.service)} ${automation.trigger.triggerType}</span>
+                            → ${automation.actions.length} action${automation.actions.length !== 1 ? 's' : ''}
+                        </p>
+                    </div>
+                    <div class="automation-actions">
+                        <label class="toggle">
+                            <input type="checkbox" ${automation.isEnabled ? 'checked' : ''} 
+                                   onchange="app.toggleAutomation('${automation.id}')">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <button class="btn-icon" onclick="app.runAutomation('${automation.id}')" title="Run now">
+                            ▶️
+                        </button>
+                        <button class="btn-icon" onclick="app.editAutomation('${automation.id}')" title="Edit">
+                            ✏️
+                        </button>
+                        <button class="btn-icon" onclick="app.deleteAutomation('${automation.id}')" title="Delete">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+                ${automation.lastRunAt ? `<p class="automation-last-run">Last run: ${new Date(automation.lastRunAt).toLocaleString()}</p>` : ''}
+            </div>
+        `).join('');
+    }
+
+    renderConnectedServices() {
+        const container = document.getElementById('connectedServicesList');
+        if (!container) return;
+
+        if (this.connectedServices.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state-small">
+                    <p>No services connected yet. Click "Connect New Service" to get started.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = this.connectedServices.map(service => `
+            <div class="service-badge">
+                <span class="service-icon">${this.getServiceIcon(service.service)}</span>
+                <span class="service-name">${service.service}</span>
+                <button class="btn-icon-small" onclick="app.disconnectService('${service.id}')" title="Disconnect">
+                    ❌
+                </button>
+            </div>
+        `).join('');
+    }
+
+    getServiceIcon(service) {
+        const icons = {
+            'FocusDeck': '🎯',
+            'GoogleCalendar': '📅',
+            'Canvas': '🎓',
+            'HomeAssistant': '🏠',
+            'Spotify': '🎵',
+            'GoogleDrive': '📁'
+        };
+        return icons[service] || '🔗';
+    }
+
+    openAutomationModal(automationId = null) {
+        const modal = document.getElementById('automationModal');
+        modal.classList.add('active');
+
+        if (automationId) {
+            // Edit mode
+            const automation = this.automations.find(a => a.id === automationId);
+            if (automation) {
+                document.getElementById('automationName').value = automation.name;
+                document.getElementById('triggerService').value = automation.trigger.service;
+                this.updateTriggerTypes();
+                document.getElementById('triggerType').value = automation.trigger.triggerType;
+                // Load actions
+                this.loadActionsForEdit(automation.actions);
+            }
+        } else {
+            // Create mode
+            document.getElementById('automationName').value = '';
+            document.getElementById('actionsList').innerHTML = '';
+            this.updateTriggerTypes();
+        }
+    }
+
+    closeAutomationModal() {
+        document.getElementById('automationModal').classList.remove('active');
+    }
+
+    openConnectServiceModal() {
+        document.getElementById('connectServiceModal').classList.add('active');
+    }
+
+    closeConnectServiceModal() {
+        document.getElementById('connectServiceModal').classList.remove('active');
+    }
+
+    updateTriggerTypes() {
+        const service = document.getElementById('triggerService').value;
+        const typeSelect = document.getElementById('triggerType');
+
+        const triggersByService = {
+            'FocusDeck': [
+                { value: 'time.specific', label: 'At Specific Time' },
+                { value: 'session.started', label: 'Session Started' },
+                { value: 'session.completed', label: 'Session Completed' },
+                { value: 'task.created', label: 'Task Created' },
+                { value: 'task.completed', label: 'Task Completed' },
+                { value: 'task.due_approaching', label: 'Task Due Soon' }
+            ],
+            'GoogleCalendar': [
+                { value: 'google_calendar.event_start', label: 'Event Starts' },
+                { value: 'google_calendar.event_end', label: 'Event Ends' },
+                { value: 'google_calendar.event_created', label: 'New Event Created' }
+            ],
+            'Canvas': [
+                { value: 'canvas.assignment_due', label: 'Assignment Due' },
+                { value: 'canvas.new_grade', label: 'New Grade Posted' },
+                { value: 'canvas.new_announcement', label: 'New Announcement' }
+            ],
+            'HomeAssistant': [
+                { value: 'home_assistant.webhook', label: 'Webhook Received' }
+            ],
+            'Spotify': [
+                { value: 'spotify.playback_started', label: 'Playback Started' }
+            ]
+        };
+
+        const triggers = triggersByService[service] || [];
+        typeSelect.innerHTML = triggers.map(t => 
+            `<option value="${t.value}">${t.label}</option>`
+        ).join('');
+    }
+
+    addActionField() {
+        const container = document.getElementById('actionsList');
+        const actionIndex = container.children.length;
+
+        const actionHtml = `
+            <div class="action-field" data-index="${actionIndex}">
+                <select class="select-field action-type">
+                    <option value="timer.start">Start Timer</option>
+                    <option value="task.create">Create Task</option>
+                    <option value="notification.show">Show Notification</option>
+                    <option value="lights.set_scene">Set Lighting Scene</option>
+                    <option value="spotify.play_playlist">Play Spotify Playlist</option>
+                    <option value="home_assistant.turn_on">Turn On Device</option>
+                </select>
+                <button class="btn-icon" onclick="app.removeActionField(${actionIndex})">❌</button>
+            </div>
+        `;
+
+        container.insertAdjacentHTML('beforeend', actionHtml);
+    }
+
+    removeActionField(index) {
+        const field = document.querySelector(`.action-field[data-index="${index}"]`);
+        if (field) field.remove();
+    }
+
+    async saveAutomation() {
+        const name = document.getElementById('automationName').value;
+        const triggerService = document.getElementById('triggerService').value;
+        const triggerType = document.getElementById('triggerType').value;
+
+        if (!name || !triggerType) {
+            this.showToast('Please fill in all required fields', 'error');
+            return;
+        }
+
+        const actions = Array.from(document.querySelectorAll('.action-field')).map(field => ({
+            actionType: field.querySelector('.action-type').value,
+            settings: {}
+        }));
+
+        const automation = {
+            name,
+            isEnabled: true,
+            trigger: {
+                service: triggerService,
+                triggerType: triggerType,
+                settings: {}
+            },
+            actions
+        };
+
+        try {
+            const response = await fetch('/api/automations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(automation)
+            });
+
+            if (response.ok) {
+                this.showToast('Automation created!', 'success');
+                this.loadAutomations();
+                this.closeAutomationModal();
+            }
+        } catch (error) {
+            console.error('Error saving automation:', error);
+            // Save locally as fallback
+            automation.id = Date.now().toString();
+            automation.createdAt = new Date().toISOString();
+            this.automations.push(automation);
+            localStorage.setItem('automations', JSON.stringify(this.automations));
+            this.renderAutomations();
+            this.closeAutomationModal();
+            this.showToast('Automation created (offline)', 'info');
+        }
+    }
+
+    async toggleAutomation(id) {
+        try {
+            await fetch(`/api/automations/${id}/toggle`, { method: 'POST' });
+            this.loadAutomations();
+        } catch (error) {
+            console.error('Error toggling automation:', error);
+        }
+    }
+
+    async runAutomation(id) {
+        try {
+            await fetch(`/api/automations/${id}/run`, { method: 'POST' });
+            this.showToast('Automation triggered!', 'success');
+            this.loadAutomations();
+        } catch (error) {
+            console.error('Error running automation:', error);
+            this.showToast('Failed to run automation', 'error');
+        }
+    }
+
+    async deleteAutomation(id) {
+        if (!confirm('Delete this automation?')) return;
+
+        try {
+            await fetch(`/api/automations/${id}`, { method: 'DELETE' });
+            this.showToast('Automation deleted', 'success');
+            this.loadAutomations();
+        } catch (error) {
+            console.error('Error deleting automation:', error);
+        }
+    }
+
+    async connectService(service) {
+        // For demo, just add it
+        try {
+            await fetch(`/api/services/connect/${service}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            this.showToast(`${service} connected!`, 'success');
+            this.loadConnectedServices();
+            this.closeConnectServiceModal();
+        } catch (error) {
+            console.error('Error connecting service:', error);
+            this.showToast('Service connection coming soon!', 'info');
+        }
+    }
+
+    async disconnectService(id) {
+        if (!confirm('Disconnect this service?')) return;
+
+        try {
+            await fetch(`/api/services/${id}`, { method: 'DELETE' });
+            this.showToast('Service disconnected', 'success');
+            this.loadConnectedServices();
+        } catch (error) {
+            console.error('Error disconnecting service:', error);
+        }
     }
 
     // ====================================
