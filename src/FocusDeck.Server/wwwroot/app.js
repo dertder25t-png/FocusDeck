@@ -40,11 +40,12 @@ class FocusDeckApp {
         this.setupDecks();
         this.setupAutomations();
         this.setupSettings();
+        this.setupGlobalEventListeners(); // Add this
         this.loadFromAPI();
         
         // Set today's date as default for task form
         const today = new Date().toISOString().split('T')[0];
-        document.getElementById('taskDueDate').value = today;
+        this.safeSetProperty('taskDueDate', 'value', today);
         
         console.log('FocusDeck initialized');
     }
@@ -711,27 +712,33 @@ class FocusDeckApp {
     // ====================================
 
     setupAutomations() {
-        console.log('Setting up automations...');
-        
-        // Create Automation Button
-        const createBtn = document.getElementById('createAutomationBtn');
-        console.log('Create button found:', !!createBtn);
-        if (createBtn) {
-            createBtn.addEventListener('click', () => {
-                console.log('Create automation clicked');
-                this.openAutomationModal();
-            });
-        }
+        // This method is now less important, but we'll keep it for loading data
+        this.loadAutomations();
+        this.loadConnectedServices();
+        this.loadAutomationStats();
+    }
 
-        // Connect Service Button
-        const connectBtn = document.getElementById('connectServiceBtn');
-        console.log('Connect button found:', !!connectBtn);
-        if (connectBtn) {
-            connectBtn.addEventListener('click', () => {
-                console.log('Connect service clicked');
+    setupGlobalEventListeners() {
+        document.body.addEventListener('click', (e) => {
+            // Create Automation Button
+            if (e.target.closest('#createAutomationBtn')) {
+                console.log('Create automation clicked via global listener');
+                this.openAutomationModal();
+            }
+
+            // Connect Service Button
+            if (e.target.closest('#connectServiceBtn')) {
+                console.log('Connect service clicked via global listener');
                 this.openConnectServiceModal();
-            });
-        }
+            }
+
+            // Service cards
+            const serviceCard = e.target.closest('.service-card');
+            if (serviceCard) {
+                const service = serviceCard.dataset.service;
+                this.connectService(service);
+            }
+        });
 
         // Modal buttons
         document.getElementById('closeAutomationModal')?.addEventListener('click', () => this.closeAutomationModal());
@@ -745,23 +752,11 @@ class FocusDeckApp {
         document.getElementById('closeHistoryModal')?.addEventListener('click', () => this.closeAutomationHistoryModal());
         document.getElementById('closeHistoryModalBtn')?.addEventListener('click', () => this.closeAutomationHistoryModal());
 
-        // Service cards
-        document.querySelectorAll('.service-card').forEach(card => {
-            card.addEventListener('click', (e) => {
-                const service = e.currentTarget.dataset.service;
-                this.connectService(service);
-            });
-        });
-
         // Trigger service change
         const triggerService = document.getElementById('triggerService');
         if (triggerService) {
             triggerService.addEventListener('change', () => this.updateTriggerTypes());
         }
-
-        this.loadAutomations();
-        this.loadConnectedServices();
-        this.loadAutomationStats();
     }
 
     async loadAutomations() {
@@ -905,7 +900,15 @@ class FocusDeckApp {
             'Canvas': '🎓',
             'HomeAssistant': '🏠',
             'Spotify': '🎵',
-            'GoogleDrive': '📁'
+            'GoogleDrive': '📁',
+            'Notion': '📓',
+            'Todoist': '✅',
+            'Slack': '💬',
+            'Discord': '🎮',
+            'IFTTT': '🔗',
+            'Zapier': '⚡',
+            'PhilipsHue': '💡',
+            'AppleMusic': '🎧'
         };
         return icons[service] || '🔗';
     }
@@ -966,28 +969,80 @@ class FocusDeckApp {
 
         const triggersByService = {
             'FocusDeck': [
-                { value: 'time.specific', label: 'At Specific Time' },
-                { value: 'session.started', label: 'Session Started' },
-                { value: 'session.completed', label: 'Session Completed' },
-                { value: 'task.created', label: 'Task Created' },
-                { value: 'task.completed', label: 'Task Completed' },
-                { value: 'task.due_approaching', label: 'Task Due Soon' }
+                { value: 'time.specific', label: '⏰ At Specific Time' },
+                { value: 'time.recurring', label: '🔁 Recurring Schedule' },
+                { value: 'session.started', label: '▶️ Session Started' },
+                { value: 'session.completed', label: '✅ Session Completed' },
+                { value: 'session.paused', label: '⏸️ Session Paused' },
+                { value: 'break.started', label: '☕ Break Started' },
+                { value: 'break.ended', label: '🔄 Break Ended' },
+                { value: 'task.created', label: '📝 Task Created' },
+                { value: 'task.completed', label: '✓ Task Completed' },
+                { value: 'task.due_approaching', label: '⚠️ Task Due Soon' },
+                { value: 'task.overdue', label: '🚨 Task Overdue' },
+                { value: 'task.priority_high', label: '🔴 High Priority Task Added' },
+                { value: 'deck.created', label: '🃏 Deck Created' },
+                { value: 'study.session_milestone', label: '🎯 Study Milestone Reached' },
+                { value: 'productivity.goal_met', label: '🏆 Daily Goal Met' },
+                { value: 'productivity.streak', label: '🔥 Productivity Streak' }
             ],
             'GoogleCalendar': [
-                { value: 'google_calendar.event_start', label: 'Event Starts' },
-                { value: 'google_calendar.event_end', label: 'Event Ends' },
-                { value: 'google_calendar.event_created', label: 'New Event Created' }
+                { value: 'google_calendar.event_start', label: '📅 Event Starts' },
+                { value: 'google_calendar.event_end', label: '🏁 Event Ends' },
+                { value: 'google_calendar.event_created', label: '➕ New Event Created' },
+                { value: 'google_calendar.event_updated', label: '✏️ Event Updated' },
+                { value: 'google_calendar.event_cancelled', label: '❌ Event Cancelled' },
+                { value: 'google_calendar.reminder', label: '🔔 Event Reminder (15 min)' },
+                { value: 'google_calendar.all_day_event', label: '📆 All-Day Event' }
             ],
             'Canvas': [
-                { value: 'canvas.assignment_due', label: 'Assignment Due' },
-                { value: 'canvas.new_grade', label: 'New Grade Posted' },
-                { value: 'canvas.new_announcement', label: 'New Announcement' }
+                { value: 'canvas.assignment_due', label: '📚 Assignment Due' },
+                { value: 'canvas.assignment_posted', label: '📝 New Assignment Posted' },
+                { value: 'canvas.new_grade', label: '💯 New Grade Posted' },
+                { value: 'canvas.new_announcement', label: '📢 New Announcement' },
+                { value: 'canvas.discussion_post', label: '💬 New Discussion Post' },
+                { value: 'canvas.quiz_available', label: '📋 Quiz Available' },
+                { value: 'canvas.submission_graded', label: '✅ Submission Graded' }
             ],
             'HomeAssistant': [
-                { value: 'home_assistant.webhook', label: 'Webhook Received' }
+                { value: 'home_assistant.webhook', label: '🔗 Webhook Received' },
+                { value: 'home_assistant.device_state', label: '💡 Device State Changed' },
+                { value: 'home_assistant.motion_detected', label: '👋 Motion Detected' },
+                { value: 'home_assistant.door_opened', label: '🚪 Door Opened' },
+                { value: 'home_assistant.temperature', label: '🌡️ Temperature Change' }
             ],
             'Spotify': [
-                { value: 'spotify.playback_started', label: 'Playback Started' }
+                { value: 'spotify.playback_started', label: '▶️ Playback Started' },
+                { value: 'spotify.playback_paused', label: '⏸️ Playback Paused' },
+                { value: 'spotify.song_changed', label: '🎵 Song Changed' },
+                { value: 'spotify.playlist_ended', label: '🏁 Playlist Ended' }
+            ],
+            'Notion': [
+                { value: 'notion.page_created', label: '📄 Page Created' },
+                { value: 'notion.page_updated', label: '✏️ Page Updated' },
+                { value: 'notion.database_item_added', label: '➕ Database Item Added' },
+                { value: 'notion.task_completed', label: '✅ Task Completed' }
+            ],
+            'Todoist': [
+                { value: 'todoist.task_created', label: '📝 Task Created' },
+                { value: 'todoist.task_completed', label: '✓ Task Completed' },
+                { value: 'todoist.task_due', label: '⏰ Task Due' },
+                { value: 'todoist.project_created', label: '📁 Project Created' }
+            ],
+            'Slack': [
+                { value: 'slack.message_received', label: '💬 Message Received' },
+                { value: 'slack.mention', label: '👤 Mentioned in Channel' },
+                { value: 'slack.channel_joined', label: '🚪 Joined Channel' }
+            ],
+            'Discord': [
+                { value: 'discord.message_received', label: '💬 Message Received' },
+                { value: 'discord.mention', label: '👤 Mentioned' },
+                { value: 'discord.voice_joined', label: '🎤 Joined Voice Channel' }
+            ],
+            'PhilipsHue': [
+                { value: 'hue.light_on', label: '💡 Light Turned On' },
+                { value: 'hue.light_off', label: '🌙 Light Turned Off' },
+                { value: 'hue.scene_activated', label: '🎨 Scene Activated' }
             ]
         };
 
@@ -1004,12 +1059,61 @@ class FocusDeckApp {
         const actionHtml = `
             <div class="action-field" data-index="${actionIndex}">
                 <select class="select-field action-type">
-                    <option value="timer.start">Start Timer</option>
-                    <option value="task.create">Create Task</option>
-                    <option value="notification.show">Show Notification</option>
-                    <option value="lights.set_scene">Set Lighting Scene</option>
-                    <option value="spotify.play_playlist">Play Spotify Playlist</option>
-                    <option value="home_assistant.turn_on">Turn On Device</option>
+                    <optgroup label="⏱️ Timer Actions">
+                        <option value="timer.start">Start Timer</option>
+                        <option value="timer.pause">Pause Timer</option>
+                        <option value="timer.stop">Stop Timer</option>
+                        <option value="timer.set_duration">Set Timer Duration</option>
+                        <option value="timer.start_break">Start Break</option>
+                    </optgroup>
+                    <optgroup label="📝 Task Actions">
+                        <option value="task.create">Create Task</option>
+                        <option value="task.complete">Complete Task</option>
+                        <option value="task.set_priority">Set Task Priority</option>
+                        <option value="task.add_tag">Add Tag to Task</option>
+                        <option value="task.schedule">Schedule Task</option>
+                    </optgroup>
+                    <optgroup label="🔔 Notification Actions">
+                        <option value="notification.show">Show Notification</option>
+                        <option value="notification.sound">Play Sound</option>
+                        <option value="notification.email">Send Email</option>
+                        <option value="notification.desktop">Desktop Notification</option>
+                    </optgroup>
+                    <optgroup label="💡 Smart Home Actions">
+                        <option value="lights.set_scene">Set Lighting Scene</option>
+                        <option value="lights.turn_on">Turn On Lights</option>
+                        <option value="lights.turn_off">Turn Off Lights</option>
+                        <option value="lights.dim">Dim Lights</option>
+                        <option value="lights.color">Set Light Color</option>
+                        <option value="home_assistant.turn_on">Turn On Device</option>
+                        <option value="home_assistant.turn_off">Turn Off Device</option>
+                        <option value="home_assistant.set_temperature">Set Temperature</option>
+                    </optgroup>
+                    <optgroup label="🎵 Music Actions">
+                        <option value="spotify.play_playlist">Play Spotify Playlist</option>
+                        <option value="spotify.play">Resume Playback</option>
+                        <option value="spotify.pause">Pause Playback</option>
+                        <option value="spotify.next">Next Track</option>
+                        <option value="spotify.set_volume">Set Volume</option>
+                        <option value="music.play_focus">Play Focus Music</option>
+                    </optgroup>
+                    <optgroup label="🎯 FocusDeck Actions">
+                        <option value="deck.open">Open Deck</option>
+                        <option value="deck.review">Start Deck Review</option>
+                        <option value="session.log">Log Study Session</option>
+                        <option value="analytics.update">Update Analytics</option>
+                    </optgroup>
+                    <optgroup label="🔗 Integration Actions">
+                        <option value="webhook.send">Send Webhook</option>
+                        <option value="api.call">Call External API</option>
+                        <option value="calendar.create_event">Create Calendar Event</option>
+                        <option value="canvas.submit_assignment">Submit Canvas Assignment</option>
+                    </optgroup>
+                    <optgroup label="⚙️ System Actions">
+                        <option value="system.log">Write to Log</option>
+                        <option value="system.delay">Wait/Delay</option>
+                        <option value="system.condition">Conditional Action</option>
+                    </optgroup>
                 </select>
                 <button class="btn-icon" onclick="app.removeActionField(${actionIndex})">❌</button>
             </div>
