@@ -711,16 +711,26 @@ class FocusDeckApp {
     // ====================================
 
     setupAutomations() {
+        console.log('Setting up automations...');
+        
         // Create Automation Button
         const createBtn = document.getElementById('createAutomationBtn');
+        console.log('Create button found:', !!createBtn);
         if (createBtn) {
-            createBtn.addEventListener('click', () => this.openAutomationModal());
+            createBtn.addEventListener('click', () => {
+                console.log('Create automation clicked');
+                this.openAutomationModal();
+            });
         }
 
         // Connect Service Button
         const connectBtn = document.getElementById('connectServiceBtn');
+        console.log('Connect button found:', !!connectBtn);
         if (connectBtn) {
-            connectBtn.addEventListener('click', () => this.openConnectServiceModal());
+            connectBtn.addEventListener('click', () => {
+                console.log('Connect service clicked');
+                this.openConnectServiceModal();
+            });
         }
 
         // Modal buttons
@@ -901,8 +911,15 @@ class FocusDeckApp {
     }
 
     openAutomationModal(automationId = null) {
+        console.log('Opening automation modal...');
         const modal = document.getElementById('automationModal');
+        console.log('Modal found:', !!modal);
+        if (!modal) {
+            console.error('Automation modal not found!');
+            return;
+        }
         modal.classList.add('active');
+        console.log('Modal classes:', modal.className);
 
         if (automationId) {
             // Edit mode
@@ -928,7 +945,15 @@ class FocusDeckApp {
     }
 
     openConnectServiceModal() {
-        document.getElementById('connectServiceModal').classList.add('active');
+        console.log('Opening connect service modal...');
+        const modal = document.getElementById('connectServiceModal');
+        console.log('Modal found:', !!modal);
+        if (!modal) {
+            console.error('Connect service modal not found!');
+            return;
+        }
+        modal.classList.add('active');
+        console.log('Modal classes:', modal.className);
     }
 
     closeConnectServiceModal() {
@@ -1300,25 +1325,63 @@ class FocusDeckApp {
         this.showToast('Data exported!', 'success');
     }
 
-    checkForUpdates() {
+    async checkForUpdates() {
         this.showToast('Checking for updates...', 'info');
         
-        // Check GitHub for latest version
-        fetch('https://api.github.com/repos/dertder25t-png/FocusDeck/commits/master')
-            .then(response => response.json())
-            .then(data => {
-                const lastCommit = data.sha.substring(0, 7);
-                const commitDate = new Date(data.commit.author.date);
-                const message = data.commit.message;
+        try {
+            // Use the server's check-updates endpoint which properly compares versions
+            const response = await fetch('/api/server/check-updates');
+            const data = await response.json();
+            
+            if (data.updateAvailable) {
+                // Update available
+                const doUpdate = confirm(
+                    `Update Available!\n\n` +
+                    `Current: ${data.currentCommit}\n` +
+                    `Latest: ${data.latestCommit}\n\n` +
+                    `Message: ${data.latestMessage}\n\n` +
+                    `Do you want to update the server now?`
+                );
                 
-                this.showToast(`Latest version: ${lastCommit} - ${message}`, 'info');
-                this.showUpdateModal();
-            })
-            .catch(error => {
-                console.error('Error checking updates:', error);
-                this.showToast('Could not check for updates. View update guide instead.', 'info');
-                this.showUpdateModal();
+                if (doUpdate) {
+                    await this.performServerUpdate();
+                }
+            } else {
+                this.showToast(data.message || 'You are running the latest version!', 'success');
+            }
+        } catch (error) {
+            console.error('Error checking updates:', error);
+            this.showToast('Could not check for updates', 'error');
+        }
+    }
+
+    async performServerUpdate() {
+        this.showToast('Starting server update...', 'info');
+        
+        try {
+            const response = await fetch('/api/server/update', {
+                method: 'POST'
             });
+            
+            if (response.ok) {
+                const result = await response.json();
+                this.showToast('Update started! Server will restart in a moment...', 'success');
+                
+                // Wait for server to restart and reload page
+                setTimeout(() => {
+                    this.showToast('Reloading page...', 'info');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 3000);
+                }, 5000);
+            } else {
+                const error = await response.json();
+                this.showToast(`Update failed: ${error.message}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error updating server:', error);
+            this.showToast('Update failed. Check server logs for details.', 'error');
+        }
     }
 
     showUpdateModal() {

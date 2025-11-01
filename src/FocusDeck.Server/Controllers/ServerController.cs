@@ -328,11 +328,41 @@ rm -f ""$0""
         }
 
         [HttpGet("health")]
-        public IActionResult HealthCheck()
+        public async Task<IActionResult> HealthCheck()
         {
+            string currentCommit = "unknown";
+            var repoPath = Environment.GetEnvironmentVariable("FOCUSDECK_REPO") ?? "/home/focusdeck/FocusDeck";
+            
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && Directory.Exists(repoPath))
+            {
+                try
+                {
+                    var commitProcess = new Process
+                    {
+                        StartInfo = new ProcessStartInfo
+                        {
+                            FileName = "git",
+                            Arguments = "-C " + repoPath + " rev-parse --short=7 HEAD",
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true,
+                            UseShellExecute = false,
+                            CreateNoWindow = true,
+                        }
+                    };
+                    commitProcess.Start();
+                    currentCommit = (await commitProcess.StandardOutput.ReadToEndAsync()).Trim();
+                    await commitProcess.WaitForExitAsync();
+                }
+                catch
+                {
+                    currentCommit = "unknown";
+                }
+            }
+
             return Ok(new 
             { 
                 status = "healthy",
+                version = currentCommit,
                 timestamp = DateTime.UtcNow,
                 platform = RuntimeInformation.OSDescription,
                 uptime = Environment.TickCount64 / 1000
