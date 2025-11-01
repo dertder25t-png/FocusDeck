@@ -1347,16 +1347,17 @@ sudo systemctl restart focusdeck`;
     }
 
     async updateServer() {
-        if (!confirm('Are you sure you want to update the server? The application will be unavailable for a moment.')) {
+        if (!confirm('⚠️ This will update and restart the server.\n\nThe server will be unavailable for 30-60 seconds.\n\nContinue?')) {
             return;
         }
 
-        this.showToast('🚀 Starting server update... Please wait.', 'info');
         const updateButton = document.getElementById('updateServerBtn');
         updateButton.disabled = true;
-        updateButton.innerHTML = '<span>Updating...</span>';
+        updateButton.innerHTML = '<span>⏳</span> Updating...';
 
         try {
+            this.showToast('🚀 Starting server update... This will take 30-60 seconds.', 'info');
+            
             const response = await fetch('/api/server/update', {
                 method: 'POST',
             });
@@ -1364,18 +1365,62 @@ sudo systemctl restart focusdeck`;
             const result = await response.json();
 
             if (response.ok) {
-                this.showToast('✅ Update started! Server is restarting. Please refresh in a minute.', 'success');
-                // Don't re-enable the button, the page will be refreshed by the user.
+                this.showToast(`✅ ${result.message}`, 'success');
+                
+                // Start checking update status
+                let countdown = 60;
+                updateButton.innerHTML = `<span>⏳</span> Restarting... (${countdown}s)`;
+                
+                const countdownInterval = setInterval(() => {
+                    countdown--;
+                    updateButton.innerHTML = `<span>⏳</span> Restarting... (${countdown}s)`;
+                    
+                    if (countdown <= 0) {
+                        clearInterval(countdownInterval);
+                        updateButton.innerHTML = '<span>🔄</span> Refresh Page';
+                        updateButton.disabled = false;
+                        updateButton.onclick = () => window.location.reload();
+                        this.showToast('✅ Update complete! Click the button to refresh the page.', 'success');
+                    }
+                }, 1000);
+
+                // Try to reconnect after 30 seconds
+                setTimeout(async () => {
+                    try {
+                        const healthCheck = await fetch('/api/health', { method: 'GET' });
+                        if (healthCheck.ok) {
+                            clearInterval(countdownInterval);
+                            this.showToast('✅ Server is back online! Refreshing...', 'success');
+                            setTimeout(() => window.location.reload(), 2000);
+                        }
+                    } catch (err) {
+                        // Server still restarting, countdown will continue
+                    }
+                }, 30000);
+
             } else {
                 this.showToast(`❌ Update failed: ${result.message}`, 'error');
                 updateButton.disabled = false;
                 updateButton.innerHTML = '<span>🚀</span> Update Server Now';
             }
         } catch (error) {
-            this.showToast(`❌ An error occurred: ${error.message}`, 'error');
+            this.showToast(`❌ Update request failed: ${error.message}`, 'error');
             updateButton.disabled = false;
             updateButton.innerHTML = '<span>🚀</span> Update Server Now';
         }
+    }
+
+    async checkUpdateStatus() {
+        try {
+            const response = await fetch('/api/server/update-status');
+            if (response.ok) {
+                const result = await response.json();
+                return result;
+            }
+        } catch (error) {
+            console.error('Failed to check update status:', error);
+        }
+        return null;
     }
 }
 
