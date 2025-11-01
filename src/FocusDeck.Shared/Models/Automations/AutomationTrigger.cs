@@ -15,6 +15,15 @@ namespace FocusDeck.Shared.Models.Automations
         Canvas,
         GoogleDrive,
         Spotify,
-        HomeAssistant
+        HomeAssistant,
+        Notion,
+        Todoist,
+        Slack,
+        Discord,
+        GoogleGenerativeAI,
+        IFTTT,
+        Zapier,
+        PhilipsHue,
+        AppleMusic
     }
 }

@@ -283,6 +283,329 @@ namespace FocusDeck.Server.Controllers
                     };
                     break;
                     
+                case ServiceType.Notion:
+                    guide = new ServiceSetupGuide
+                    {
+                        SetupType = "OAuth",
+                        Title = "Connect Notion",
+                        Description = "Notion uses OAuth 2.0. Create a Notion Integration and paste your credentials below.",
+                        Steps = new List<string>
+                        {
+                            "Go to https://www.notion.so/my-integrations and log in",
+                            "Click '+ New integration'",
+                            "Name: 'FocusDeck' | Associated workspace: Select your workspace",
+                            "Set Capabilities: Read content, Update content, Insert content",
+                            "Click 'Submit' to create the integration",
+                            "Copy the 'Internal Integration Token' (starts with 'secret_')",
+                            "Paste it in the API Key field below",
+                            "Share your Notion pages with the FocusDeck integration",
+                            "Click 'Save Configuration'",
+                            "The integration will now have access to shared pages"
+                        },
+                        Links = new List<SetupLink>
+                        {
+                            new SetupLink { Label = "Notion Integrations", Url = "https://www.notion.so/my-integrations" },
+                            new SetupLink { Label = "Notion API Documentation", Url = "https://developers.notion.com/" }
+                        },
+                        Fields = new List<SetupField>
+                        {
+                            new SetupField
+                            {
+                                Key = "apiKey",
+                                Label = "Internal Integration Token",
+                                HelpText = "The secret token from your Notion integration (starts with 'secret_')",
+                                InputType = "password"
+                            }
+                        },
+                        OAuthButtonText = "Save Configuration"
+                    };
+                    break;
+
+                case ServiceType.Todoist:
+                    guide = new ServiceSetupGuide
+                    {
+                        SetupType = "Simple",
+                        Title = "Connect Todoist",
+                        Description = "Connect your Todoist account to sync tasks and manage your productivity.",
+                        Steps = new List<string>
+                        {
+                            "Log in to Todoist at https://todoist.com",
+                            "Click on your profile picture (top right)",
+                            "Select 'Integrations'",
+                            "Scroll to 'API token' section",
+                            "Copy your API token",
+                            "Paste it in the field below",
+                            "Click 'Connect' to authorize FocusDeck"
+                        },
+                        Links = new List<SetupLink>
+                        {
+                            new SetupLink { Label = "Todoist Settings", Url = "https://todoist.com/app/settings/integrations" },
+                            new SetupLink { Label = "Todoist API Documentation", Url = "https://developer.todoist.com/rest/v2/" }
+                        },
+                        Fields = new List<SetupField>
+                        {
+                            new SetupField
+                            {
+                                Key = "access_token",
+                                Label = "API Token",
+                                HelpText = "Your Todoist API token from Settings > Integrations",
+                                InputType = "password"
+                            }
+                        }
+                    };
+                    break;
+
+                case ServiceType.Slack:
+                    guide = new ServiceSetupGuide
+                    {
+                        SetupType = "OAuth",
+                        Title = "Connect Slack",
+                        Description = "Connect Slack to send notifications and automate workspace interactions.",
+                        Steps = new List<string>
+                        {
+                            "Go to https://api.slack.com/apps and sign in",
+                            "Click 'Create New App' > 'From scratch'",
+                            "Name: 'FocusDeck' | Pick a workspace",
+                            "Go to 'OAuth & Permissions' in the left sidebar",
+                            "Under 'Scopes' > 'Bot Token Scopes', add: chat:write, chat:write.public",
+                            "Scroll up to 'OAuth Tokens' section",
+                            "Click 'Install to Workspace'",
+                            "Authorize the app",
+                            "Copy the 'Bot User OAuth Token' (starts with 'xoxb-')",
+                            "Paste it in the Token field below",
+                            "Optional: Add incoming webhook URL for channel-specific notifications"
+                        },
+                        Links = new List<SetupLink>
+                        {
+                            new SetupLink { Label = "Slack API Apps", Url = "https://api.slack.com/apps" },
+                            new SetupLink { Label = "Slack API Documentation", Url = "https://api.slack.com/docs" }
+                        },
+                        Fields = new List<SetupField>
+                        {
+                            new SetupField
+                            {
+                                Key = "access_token",
+                                Label = "Bot User OAuth Token",
+                                HelpText = "The bot token from OAuth & Permissions (starts with 'xoxb-')",
+                                InputType = "password"
+                            },
+                            new SetupField
+                            {
+                                Key = "webhookUrl",
+                                Label = "Incoming Webhook URL (Optional)",
+                                HelpText = "For channel-specific notifications",
+                                InputType = "text"
+                            }
+                        }
+                    };
+                    break;
+
+                case ServiceType.Discord:
+                    guide = new ServiceSetupGuide
+                    {
+                        SetupType = "Simple",
+                        Title = "Connect Discord",
+                        Description = "Connect Discord to send notifications and updates to your server.",
+                        Steps = new List<string>
+                        {
+                            "Open Discord and go to the server you want to connect",
+                            "Click on the server name > 'Server Settings' > 'Integrations'",
+                            "Click 'Create Webhook' (or use existing one)",
+                            "Name it 'FocusDeck'",
+                            "Select the channel where notifications should appear",
+                            "Click 'Copy Webhook URL'",
+                            "Paste it in the field below",
+                            "Click 'Connect' to authorize"
+                        },
+                        Links = new List<SetupLink>
+                        {
+                            new SetupLink { Label = "Discord Webhooks Guide", Url = "https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks" },
+                            new SetupLink { Label = "Discord Developer Portal", Url = "https://discord.com/developers/applications" }
+                        },
+                        Fields = new List<SetupField>
+                        {
+                            new SetupField
+                            {
+                                Key = "webhookUrl",
+                                Label = "Webhook URL",
+                                HelpText = "The webhook URL from your Discord server settings",
+                                InputType = "password"
+                            }
+                        }
+                    };
+                    break;
+
+                case ServiceType.GoogleGenerativeAI:
+                    guide = new ServiceSetupGuide
+                    {
+                        SetupType = "Simple",
+                        Title = "Connect Google Generative AI (Gemini)",
+                        Description = "Connect Google's Gemini AI for intelligent study assistance and automation.",
+                        Steps = new List<string>
+                        {
+                            "Go to https://aistudio.google.com/app/apikey",
+                            "Sign in with your Google account",
+                            "Click 'Create API Key'",
+                            "Select or create a Google Cloud project",
+                            "Copy the generated API key",
+                            "Paste it in the field below",
+                            "Click 'Connect' to authorize",
+                            "You can now use Gemini for AI-powered features"
+                        },
+                        Links = new List<SetupLink>
+                        {
+                            new SetupLink { Label = "Google AI Studio", Url = "https://aistudio.google.com/app/apikey" },
+                            new SetupLink { Label = "Gemini API Documentation", Url = "https://ai.google.dev/docs" }
+                        },
+                        Fields = new List<SetupField>
+                        {
+                            new SetupField
+                            {
+                                Key = "apiKey",
+                                Label = "API Key",
+                                HelpText = "Your Gemini API key from Google AI Studio",
+                                InputType = "password"
+                            }
+                        }
+                    };
+                    break;
+
+                case ServiceType.IFTTT:
+                    guide = new ServiceSetupGuide
+                    {
+                        SetupType = "Simple",
+                        Title = "Connect IFTTT",
+                        Description = "Connect IFTTT to create powerful automation chains with thousands of services.",
+                        Steps = new List<string>
+                        {
+                            "Go to https://ifttt.com/maker_webhooks",
+                            "Click 'Connect' to enable Webhooks",
+                            "Click 'Documentation' to view your webhook key",
+                            "Copy your unique webhook key",
+                            "Paste it in the field below",
+                            "Create applets on IFTTT using the Webhooks service",
+                            "Use FocusDeck events as triggers"
+                        },
+                        Links = new List<SetupLink>
+                        {
+                            new SetupLink { Label = "IFTTT Webhooks", Url = "https://ifttt.com/maker_webhooks" },
+                            new SetupLink { Label = "IFTTT Platform", Url = "https://platform.ifttt.com/" }
+                        },
+                        Fields = new List<SetupField>
+                        {
+                            new SetupField
+                            {
+                                Key = "webhookKey",
+                                Label = "Webhook Key",
+                                HelpText = "Your unique IFTTT webhook key",
+                                InputType = "password"
+                            }
+                        }
+                    };
+                    break;
+
+                case ServiceType.Zapier:
+                    guide = new ServiceSetupGuide
+                    {
+                        SetupType = "Simple",
+                        Title = "Connect Zapier",
+                        Description = "Connect Zapier to automate workflows across 5,000+ apps.",
+                        Steps = new List<string>
+                        {
+                            "Log in to your Zapier account at https://zapier.com",
+                            "Go to https://zapier.com/app/webhooks",
+                            "Create a new Zap with 'Webhooks by Zapier' as the trigger",
+                            "Choose 'Catch Hook'",
+                            "Copy the webhook URL provided",
+                            "Paste it in the field below",
+                            "Click 'Connect' and Zapier will start receiving FocusDeck events"
+                        },
+                        Links = new List<SetupLink>
+                        {
+                            new SetupLink { Label = "Zapier Webhooks", Url = "https://zapier.com/app/webhooks" },
+                            new SetupLink { Label = "Zapier Platform", Url = "https://zapier.com" }
+                        },
+                        Fields = new List<SetupField>
+                        {
+                            new SetupField
+                            {
+                                Key = "webhookUrl",
+                                Label = "Webhook URL",
+                                HelpText = "Your Zapier webhook URL for catching FocusDeck events",
+                                InputType = "password"
+                            }
+                        }
+                    };
+                    break;
+
+                case ServiceType.PhilipsHue:
+                    guide = new ServiceSetupGuide
+                    {
+                        SetupType = "Simple",
+                        Title = "Connect Philips Hue",
+                        Description = "Control your Philips Hue lights based on study sessions and focus states.",
+                        Steps = new List<string>
+                        {
+                            "Make sure your Hue Bridge is connected to your network",
+                            "Find your Bridge IP address (check your router or Hue app)",
+                            "Press the link button on your Hue Bridge",
+                            "Within 30 seconds, enter your Bridge IP below and click 'Connect'",
+                            "FocusDeck will create a user on your Bridge",
+                            "You can now control your Hue lights through automations"
+                        },
+                        Links = new List<SetupLink>
+                        {
+                            new SetupLink { Label = "Find your Bridge IP", Url = "https://discovery.meethue.com/" },
+                            new SetupLink { Label = "Hue API Documentation", Url = "https://developers.meethue.com/" }
+                        },
+                        Fields = new List<SetupField>
+                        {
+                            new SetupField
+                            {
+                                Key = "bridgeIp",
+                                Label = "Bridge IP Address",
+                                HelpText = "The local IP address of your Philips Hue Bridge (e.g., 192.168.1.100)",
+                                InputType = "text"
+                            }
+                        }
+                    };
+                    break;
+
+                case ServiceType.AppleMusic:
+                    guide = new ServiceSetupGuide
+                    {
+                        SetupType = "OAuth",
+                        Title = "Connect Apple Music",
+                        Description = "Connect Apple Music to control playback during study sessions.",
+                        Steps = new List<string>
+                        {
+                            "Go to https://developer.apple.com/account",
+                            "Sign in with your Apple Developer account (requires membership)",
+                            "Go to 'Certificates, Identifiers & Profiles'",
+                            "Create a new MusicKit identifier",
+                            "Generate a MusicKit private key",
+                            "Note: Apple Music integration requires Apple Developer Program membership ($99/year)",
+                            "For now, this integration is in development",
+                            "Consider using Spotify as an alternative"
+                        },
+                        Links = new List<SetupLink>
+                        {
+                            new SetupLink { Label = "Apple Developer", Url = "https://developer.apple.com/account" },
+                            new SetupLink { Label = "MusicKit Documentation", Url = "https://developer.apple.com/documentation/musickit" }
+                        },
+                        Fields = new List<SetupField>
+                        {
+                            new SetupField
+                            {
+                                Key = "developerToken",
+                                Label = "Developer Token",
+                                HelpText = "Your Apple Music MusicKit developer token",
+                                InputType = "password"
+                            }
+                        }
+                    };
+                    break;
+                    
                 default:
                     return NotFound(new { message = "Setup guide not available for this service." });
             }
