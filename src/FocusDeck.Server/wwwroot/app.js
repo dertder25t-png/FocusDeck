@@ -1149,6 +1149,23 @@ class FocusDeckApp {
         }
         modal.classList.add('active');
         console.log('Modal classes:', modal.className);
+
+        // Ensure service cards open the guided setup and close this picker
+        try {
+            const cards = modal.querySelectorAll('.service-card');
+            cards.forEach(card => {
+                card.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const svc = card.getAttribute('data-service');
+                    // Close the picker, then open the setup guide
+                    this.closeConnectServiceModal();
+                    this.openServiceSetup(svc);
+                };
+            });
+        } catch (err) {
+            console.warn('Failed to bind service-card clicks', err);
+        }
     }
 
     closeConnectServiceModal() {
@@ -1411,6 +1428,8 @@ class FocusDeckApp {
     }
 
     openServiceSetup(service, metadata = {}) {
+        // Always hide the service picker to prevent overlay conflicts
+        this.closeConnectServiceModal();
         const guides = this.getServiceGuides();
         const guide = guides[service] || { title: `Connect ${service}`, icon: '🔗', description: 'Follow the steps to connect this service.', steps: [], links: [], flow: 'token' };
         this.currentServiceSetup = { service, guide };
@@ -1451,8 +1470,8 @@ class FocusDeckApp {
             `;
         }
 
-        // Show modal
-        document.getElementById('serviceSetupModal')?.classList.add('active');
+    // Show modal
+    document.getElementById('serviceSetupModal')?.classList.add('active');
 
         // Prefill if we have metadata
         try {

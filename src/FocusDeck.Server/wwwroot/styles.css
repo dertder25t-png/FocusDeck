@@ -1268,6 +1268,9 @@ body {
     border-radius: var(--radius-xl);
     width: 100%;
     max-width: 500px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
     box-shadow: var(--shadow-xl);
     animation: slideUp var(--transition-base);
 }
@@ -1310,6 +1313,13 @@ body {
 
 .modal-body {
     padding: var(--spacing-xl);
+    overflow-y: auto;
+    flex: 1 1 auto;
+}
+
+/* Wider content variant (used for Service Setup guide) */
+.modal-content.wide {
+    max-width: 720px;
 }
 
 .modal-footer {
