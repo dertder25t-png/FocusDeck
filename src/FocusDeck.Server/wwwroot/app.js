@@ -1178,10 +1178,23 @@ class FocusDeckApp {
                 flow: 'oauth'
             },
             Spotify: {
-                title: 'Connect Spotify', icon: '🎵',
+                title: 'Connect Spotify', 
+                icon: '🎵',
                 description: 'Control music playback during study sessions.',
-                steps: ['Create a Spotify application and set redirect URI (coming soon)', 'Click Start Setup to authorize FocusDeck'],
-                links: [ { label: 'Spotify Developer Dashboard', url: 'https://developer.spotify.com/dashboard' } ],
+                steps: [
+                    'Go to Spotify Developer Dashboard and create an app',
+                    'Set Redirect URI to: http://localhost:5000/api/services/oauth/spotify/callback',
+                    'Copy your Client ID and Client Secret',
+                    'Click Start Setup to authorize FocusDeck'
+                ],
+                links: [ 
+                    { label: 'Spotify Developer Dashboard', url: 'https://developer.spotify.com/dashboard' },
+                    { label: 'Spotify API Docs', url: 'https://developer.spotify.com/documentation/web-api' }
+                ],
+                fields: [
+                    { id: 'spotifyClientId', label: 'Client ID', placeholder: 'Paste your Client ID' },
+                    { id: 'spotifyClientSecret', label: 'Client Secret', placeholder: 'Paste your Client Secret' }
+                ],
                 flow: 'oauth'
             },
             HomeAssistant: {
@@ -1317,9 +1330,83 @@ class FocusDeckApp {
                 ],
                 flow: 'token'
             },
-            IFTTT: { title: 'Connect IFTTT', icon: '🔗', description: 'Integrate with thousands of services.', steps: ['Create a webhook key'], links: [ { label: 'IFTTT Webhooks', url: 'https://ifttt.com/maker_webhooks' } ], flow: 'token' },
-            Zapier: { title: 'Connect Zapier', icon: '⚡', description: 'Automate workflows with Zapier.', steps: ['Create a Zap with Webhooks'], links: [ { label: 'Zapier Webhooks', url: 'https://zapier.com/apps/webhook/integrations' } ], flow: 'token' },
-            AppleMusic: { title: 'Connect Apple Music', icon: '🎧', description: 'Control Apple Music playback.', steps: ['Apple Music requires MusicKit tokens'], links: [ { label: 'MusicKit', url: 'https://developer.apple.com/documentation/musickit' } ], flow: 'token' }
+                IFTTT: {
+                    title: 'Connect IFTTT',
+                    icon: '🔗',
+                    description: 'Integrate with thousands of services via IFTTT.',
+                    steps: [
+                        'Go to IFTTT and connect the Webhooks service',
+                        'Click on "Documentation" to view your webhook key',
+                        'Copy your webhook key'
+                    ],
+                    links: [
+                        { label: 'IFTTT Webhooks', url: 'https://ifttt.com/maker_webhooks' },
+                        { label: 'IFTTT Create Applet', url: 'https://ifttt.com/create' }
+                    ],
+                    fields: [
+                        { id: 'iftttWebhookKey', label: 'Webhook Key', placeholder: 'Paste your webhook key' }
+                    ],
+                    flow: 'token'
+                },
+                Zapier: {
+                    title: 'Connect Zapier',
+                    icon: '⚡',
+                    description: 'Automate workflows with Zapier.',
+                    steps: [
+                        'Create a new Zap in Zapier',
+                        'Use "Webhooks by Zapier" as the trigger',
+                        'Copy the webhook URL provided by Zapier'
+                    ],
+                    links: [
+                        { label: 'Create Zap', url: 'https://zapier.com/app/zaps' },
+                        { label: 'Zapier Webhooks Guide', url: 'https://zapier.com/apps/webhook/integrations' }
+                    ],
+                    fields: [
+                        { id: 'zapierWebhookUrl', label: 'Webhook URL', placeholder: 'https://hooks.zapier.com/hooks/catch/...' }
+                    ],
+                    flow: 'token'
+                },
+                AppleMusic: {
+                    title: 'Connect Apple Music',
+                    icon: '🎧',
+                    description: 'Control Apple Music playback during study sessions.',
+                    steps: [
+                        'Sign up for Apple Developer Program',
+                        'Create a MusicKit identifier and key',
+                        'Download your private key (.p8 file)',
+                        'Copy your Team ID and Key ID'
+                    ],
+                    links: [
+                        { label: 'Apple Developer', url: 'https://developer.apple.com/' },
+                        { label: 'MusicKit Documentation', url: 'https://developer.apple.com/documentation/musickit' }
+                    ],
+                    fields: [
+                        { id: 'appleMusicTeamId', label: 'Team ID', placeholder: 'Your 10-character Team ID' },
+                        { id: 'appleMusicKeyId', label: 'Key ID', placeholder: 'Your Key ID' },
+                        { id: 'appleMusicPrivateKey', label: 'Private Key', placeholder: 'Paste .p8 file contents' }
+                    ],
+                    flow: 'token'
+                },
+                GoogleDrive: {
+                    title: 'Connect Google Drive',
+                    icon: '📁',
+                    description: 'Access and organize study materials from Google Drive.',
+                    steps: [
+                        'Create a Google Cloud project',
+                        'Enable Google Drive API',
+                        'Create OAuth 2.0 credentials',
+                        'Add redirect URI: http://localhost:5000/api/services/oauth/googledrive/callback'
+                    ],
+                    links: [
+                        { label: 'Enable Drive API', url: 'https://console.cloud.google.com/apis/library/drive.googleapis.com' },
+                        { label: 'OAuth Credentials', url: 'https://console.cloud.google.com/apis/credentials' }
+                    ],
+                    fields: [
+                        { id: 'googleDriveClientId', label: 'Client ID', placeholder: 'Paste your Client ID' },
+                        { id: 'googleDriveClientSecret', label: 'Client Secret', placeholder: 'Paste your Client Secret' }
+                    ],
+                    flow: 'oauth'
+                }
         };
     }
 
