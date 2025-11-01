@@ -1427,63 +1427,108 @@ class FocusDeckApp {
         };
     }
 
-    openServiceSetup(service, metadata = {}) {
+    async openServiceSetup(service, metadata = {}) {
         // Always hide the service picker to prevent overlay conflicts
         this.closeConnectServiceModal();
-        const guides = this.getServiceGuides();
-        const guide = guides[service] || { title: `Connect ${service}`, icon: '🔗', description: 'Follow the steps to connect this service.', steps: [], links: [], flow: 'token' };
-        this.currentServiceSetup = { service, guide };
 
-        // Compose body
+        // Show modal immediately with loading state
+        const modal = document.getElementById('serviceSetupModal');
         const body = document.getElementById('serviceSetupBody');
         const title = document.getElementById('serviceSetupTitle');
-        if (title) title.textContent = `${guide.icon} ${guide.title}`;
+        
+        if (modal) modal.classList.add('active');
+        if (title) title.textContent = `Setting up ${service}...`;
+        if (body) body.innerHTML = '<p class="setup-description">Loading setup guide from server...</p>';
 
-        const stepsHtml = guide.steps?.length ? `
-            <h3 class="section-title">Setup steps</h3>
-            <ol class="setup-steps">${guide.steps.map(s => `<li>${this.escapeHtml(s)}</li>`).join('')}</ol>
-        ` : '';
-
-        const linksHtml = guide.links?.length ? `
-            <h3 class="section-title">Helpful links</h3>
-            <div class="links-list">
-                ${guide.links.map(l => `<a href="${l.url}" target="_blank" class="doc-link">${this.escapeHtml(l.label)} →</a>`).join('')}
-            </div>
-        ` : '';
-
-        const fieldsHtml = (guide.fields || []).map(f => `
-            <div class="form-group">
-                <label class="form-label" for="${f.id}">${this.escapeHtml(f.label)}</label>
-                <input type="text" id="${f.id}" class="input-field" placeholder="${this.escapeHtml(f.placeholder || '')}">
-            </div>
-        `).join('');
-
-        if (body) {
-            body.innerHTML = `
-                <p class="setup-description">${this.escapeHtml(guide.description || '')}</p>
-                ${stepsHtml}
-                ${linksHtml}
-                ${fieldsHtml ? `<h3 class="section-title">Required information</h3>${fieldsHtml}` : ''}
-                <div class="help-text" style="margin-top: .5rem; color: var(--text-secondary);">
-                    Mode: <strong>${guide.flow.toUpperCase()}</strong>
-                </div>
-            `;
-        }
-
-    // Show modal
-    document.getElementById('serviceSetupModal')?.classList.add('active');
-
-        // Prefill if we have metadata
         try {
-            if (guide.fields && metadata) {
-                for (const f of guide.fields) {
-                    const el = document.getElementById(f.id);
-                    if (el && metadata[f.id]) {
-                        el.value = metadata[f.id];
+            // Fetch guide from server
+            const response = await fetch(`/api/services/${service}/setup`);
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}`);
+            }
+            const serverGuide = await response.json();
+
+            // Convert server response to frontend format
+            const guide = {
+                title: serverGuide.title || `Connect ${service}`,
+                icon: '🔗',
+                description: serverGuide.description || '',
+                steps: [],
+                links: [],
+                fields: [],
+                flow: serverGuide.setupType === 'OAuth' ? 'oauth' : 'token'
+            };
+
+            // Convert server fields to frontend format
+            if (serverGuide.fields) {
+                guide.fields = serverGuide.fields.map(f => ({
+                    id: f.key,
+                    label: f.label,
+                    placeholder: f.helpText || '',
+                    type: f.inputType || 'text'
+                }));
+            }
+
+            this.currentServiceSetup = { service, guide };
+
+            // Render the guide
+            if (title) title.textContent = `${guide.icon} ${guide.title}`;
+
+            const stepsHtml = guide.steps?.length ? `
+                <h3 class="section-title">Setup steps</h3>
+                <ol class="setup-steps">${guide.steps.map(s => `<li>${this.escapeHtml(s)}</li>`).join('')}</ol>
+            ` : '';
+
+            const linksHtml = guide.links?.length ? `
+                <h3 class="section-title">Helpful links</h3>
+                <div class="links-list">
+                    ${guide.links.map(l => `<a href="${l.url}" target="_blank" class="doc-link">${this.escapeHtml(l.label)} →</a>`).join('')}
+                </div>
+            ` : '';
+
+            const fieldsHtml = (guide.fields || []).map(f => `
+                <div class="form-group">
+                    <label class="form-label" for="${f.id}">${this.escapeHtml(f.label)}</label>
+                    <input type="${f.type || 'text'}" id="${f.id}" class="input-field" placeholder="${this.escapeHtml(f.placeholder || '')}">
+                    ${f.placeholder ? `<p class="help-text">${this.escapeHtml(f.placeholder)}</p>` : ''}
+                </div>
+            `).join('');
+
+            if (body) {
+                body.innerHTML = `
+                    <p class="setup-description">${this.escapeHtml(guide.description || '')}</p>
+                    ${stepsHtml}
+                    ${linksHtml}
+                    ${fieldsHtml ? `<h3 class="section-title">Required information</h3>${fieldsHtml}` : ''}
+                    <div class="help-text" style="margin-top: .5rem; color: var(--text-secondary);">
+                        Mode: <strong>${guide.flow.toUpperCase()}</strong>
+                    </div>
+                `;
+            }
+
+            // Prefill if we have metadata
+            try {
+                if (guide.fields && metadata) {
+                    for (const f of guide.fields) {
+                        const el = document.getElementById(f.id);
+                        if (el && metadata[f.id]) {
+                            el.value = metadata[f.id];
+                        }
                     }
                 }
+            } catch {}
+
+        } catch (error) {
+            console.error('Failed to load setup guide:', error);
+            if (title) title.textContent = `Setup ${service}`;
+            if (body) {
+                body.innerHTML = `
+                    <p class="error">Failed to load setup guide from server: ${error.message}</p>
+                    <p class="help-text">The server may not have configuration for this service yet.</p>
+                `;
             }
-        } catch {}
+            this.showToast('Failed to load setup guide', 'error');
+        }
     }
 
     closeServiceSetupModal() {
