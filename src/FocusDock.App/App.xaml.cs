@@ -8,6 +8,7 @@ using FocusDeck.Services;
 using FocusDeck.Services.Abstractions;
 using FocusDock.App.Services;
 using FocusDock.Data;
+using FocusDock.Core.Services;
 
 public partial class App : System.Windows.Application
 {
@@ -63,6 +64,9 @@ public partial class App : System.Windows.Application
             // Register ApiClient for server communication
             services.AddSingleton<ApiClient>();
 
+            // Register SyncClientService (desktop sync)
+            services.AddSingleton<SyncClientService>();
+
             // Register Windows
             services.AddSingleton<MainWindow>();
             services.AddTransient<PlannerWindow>();
@@ -77,6 +81,46 @@ public partial class App : System.Windows.Application
             {
                 apiClient.SetServerUrl(appSettings.ServerUrl);
             }
+
+            // Initialize background sync (best-effort, non-blocking)
+            try
+            {
+                var syncClient = Services.GetRequiredService<SyncClientService>();
+                _ = syncClient.InitializeAsync();
+                // Link ApiClient to Sync for deck tracking
+                apiClient.SetSyncService(syncClient);
+
+                // Wire Notes -> Sync
+                var notes = Services.GetRequiredService<NotesService>();
+                notes.NoteAdded += async (s, note) =>
+                {
+                    try { syncClient.TrackNoteCreated(note); await syncClient.PushAsync(syncClient.ChangeTracker); } catch { }
+                };
+                notes.NoteUpdated += async (s, note) =>
+                {
+                    try { syncClient.TrackNoteUpdated(note); await syncClient.PushAsync(syncClient.ChangeTracker); } catch { }
+                };
+                notes.NoteDeleted += async (s, id) =>
+                {
+                    try { syncClient.TrackNoteDeleted(id); await syncClient.PushAsync(syncClient.ChangeTracker); } catch { }
+                };
+
+                // Wire Todos -> Sync
+                var todos = Services.GetRequiredService<TodoService>();
+                todos.TodoAdded += async (s, todo) =>
+                {
+                    try { syncClient.TrackTaskCreated(todo); await syncClient.PushAsync(syncClient.ChangeTracker); } catch { }
+                };
+                todos.TodoUpdated += async (s, todo) =>
+                {
+                    try { syncClient.TrackTaskUpdated(todo); await syncClient.PushAsync(syncClient.ChangeTracker); } catch { }
+                };
+                todos.TodoDeleted += async (s, id) =>
+                {
+                    try { syncClient.TrackTaskDeleted(id); await syncClient.PushAsync(syncClient.ChangeTracker); } catch { }
+                };
+            }
+            catch { /* ignore sync init errors at startup */ }
 
             // Resolve and show MainWindow
             var mainWindow = Services.GetRequiredService<MainWindow>();

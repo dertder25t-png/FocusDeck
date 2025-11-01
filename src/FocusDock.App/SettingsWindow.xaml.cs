@@ -4,6 +4,7 @@ using FocusDock.Core.Services;
 using FocusDock.Data;
 using FocusDock.Data.Models;
 using System.Diagnostics;
+using FocusDock.App.Services;
 
 namespace FocusDock.App;
 
@@ -37,6 +38,10 @@ public partial class SettingsWindow : Window
     private void LoadSettings()
     {
         TxtServerUrl.Text = _appSettings.ServerUrl ?? "";
+        if (!string.IsNullOrWhiteSpace(_appSettings.JwtToken))
+        {
+            PwdJwtToken.Password = _appSettings.JwtToken;
+        }
         TxtGoogleClientId.Text = _settings.GoogleClientId ?? "";
         TxtCanvasUrl.Text = _settings.CanvasInstanceUrl ?? "https://canvas.instructure.com";
         ChkEnableGoogle.IsChecked = _settings.EnableGoogleCalendar;
@@ -197,7 +202,22 @@ public partial class SettingsWindow : Window
     private void OnSaveClick(object sender, RoutedEventArgs e)
     {
         _appSettings.ServerUrl = TxtServerUrl.Text;
+        _appSettings.JwtToken = PwdJwtToken.Password;
         SettingsStore.SaveSettings(_appSettings);
+
+        // Update ApiClient base URL immediately
+        try
+        {
+            var apiClient = ((App)System.Windows.Application.Current).Services.GetService(typeof(ApiClient)) as ApiClient;
+            apiClient?.SetServerUrl(_appSettings.ServerUrl);
+            var syncClient = ((App)System.Windows.Application.Current).Services.GetService(typeof(SyncClientService)) as SyncClientService;
+            if (syncClient != null)
+            {
+                // Re-init to apply token
+                _ = syncClient.InitializeAsync();
+            }
+        }
+        catch { /* ignore */ }
 
         var updatedSettings = new CalendarSettings
         {
@@ -218,9 +238,62 @@ public partial class SettingsWindow : Window
 
         _calendarService.UpdateSettings(updatedSettings);
         
+        // Kick off background sync initialization (non-blocking)
+        try
+        {
+            var syncClient = ((App)System.Windows.Application.Current).Services.GetService(typeof(SyncClientService)) as SyncClientService;
+            if (syncClient != null)
+            {
+                _ = syncClient.InitializeAsync();
+            }
+        }
+        catch { /* ignore */ }
+
         System.Windows.MessageBox.Show("Settings saved successfully!", "Success", 
             System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
         
         this.Close();
+    }
+
+    private async void OnRefreshDevicesClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var syncClient = ((App)System.Windows.Application.Current).Services.GetService(typeof(SyncClientService)) as SyncClientService;
+            if (syncClient == null) return;
+            var devices = await syncClient.GetDevicesAsync() ?? new List<FocusDeck.Shared.Models.Sync.DeviceRegistration>();
+            LstDevices.ItemsSource = devices;
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show($"Failed to load devices: {ex.Message}");
+        }
+    }
+
+    private async void OnUnregisterDeviceClick(object sender, RoutedEventArgs e)
+    {
+        // For now, use API directly until a wrapper exists
+        try
+        {
+            if (LstDevices.SelectedItem is FocusDeck.Shared.Models.Sync.DeviceRegistration dev)
+            {
+                var baseUrl = TxtServerUrl.Text?.TrimEnd('/');
+                if (string.IsNullOrWhiteSpace(baseUrl)) return;
+                using var http = new System.Net.Http.HttpClient();
+                var resp = await http.DeleteAsync($"{baseUrl}/api/sync/devices/{System.Uri.EscapeDataString(dev.DeviceId)}");
+                if (resp.IsSuccessStatusCode)
+                {
+                    OnRefreshDevicesClick(sender, e);
+                }
+                else
+                {
+                    System.Windows.MessageBox.Show($"Unregister failed: HTTP {(int)resp.StatusCode}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show($"Failed to unregister: {ex.Message}");
+        }
     }
 }

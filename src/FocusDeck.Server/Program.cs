@@ -1,6 +1,9 @@
 using FocusDeck.Server.Services;
 using FocusDeck.Server.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +18,12 @@ builder.Services.AddHttpClient();
 builder.Services.AddDbContext<AutomationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") 
         ?? "Data Source=focusdeck.db"));
+
+// Add Sync Service
+builder.Services.AddScoped<ISyncService, SyncService>();
+
+// Add Action Executor
+builder.Services.AddSingleton<ActionExecutor>();
 
 // Add background services
 builder.Services.AddHostedService<AutomationEngine>();
@@ -32,6 +41,31 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 });
+
+// Add JWT Authentication
+var jwtSection = builder.Configuration.GetSection("Jwt");
+var jwtKey = jwtSection.GetValue<string>("Key") ?? "super_dev_secret_key_change_me_please_32chars";
+var jwtIssuer = jwtSection.GetValue<string>("Issuer") ?? "FocusDeckDev";
+var jwtAudience = jwtSection.GetValue<string>("Audience") ?? "FocusDeckClients";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+    };
+});
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
@@ -67,6 +101,63 @@ using (var scope = app.Services.CreateScope())
         }
     }
     catch { /* best-effort */ }
+
+    // Ensure sync tables exist (SQLite) - best-effort CREATE IF NOT EXISTS
+    try
+    {
+        var conn = db.Database.GetDbConnection();
+        await conn.OpenAsync();
+        var createCommands = new[]
+        {
+            // DeviceRegistrations
+            @"CREATE TABLE IF NOT EXISTS DeviceRegistrations (
+                Id TEXT PRIMARY KEY,
+                DeviceId TEXT NOT NULL,
+                DeviceName TEXT NOT NULL,
+                Platform INTEGER NOT NULL,
+                UserId TEXT NOT NULL,
+                RegisteredAt TEXT NOT NULL,
+                LastSyncAt TEXT NOT NULL,
+                IsActive INTEGER NOT NULL,
+                AppVersion TEXT
+            );",
+            // SyncTransactions
+            @"CREATE TABLE IF NOT EXISTS SyncTransactions (
+                Id TEXT PRIMARY KEY,
+                DeviceId TEXT NOT NULL,
+                Timestamp TEXT NOT NULL,
+                Status INTEGER NOT NULL,
+                ErrorMessage TEXT
+            );",
+            // SyncChanges
+            @"CREATE TABLE IF NOT EXISTS SyncChanges (
+                Id TEXT PRIMARY KEY,
+                TransactionId TEXT NOT NULL,
+                EntityType INTEGER NOT NULL,
+                EntityId TEXT NOT NULL,
+                Operation INTEGER NOT NULL,
+                DataJson TEXT NOT NULL,
+                ChangedAt TEXT NOT NULL,
+                ChangeVersion INTEGER NOT NULL
+            );",
+            // SyncMetadata
+            @"CREATE TABLE IF NOT EXISTS SyncMetadata (
+                Id TEXT PRIMARY KEY,
+                DeviceId TEXT NOT NULL UNIQUE,
+                LastSyncVersion INTEGER NOT NULL,
+                LastSyncTime TEXT NOT NULL,
+                EntityVersions TEXT
+            );"
+        };
+
+        foreach (var sql in createCommands)
+        {
+            using var c = conn.CreateCommand();
+            c.CommandText = sql;
+            await c.ExecuteNonQueryAsync();
+        }
+    }
+    catch { /* best-effort */ }
 }
 
 // Configure the HTTP request pipeline.
@@ -93,6 +184,10 @@ app.UseStaticFiles(new StaticFileOptions
 app.UseCors("AllowAll");
 
 app.UseHttpsRedirection();
+
+// AuthN/Z
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Map API controllers
 app.MapControllers();

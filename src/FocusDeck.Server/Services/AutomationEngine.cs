@@ -12,12 +12,17 @@ namespace FocusDeck.Server.Services
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<AutomationEngine> _logger;
+        private readonly ActionExecutor _actionExecutor;
         private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(1);
 
-        public AutomationEngine(IServiceProvider serviceProvider, ILogger<AutomationEngine> logger)
+        public AutomationEngine(
+            IServiceProvider serviceProvider, 
+            ILogger<AutomationEngine> logger,
+            ActionExecutor actionExecutor)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
+            _actionExecutor = actionExecutor;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)

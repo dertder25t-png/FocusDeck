@@ -14,6 +14,9 @@ public class NotesService
     private readonly string _notesFile;
     
     public event EventHandler? NotesChanged;
+    public event EventHandler<Note>? NoteAdded;
+    public event EventHandler<Note>? NoteUpdated;
+    public event EventHandler<string>? NoteDeleted;
     
     public NotesService()
     {
@@ -31,6 +34,7 @@ public class NotesService
         _notes.Add(note);
         SaveNotes();
         NotesChanged?.Invoke(this, EventArgs.Empty);
+        NoteAdded?.Invoke(this, note);
     }
     
     /// <summary>
@@ -41,6 +45,7 @@ public class NotesService
         _notes.Add(note);
         await SaveNotesAsync();
         NotesChanged?.Invoke(this, EventArgs.Empty);
+        NoteAdded?.Invoke(this, note);
     }
     
     public void UpdateNote(Note note)
@@ -48,6 +53,7 @@ public class NotesService
         note.LastModified = DateTime.Now;
         SaveNotes();
         NotesChanged?.Invoke(this, EventArgs.Empty);
+        NoteUpdated?.Invoke(this, note);
     }
     
     /// <summary>
@@ -58,6 +64,7 @@ public class NotesService
         note.LastModified = DateTime.Now;
         await SaveNotesAsync();
         NotesChanged?.Invoke(this, EventArgs.Empty);
+        NoteUpdated?.Invoke(this, note);
     }
     
     public void DeleteNote(string noteId)
@@ -65,6 +72,7 @@ public class NotesService
         _notes.RemoveAll(n => n.Id == noteId);
         SaveNotes();
         NotesChanged?.Invoke(this, EventArgs.Empty);
+        NoteDeleted?.Invoke(this, noteId);
     }
     
     /// <summary>
@@ -75,6 +83,7 @@ public class NotesService
         _notes.RemoveAll(n => n.Id == noteId);
         await SaveNotesAsync();
         NotesChanged?.Invoke(this, EventArgs.Empty);
+        NoteDeleted?.Invoke(this, noteId);
     }
     
     public void TogglePin(string noteId)

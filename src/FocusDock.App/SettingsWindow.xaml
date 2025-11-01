@@ -63,7 +63,31 @@
                             <TextBox x:Name="TxtServerUrl" />
                             <TextBlock FontSize="11" Foreground="#AAB2BE" Margin="0,0,0,10">Example: https://my-focusdeck-server.com</TextBlock>
                             
+                            <TextBlock Margin="0,8,0,4">Auth Token (JWT)</TextBlock>
+                            <PasswordBox x:Name="PwdJwtToken" />
+                            <TextBlock FontSize="11" Foreground="#AAB2BE" Margin="0,0,0,10">Paste a valid JWT token if your server requires authentication</TextBlock>
+                            
                             <Button x:Name="BtnSaveSyncSettings" Content="Save Sync Settings" Style="{StaticResource PrimaryButton}" Click="OnSaveClick" />
+
+                            <Separator Background="{StaticResource StrokeBrush}" Margin="0,16,0,16" />
+
+                            <TextBlock FontSize="16" FontWeight="Bold" Margin="0,0,0,12">Devices</TextBlock>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8" >
+                                <Button x:Name="BtnRefreshDevices" Content="Refresh" Style="{StaticResource PrimaryButton}" Click="OnRefreshDevicesClick" />
+                            </StackPanel>
+                            <ListView x:Name="LstDevices" Height="180" BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Name" DisplayMemberBinding="{Binding DeviceName}" Width="160"/>
+                                        <GridViewColumn Header="Platform" DisplayMemberBinding="{Binding Platform}" Width="100"/>
+                                        <GridViewColumn Header="DeviceId" DisplayMemberBinding="{Binding DeviceId}" Width="220"/>
+                                        <GridViewColumn Header="Last Sync" DisplayMemberBinding="{Binding LastSyncAt}" Width="140"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+                                <Button x:Name="BtnUnregisterDevice" Content="Unregister Selected" Style="{StaticResource PrimaryButton}" Click="OnUnregisterDeviceClick" />
+                            </StackPanel>
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>

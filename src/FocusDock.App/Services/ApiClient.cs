@@ -12,10 +12,16 @@ namespace FocusDock.App.Services
     {
         private readonly HttpClient _httpClient;
         private string _serverUrl = "http://localhost:5000"; // Default for local testing, will be configurable
+        private SyncClientService? _sync;
 
         public ApiClient()
         {
             _httpClient = new HttpClient();
+        }
+
+        public void SetSyncService(SyncClientService sync)
+        {
+            _sync = sync;
         }
 
         public void SetServerUrl(string serverUrl)
@@ -52,7 +58,13 @@ namespace FocusDock.App.Services
             response.EnsureSuccessStatusCode();
             var responseContent = await response.Content.ReadAsStringAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            return JsonSerializer.Deserialize<Deck>(responseContent, options);
+            var created = JsonSerializer.Deserialize<Deck>(responseContent, options);
+            if (created != null)
+            {
+                _sync?.TrackDeckCreated(created.Id, created);
+                if (_sync != null) await _sync.PushAsync(_sync.ChangeTracker);
+            }
+            return created!;
         }
 
         public async Task UpdateDeckAsync(Guid id, Deck updatedDeck)
@@ -61,12 +73,16 @@ namespace FocusDock.App.Services
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var response = await _httpClient.PutAsync($"{_serverUrl}/api/decks/{id}", content);
             response.EnsureSuccessStatusCode();
+            _sync?.TrackDeckUpdated(id, updatedDeck);
+            if (_sync != null) await _sync.PushAsync(_sync.ChangeTracker);
         }
 
         public async Task DeleteDeckAsync(Guid id)
         {
             var response = await _httpClient.DeleteAsync($"{_serverUrl}/api/decks/{id}");
             response.EnsureSuccessStatusCode();
+            _sync?.TrackDeckDeleted(id);
+            if (_sync != null) await _sync.PushAsync(_sync.ChangeTracker);
         }
     }
 }

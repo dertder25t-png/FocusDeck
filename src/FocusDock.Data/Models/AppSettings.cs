@@ -18,6 +18,7 @@ public enum DockAlignment
 public class AppSettings
 {
     public string? ServerUrl { get; set; }
+    public string? JwtToken { get; set; }
     public int MonitorIndex { get; set; } = 0;
     public DockEdge Edge { get; set; } = DockEdge.Top;
     public DockAlignment Alignment { get; set; } = DockAlignment.Center;

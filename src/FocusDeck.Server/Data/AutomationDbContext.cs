@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using FocusDeck.Shared.Models.Automations;
+using FocusDeck.Shared.Models.Sync;
 using FocusDeck.Server.Models;
 using System.Text.Json;
 
@@ -16,6 +17,12 @@ public class AutomationDbContext : DbContext
     public DbSet<AutomationExecution> AutomationExecutions { get; set; }
     public DbSet<ConnectedService> ConnectedServices { get; set; }
     public DbSet<ServiceConfiguration> ServiceConfigurations { get; set; }
+    
+    // Sync tables
+    public DbSet<DeviceRegistration> DeviceRegistrations { get; set; }
+    public DbSet<SyncTransaction> SyncTransactions { get; set; }
+    public DbSet<SyncChange> SyncChanges { get; set; }
+    public DbSet<SyncMetadata> SyncMetadata { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -92,6 +99,73 @@ public class AutomationDbContext : DbContext
             entity.Property(e => e.UpdatedAt).IsRequired();
             
             entity.HasIndex(e => e.ServiceName).IsUnique();
+        });
+
+        // Configure DeviceRegistration
+        modelBuilder.Entity<DeviceRegistration>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.DeviceId).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.DeviceName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Platform).IsRequired();
+            entity.Property(e => e.UserId).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.RegisteredAt).IsRequired();
+            entity.Property(e => e.LastSyncAt).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
+            entity.Property(e => e.AppVersion).HasMaxLength(50);
+            
+            entity.HasIndex(e => e.DeviceId);
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => new { e.DeviceId, e.UserId });
+        });
+
+        // Configure SyncTransaction
+        modelBuilder.Entity<SyncTransaction>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.DeviceId).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Timestamp).IsRequired();
+            entity.Property(e => e.Status).IsRequired();
+            entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
+            
+            entity.Ignore(e => e.Changes); // Changes stored separately in SyncChanges table
+            
+            entity.HasIndex(e => e.DeviceId);
+            entity.HasIndex(e => e.Timestamp);
+        });
+
+        // Configure SyncChange
+        modelBuilder.Entity<SyncChange>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TransactionId).IsRequired();
+            entity.Property(e => e.EntityType).IsRequired();
+            entity.Property(e => e.EntityId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Operation).IsRequired();
+            entity.Property(e => e.DataJson).IsRequired();
+            entity.Property(e => e.ChangedAt).IsRequired();
+            entity.Property(e => e.ChangeVersion).IsRequired();
+            
+            entity.HasIndex(e => e.TransactionId);
+            entity.HasIndex(e => e.EntityId);
+            entity.HasIndex(e => e.ChangeVersion);
+            entity.HasIndex(e => new { e.EntityType, e.EntityId });
+        });
+
+        // Configure SyncMetadata
+        modelBuilder.Entity<SyncMetadata>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.DeviceId).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.LastSyncVersion).IsRequired();
+            entity.Property(e => e.LastSyncTime).IsRequired();
+            entity.Property(e => e.EntityVersions)
+                .HasConversion(
+                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => JsonSerializer.Deserialize<Dictionary<SyncEntityType, long>>(v, (JsonSerializerOptions?)null) ?? new Dictionary<SyncEntityType, long>())
+                .HasColumnType("TEXT");
+            
+            entity.HasIndex(e => e.DeviceId).IsUnique();
         });
     }
 }

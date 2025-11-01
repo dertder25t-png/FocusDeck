@@ -114,5 +114,23 @@ namespace FocusDeck.Shared.Models.Automations
         public const string Streak = "complex.streak";
         public const string ManualTrigger = "complex.manual";
         public const string WebhookReceived = "complex.webhook";
+
+        // ===== WINDOWS APP TRIGGERS =====
+        public const string WindowsFocusChanged = "windows.focus_changed";
+        public const string WindowsAppLaunched = "windows.app_launched";
+        public const string WindowsAppClosed = "windows.app_closed";
+        public const string WindowsScreenLocked = "windows.screen_locked";
+        public const string WindowsScreenUnlocked = "windows.screen_unlocked";
+        public const string WindowsIdleStarted = "windows.idle_started";
+        public const string WindowsIdleEnded = "windows.idle_ended";
+        public const string WindowsHotkeyPressed = "windows.hotkey_pressed";
+        public const string WindowsVolumeChanged = "windows.volume_changed";
+        public const string WindowsBatteryLow = "windows.battery_low";
+        public const string WindowsBatteryCharging = "windows.battery_charging";
+        public const string WindowsNetworkChanged = "windows.network_changed";
+        public const string WindowsDisplayChanged = "windows.display_changed";
+        public const string WindowsFocusAssistChanged = "windows.focus_assist_changed";
+        public const string WindowsNotificationReceived = "windows.notification_received";
+        public const string WindowsProcessCpuHigh = "windows.process_cpu_high";
     }
 }

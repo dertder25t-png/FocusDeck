@@ -1,0 +1,50 @@
+<Window x:Class="FocusDock.App.ConflictResolutionDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Resolve Sync Conflict" Width="720" Height="520"
+        Background="#26282D" Foreground="#E8EAED"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="A sync conflict was detected. Choose which version to keep." FontSize="16" FontWeight="Bold"/>
+
+        <Grid Grid.Row="1" Margin="0,12,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border BorderBrush="#3F4550" BorderThickness="1" CornerRadius="8" Padding="8">
+                <StackPanel>
+                    <TextBlock Text="Local Change" FontWeight="Bold" Margin="0,0,0,8"/>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <TextBox x:Name="TxtLocal" FontFamily="Consolas" TextWrapping="Wrap" AcceptsReturn="True" IsReadOnly="True" Background="#1E1F24"/>
+                    </ScrollViewer>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2" BorderBrush="#3F4550" BorderThickness="1" CornerRadius="8" Padding="8">
+                <StackPanel>
+                    <TextBlock Text="Server Version" FontWeight="Bold" Margin="0,0,0,8"/>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <TextBox x:Name="TxtServer" FontFamily="Consolas" TextWrapping="Wrap" AcceptsReturn="True" IsReadOnly="True" Background="#1E1F24"/>
+                    </ScrollViewer>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="BtnUseServer" Content="Use Server" Width="110" Height="34" Margin="0,0,8,0" Click="OnUseServer"/>
+            <Button x:Name="BtnUseLocal" Content="Use Local" Width="110" Height="34" Margin="0,0,8,0" Click="OnUseLocal"/>
+            <Button x:Name="BtnMerge" Content="Merge (coming soon)" Width="170" Height="34" Margin="0,0,8,0" IsEnabled="False"/>
+            <Button Content="Cancel" Width="100" Height="34" Click="OnCancel"/>
+        </StackPanel>
+    </Grid>
+</Window>
