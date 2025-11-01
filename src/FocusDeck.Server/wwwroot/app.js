@@ -887,15 +887,25 @@ class FocusDeckApp {
             return;
         }
 
-        container.innerHTML = this.connectedServices.map(service => `
-            <div class="service-badge">
-                <span class="service-icon">${this.getServiceIcon(service.service)}</span>
-                <span class="service-name">${service.service}</span>
-                <button class="btn-icon-small" onclick="app.disconnectService('${service.id}')" title="Disconnect">
-                    ❌
-                </button>
-            </div>
-        `).join('');
+        // HA-style tiles
+        container.innerHTML = this.connectedServices.map(s => {
+            const configured = !!s.configured;
+            const statusBadge = configured ? '<span class="badge badge-success">Configured</span>' : '<span class="badge badge-warning">Not configured</span>';
+            const actions = `
+                <div class="tile-actions">
+                    <button class="btn btn-secondary btn-small" onclick="app.openServiceSetup('${s.service}', ${JSON.stringify(s.metadata || {})})">${configured ? 'Reconfigure' : 'Configure'}</button>
+                    ${configured ? `<button class="btn btn-danger btn-small" onclick="app.disconnectService('${s.id}')">Disconnect</button>` : ''}
+                </div>`;
+            return `
+                <div class="service-tile">
+                    <div class="tile-header">
+                        <div class="tile-icon">${this.getServiceIcon(s.service)}</div>
+                        <div class="tile-title">${s.service}</div>
+                        <div class="tile-status">${statusBadge}</div>
+                    </div>
+                    ${actions}
+                </div>`;
+        }).join('');
     }
 
     getServiceIcon(service) {
@@ -1055,7 +1065,7 @@ class FocusDeckApp {
         };
     }
 
-    openServiceSetup(service) {
+    openServiceSetup(service, metadata = {}) {
         const guides = this.getServiceGuides();
         const guide = guides[service] || { title: `Connect ${service}`, icon: '🔗', description: 'Follow the steps to connect this service.', steps: [], links: [], flow: 'token' };
         this.currentServiceSetup = { service, guide };
@@ -1098,6 +1108,18 @@ class FocusDeckApp {
 
         // Show modal
         document.getElementById('serviceSetupModal')?.classList.add('active');
+
+        // Prefill if we have metadata
+        try {
+            if (guide.fields && metadata) {
+                for (const f of guide.fields) {
+                    const el = document.getElementById(f.id);
+                    if (el && metadata[f.id]) {
+                        el.value = metadata[f.id];
+                    }
+                }
+            }
+        } catch {}
     }
 
     closeServiceSetupModal() {

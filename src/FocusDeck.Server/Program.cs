@@ -37,6 +37,33 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
     db.Database.EnsureCreated();
+
+    // Lightweight schema guard: add new columns if missing (SQLite)
+    try
+    {
+        var conn = db.Database.GetDbConnection();
+        await conn.OpenAsync();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "PRAGMA table_info(ConnectedServices);";
+        var cols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var reader = await cmd.ExecuteReaderAsync())
+        {
+            while (await reader.ReadAsync())
+            {
+                cols.Add(reader.GetString(1));
+            }
+        }
+        var alterCmds = new List<string>();
+        if (!cols.Contains("MetadataJson")) alterCmds.Add("ALTER TABLE ConnectedServices ADD COLUMN MetadataJson TEXT;");
+        if (!cols.Contains("IsConfigured")) alterCmds.Add("ALTER TABLE ConnectedServices ADD COLUMN IsConfigured INTEGER NOT NULL DEFAULT 0;");
+        foreach (var sql in alterCmds)
+        {
+            using var c2 = conn.CreateCommand();
+            c2.CommandText = sql;
+            await c2.ExecuteNonQueryAsync();
+        }
+    }
+    catch { /* best-effort */ }
 }
 
 // Configure the HTTP request pipeline.

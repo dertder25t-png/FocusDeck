@@ -9,5 +9,11 @@ namespace FocusDeck.Shared.Models.Automations
         public string RefreshToken { get; set; } = null!;
         public DateTime? ExpiresAt { get; set; }
         public DateTime ConnectedAt { get; set; }
+
+        // Extensible JSON for provider-specific settings (e.g., Home Assistant base URL)
+        public string? MetadataJson { get; set; }
+
+        // Cached flag to indicate if this integration is configured (tokens/metadata present)
+        public bool IsConfigured { get; set; }
     }
 }
