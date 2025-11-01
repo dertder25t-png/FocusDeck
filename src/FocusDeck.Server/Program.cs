@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,22 +32,29 @@ builder.Services.AddHostedService<AutomationEngine>();
 // Add Version Service
 builder.Services.AddSingleton<VersionService>();
 
-// Add CORS support for web UI
+// Add CORS support for Cloudflare-proxied web UI and clients
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("FocusDeckCors", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(
+                "https://focusdeck.909436.xyz",  // Production Cloudflare hostname
+                "http://localhost:3000",          // Local dev (React/Vite)
+                "http://localhost:5173",          // Local dev (Vite default)
+                "http://localhost:5239"           // Local dev (Kestrel)
+              )
+              .SetIsOriginAllowedToAllowWildcardSubdomains()
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials(); // Only if using cookies/auth
     });
 });
 
 // Add JWT Authentication
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var jwtKey = jwtSection.GetValue<string>("Key") ?? "super_dev_secret_key_change_me_please_32chars";
-var jwtIssuer = jwtSection.GetValue<string>("Issuer") ?? "FocusDeckDev";
-var jwtAudience = jwtSection.GetValue<string>("Audience") ?? "FocusDeckClients";
+var jwtIssuer = jwtSection.GetValue<string>("Issuer") ?? "https://focusdeck.909436.xyz";
+var jwtAudience = jwtSection.GetValue<string>("Audience") ?? "focusdeck-clients";
 
 builder.Services.AddAuthentication(options =>
 {
@@ -57,17 +65,44 @@ builder.Services.AddAuthentication(options =>
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
+        ValidIssuers = new[]
+        {
+            jwtIssuer,                      // https://focusdeck.909436.xyz
+            "FocusDeckDev",                 // Legacy dev issuer
+            "http://192.168.1.110:5000"     // Optional: allow old LAN tokens during transition
+        },
         ValidateAudience = true,
+        ValidAudiences = new[]
+        {
+            jwtAudience,                    // focusdeck-clients
+            "FocusDeckClients",             // Legacy audience
+            "local-dev"                     // Optional: local development
+        },
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtIssuer,
-        ValidAudience = jwtAudience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+        ClockSkew = TimeSpan.FromMinutes(2)
     };
 });
 builder.Services.AddAuthorization();
 
+// Add HTTP logging for debugging (optional but helpful)
+builder.Services.AddHttpLogging(_ => { });
+
 var app = builder.Build();
+
+// CRITICAL: Configure forwarded headers for Cloudflare proxy
+// This makes ASP.NET Core treat requests as HTTPS and see the real client IP
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
+// Optional: Enable HTTP request/response logging during debugging
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpLogging();
+}
 
 // Initialize database
 using (var scope = app.Services.CreateScope())
@@ -180,8 +215,8 @@ app.UseStaticFiles(new StaticFileOptions
     }
 });
 
-// Enable CORS
-app.UseCors("AllowAll");
+// Enable CORS (must be after UseRouting if you have it)
+app.UseCors("FocusDeckCors");
 
 app.UseHttpsRedirection();
 
@@ -191,6 +226,11 @@ app.UseAuthorization();
 
 // Map API controllers
 app.MapControllers();
+
+// Health check endpoint (no auth required)
+app.MapGet("/healthz", () => Results.Ok(new { ok = true, time = DateTimeOffset.UtcNow }))
+    .WithName("HealthCheck")
+    .WithOpenApi();
 
 // Custom endpoint to serve the root index.html with version injection
 app.MapGet("/", async (HttpContext context, VersionService versionService, IWebHostEnvironment env) =>
