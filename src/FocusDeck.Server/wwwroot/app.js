@@ -2015,12 +2015,31 @@ class FocusDeckApp {
     setupSettings() {
         this.safeSetText('apiEndpoint', window.location.origin + '/api');
 
+        // Token generation
+        const generateTokenBtn = document.getElementById('generateTokenBtn');
+        if (generateTokenBtn) {
+            generateTokenBtn.addEventListener('click', () => this.generateToken());
+        }
+
+        // Update configuration check
+        const checkConfigBtn = document.getElementById('checkConfigBtn');
+        if (checkConfigBtn) {
+            checkConfigBtn.addEventListener('click', () => this.checkUpdateConfiguration());
+            // Auto-check on load
+            setTimeout(() => this.checkUpdateConfiguration(), 800);
+        }
+
         // Update buttons
         const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
         if (checkUpdatesBtn) {
             checkUpdatesBtn.addEventListener('click', () => this.checkForUpdates());
             // Auto-check for updates on page load
             setTimeout(() => this.checkForUpdates(), 500);
+        }
+
+        const updateServerBtn = document.getElementById('updateServerBtn');
+        if (updateServerBtn) {
+            updateServerBtn.addEventListener('click', () => this.updateServer());
         }
 
         const viewUpdateGuideBtn = document.getElementById('viewUpdateGuideBtn');
@@ -2055,8 +2074,6 @@ class FocusDeckApp {
             const date = new Date(lastUpdate);
             this.safeSetText('lastUpdateTime', date.toLocaleDateString() + ' ' + date.toLocaleTimeString());
         }
-
-        document.getElementById('updateServerBtn').addEventListener('click', () => this.updateServer());
 
         document.getElementById('clearCacheBtn').addEventListener('click', () => {
             if (confirm('Clear all cached data?')) {
@@ -2429,7 +2446,7 @@ sudo systemctl restart focusdeck`;
         try {
             this.showToast('🚀 Starting server update... This will take 30-60 seconds.', 'info');
             
-            const response = await fetch('/api/server/update', {
+                const response = await fetch('/api/update/trigger', {
                 method: 'POST',
             });
 
@@ -2526,10 +2543,179 @@ sudo systemctl restart focusdeck`;
         }
         return null;
     }
+
+    // ====================================
+    // TOKEN GENERATION
+    // ====================================
+
+    async generateToken() {
+        const usernameInput = document.getElementById('tokenUsername');
+        const generateBtn = document.getElementById('generateTokenBtn');
+        const resultBox = document.getElementById('tokenResultBox');
+        const tokenDisplay = document.getElementById('tokenDisplay');
+        const tokenUserDisplay = document.getElementById('tokenUserDisplay');
+        const tokenExpiry = document.getElementById('tokenExpiry');
+
+        const username = usernameInput?.value?.trim();
+        if (!username) {
+            this.showToast('Please enter a username', 'error');
+            return;
+        }
+
+        if (generateBtn) {
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<span>⏳</span> Generating...';
+        }
+
+        try {
+            const response = await fetch('/api/auth/token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                // Show result
+                if (resultBox) resultBox.style.display = 'block';
+                if (tokenDisplay) {
+                    tokenDisplay.textContent = result.token;
+                    tokenDisplay.dataset.token = result.token;
+                }
+                if (tokenUserDisplay) tokenUserDisplay.textContent = result.username;
+                if (tokenExpiry) {
+                    const expiryDate = new Date(result.expiresAt);
+                    tokenExpiry.textContent = expiryDate.toLocaleDateString() + ' ' + expiryDate.toLocaleTimeString();
+                }
+
+                this.showToast('✅ Token generated successfully!', 'success');
+            } else {
+                this.showToast(`❌ Failed to generate token: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Failed to generate token:', error);
+            this.showToast(`❌ Failed to generate token: ${error.message}`, 'error');
+        } finally {
+            if (generateBtn) {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '<span>🔑</span> Generate Token';
+            }
+        }
+    }
+
+    async checkUpdateConfiguration() {
+        const checkBtn = document.getElementById('checkConfigBtn');
+        const configBox = document.getElementById('configStatusBox');
+        const configTitle = document.getElementById('configStatusTitle');
+        const configChecksList = document.getElementById('configChecksList');
+        const configMessage = document.getElementById('configMessage');
+        const platformInfo = document.getElementById('platformInfo');
+        const updateSystemStatus = document.getElementById('updateSystemStatus');
+
+        if (checkBtn) {
+            checkBtn.disabled = true;
+            checkBtn.innerHTML = '<span>⏳</span> Checking...';
+        }
+
+        try {
+            const response = await fetch('/api/update/check-config');
+            const result = await response.json();
+
+            // Update platform info
+            if (platformInfo) {
+                platformInfo.textContent = result.platform;
+            }
+
+            // Update status
+            if (updateSystemStatus) {
+                if (result.isConfigured) {
+                    updateSystemStatus.innerHTML = '<span style="color: var(--success)">✅ Ready</span>';
+                } else {
+                    updateSystemStatus.innerHTML = '<span style="color: var(--warning)">⚠️ Not Configured</span>';
+                }
+            }
+
+            // Show configuration details
+            if (configBox) configBox.style.display = 'block';
+            if (configTitle) {
+                if (result.isConfigured) {
+                    configTitle.innerHTML = '✅ Configuration Status: Ready';
+                } else {
+                    configTitle.innerHTML = '⚠️ Configuration Status: Incomplete';
+                }
+            }
+
+            // Show checks
+            if (configChecksList && result.checks) {
+                configChecksList.innerHTML = result.checks.map(check => {
+                    const icon = check.passed ? '✅' : '❌';
+                    const color = check.passed ? 'var(--success)' : 'var(--error)';
+                    return `
+                        <div style="display: flex; align-items: start; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <span style="color: ${color}; font-size: 1.1rem;">${icon}</span>
+                            <div>
+                                <strong>${this.escapeHtml(check.name)}</strong><br>
+                                <span style="color: var(--text-secondary); font-size: 0.85rem;">${this.escapeHtml(check.message)}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Show message
+            if (configMessage) {
+                configMessage.innerHTML = `<strong>${this.escapeHtml(result.message)}</strong>`;
+                if (result.repositoryPath) {
+                    configMessage.innerHTML += `<br><span style="color: var(--text-secondary);">Repository: ${this.escapeHtml(result.repositoryPath)}</span>`;
+                }
+                if (!result.isConfigured && result.platform === 'Linux') {
+                    configMessage.innerHTML += `<br><br><code style="background: rgba(0,0,0,0.5); padding: 0.5rem; border-radius: 4px; display: block; margin-top: 0.5rem;">sudo bash configure-update-system.sh</code>`;
+                }
+            }
+
+            if (result.isConfigured) {
+                this.showToast('✅ Update system is configured', 'success');
+            } else {
+                this.showToast(`⚠️ ${result.message}`, 'warning');
+            }
+        } catch (error) {
+            console.error('Failed to check configuration:', error);
+            this.showToast(`❌ Failed to check configuration: ${error.message}`, 'error');
+            if (configBox) configBox.style.display = 'none';
+        } finally {
+            if (checkBtn) {
+                checkBtn.disabled = false;
+                checkBtn.innerHTML = '<span>⚙️</span> Check Configuration';
+            }
+        }
+    }
+}
+
+// Global function for token copying (called from HTML onclick)
+function copyToken() {
+    const tokenDisplay = document.getElementById('tokenDisplay');
+    const token = tokenDisplay?.dataset?.token || tokenDisplay?.textContent;
+    
+    if (token) {
+        navigator.clipboard.writeText(token).then(() => {
+            if (window.app) {
+                window.app.showToast('📋 Token copied to clipboard!', 'success');
+            }
+        }).catch(err => {
+            console.error('Failed to copy token:', err);
+            if (window.app) {
+                window.app.showToast('❌ Failed to copy token', 'error');
+            }
+        });
+    }
 }
 
 // Initialize app
 let app;
 document.addEventListener('DOMContentLoaded', () => {
     app = new FocusDeckApp();
+    window.app = app; // Make globally accessible for HTML onclick handlers
 });

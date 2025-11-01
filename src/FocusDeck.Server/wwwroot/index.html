@@ -632,13 +632,68 @@
                         </div>
 
                         <div class="card">
-                            <h2 class="card-title">Server Management</h2>
+                            <h2 class="card-title">🔑 Authentication Token</h2>
+                            <p class="card-description">Generate a JWT token for authenticating with the sync system and desktop apps.</p>
+                            
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label class="setting-label">Username</label>
+                                    <p class="setting-description">Enter your username to generate a token</p>
+                                </div>
+                                <input type="text" class="input-field" id="tokenUsername" placeholder="Enter username" />
+                            </div>
+                            
+                            <div class="setting-actions">
+                                <button class="btn btn-primary" id="generateTokenBtn">
+                                    <span>🔑</span> Generate Token
+                                </button>
+                            </div>
+                            
+                            <div id="tokenResultBox" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--card-bg); border-radius: 8px; border: 2px solid var(--accent-color);">
+                                <div style="margin-bottom: 0.5rem;">
+                                    <strong style="color: var(--accent-color);">✓ Token Generated Successfully</strong>
+                                </div>
+                                <div style="margin-bottom: 0.5rem;">
+                                    <label style="font-size: 0.9rem; color: var(--text-secondary);">Username:</label>
+                                    <div id="tokenUserDisplay" style="font-family: monospace; padding: 0.5rem; background: rgba(0,0,0,0.3); border-radius: 4px; margin-top: 0.25rem;"></div>
+                                </div>
+                                <div style="margin-bottom: 0.5rem;">
+                                    <label style="font-size: 0.9rem; color: var(--text-secondary);">Token (click to copy):</label>
+                                    <div id="tokenDisplay" style="font-family: monospace; font-size: 0.8rem; padding: 0.5rem; background: rgba(0,0,0,0.3); border-radius: 4px; word-break: break-all; cursor: pointer; margin-top: 0.25rem;" onclick="copyToken()"></div>
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                                    <span>⏰ Expires: </span><span id="tokenExpiry"></span>
+                                </div>
+                                <button class="btn btn-secondary" style="margin-top: 0.75rem;" onclick="copyToken()">
+                                    <span>📋</span> Copy Token
+                                </button>
+                            </div>
+                            
+                            <p class="card-footer-note">💡 Use this token in your Windows desktop app (Settings → Sync tab) or Linux agent to authenticate with the server. Tokens expire after 30 days.</p>
+                        </div>
+
+                        <div class="card">
+                            <h2 class="card-title">🔄 Server Management</h2>
                             <p class="card-description">Keep your server up to date with the latest features and fixes.</p>
                             
                             <div class="setting-item">
                                 <div class="setting-info">
                                     <label class="setting-label">Current Version</label>
                                     <p class="setting-description" id="currentVersionInfo">Loading...</p>
+                                </div>
+                            </div>
+
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label class="setting-label">Platform</label>
+                                    <p class="setting-description" id="platformInfo">Detecting...</p>
+                                </div>
+                            </div>
+
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <label class="setting-label">Update System Status</label>
+                                    <p class="setting-description" id="updateSystemStatus">Checking...</p>
                                 </div>
                             </div>
 
@@ -653,6 +708,9 @@
                                 <button class="btn btn-secondary" id="checkUpdatesBtn">
                                     <span>🔍</span> Check for Updates
                                 </button>
+                                <button class="btn btn-secondary" id="checkConfigBtn">
+                                    <span>⚙️</span> Check Configuration
+                                </button>
                                 <button class="btn btn-primary" id="updateServerBtn" style="display: none;">
                                     <span>🔄</span> Update Server Now
                                 </button>
@@ -665,8 +723,20 @@
                                 </div>
                                 <p id="updateStatusMessage" style="margin: 0; font-size: 0.9rem; color: var(--text-secondary);">This may take up to 60 seconds. The page will reload automatically.</p>
                             </div>
+
+                            <div id="configStatusBox" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--card-bg); border-radius: 8px; border: 2px solid var(--border);">
+                                <div style="margin-bottom: 0.75rem;">
+                                    <strong id="configStatusTitle">Configuration Status</strong>
+                                </div>
+                                <div id="configChecksList" style="font-size: 0.9rem;"></div>
+                                <div id="configMessage" style="margin-top: 0.75rem; padding: 0.5rem; background: rgba(0,0,0,0.3); border-radius: 4px; font-size: 0.9rem;"></div>
+                            </div>
                             
-                            <p class="card-footer-note">Updates pull the latest code from GitHub, rebuild, and restart the server automatically. The process takes about 30-60 seconds.</p>
+                            <p class="card-footer-note">
+                                <strong>Linux:</strong> Updates pull the latest code from GitHub, rebuild, and restart automatically (30-60 seconds). 
+                                Run <code>configure-update-system.sh</code> to set up the update system.<br>
+                                <strong>Windows:</strong> Pull latest code from GitHub and rebuild manually.
+                            </p>
                         </div>
 
                         <div class="card">
