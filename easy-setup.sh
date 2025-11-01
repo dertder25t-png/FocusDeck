@@ -48,7 +48,8 @@ echo "   6. Start FocusDeck server"
 echo ""
 echo -e "${YELLOW}⚠️  You'll need your Cloudflare domain name${NC}"
 echo ""
-read -p "Press Enter to continue or Ctrl+C to cancel..."
+echo -n "Press Enter to continue or Ctrl+C to cancel..."
+read -r </dev/tty
 echo ""
 
 # ============================================================================
@@ -64,7 +65,7 @@ echo ""
 CF_DOMAIN=""
 while [[ -z "$CF_DOMAIN" ]]; do
     echo -n "Enter your Cloudflare domain (e.g., focusdeck.909436.xyz): "
-    read CF_DOMAIN
+    read -r CF_DOMAIN </dev/tty
     
     # Trim whitespace
     CF_DOMAIN=$(echo "$CF_DOMAIN" | xargs)
@@ -81,7 +82,7 @@ done
 
 echo ""
 echo -n "Enter FocusDeck username [default: focusdeck]: "
-read FOCUSDECK_USER
+read -r FOCUSDECK_USER </dev/tty
 FOCUSDECK_USER="${FOCUSDECK_USER:-focusdeck}"
 # Trim whitespace
 FOCUSDECK_USER=$(echo "$FOCUSDECK_USER" | xargs)
@@ -97,7 +98,7 @@ echo -e "${GREEN}✓ Install directory: ${INSTALL_DIR}${NC}"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 echo -n "Does this look correct? [Y/n]: "
-read CONFIRM
+read -r CONFIRM </dev/tty
 CONFIRM="${CONFIRM:-Y}"
 if [[ ! "$CONFIRM" =~ ^[Yy] ]]; then
     echo -e "${YELLOW}Setup cancelled. Run the script again to start over.${NC}"
