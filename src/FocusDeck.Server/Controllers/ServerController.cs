@@ -76,7 +76,7 @@ log ""SUCCESS: Git pull completed""
 # Step 3: Build and publish application
 log ""Step 3: Building and publishing application...""
 cd ""$REPO_PATH/src/FocusDeck.Server"" || {{ log ""ERROR: Failed to navigate to server directory""; exit 1; }}
-dotnet publish FocusDeck.Server.csproj -c Release -r linux-x64 --self-contained false -o ""$APP_PATH"" 2>&1 | tee -a ""$LOG_FILE""
+dotnet publish FocusDeck.Server.csproj -c Release -r linux-x64 --self-contained true -o ""$APP_PATH"" 2>&1 | tee -a ""$LOG_FILE""
 if [ $? -ne 0 ]; then
     log ""ERROR: Failed to publish application""
     exit 1

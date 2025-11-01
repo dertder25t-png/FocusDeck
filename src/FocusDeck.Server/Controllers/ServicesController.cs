@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using FocusDeck.Shared.Models.Automations;
+using FocusDeck.Server.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace FocusDeck.Server.Controllers
 {
@@ -7,13 +9,22 @@ namespace FocusDeck.Server.Controllers
     [Route("api/[controller]")]
     public class ServicesController : ControllerBase
     {
-        private static readonly List<ConnectedService> _services = new();
+        private readonly AutomationDbContext _context;
+        private readonly ILogger<ServicesController> _logger;
+
+        public ServicesController(AutomationDbContext context, ILogger<ServicesController> logger)
+        {
+            _context = context;
+            _logger = logger;
+        }
 
         [HttpGet]
-        public ActionResult<List<ConnectedService>> GetAll()
+        public async Task<ActionResult<List<ConnectedService>>> GetAll()
         {
+            var services = await _context.ConnectedServices.ToListAsync();
+            
             // Don't return sensitive tokens to client
-            var sanitized = _services.Select(s => new ConnectedService
+            var sanitized = services.Select(s => new ConnectedService
             {
                 Id = s.Id,
                 UserId = s.UserId,
@@ -28,7 +39,7 @@ namespace FocusDeck.Server.Controllers
         }
 
         [HttpPost("connect/{service}")]
-        public ActionResult<ConnectedService> Connect(ServiceType service, [FromBody] Dictionary<string, string> credentials)
+        public async Task<ActionResult<ConnectedService>> Connect(ServiceType service, [FromBody] Dictionary<string, string> credentials)
         {
             // This would typically involve OAuth flow
             var connectedService = new ConnectedService
@@ -36,25 +47,31 @@ namespace FocusDeck.Server.Controllers
                 Id = Guid.NewGuid(),
                 UserId = "default_user", // Replace with actual user system
                 Service = service,
-                AccessToken = credentials.GetValueOrDefault("access_token", ""),
-                RefreshToken = credentials.GetValueOrDefault("refresh_token", ""),
+                AccessToken = credentials.GetValueOrDefault("access_token", Guid.NewGuid().ToString()),
+                RefreshToken = credentials.GetValueOrDefault("refresh_token", Guid.NewGuid().ToString()),
                 ExpiresAt = DateTime.UtcNow.AddDays(60),
                 ConnectedAt = DateTime.UtcNow
             };
 
-            _services.Add(connectedService);
+            _context.ConnectedServices.Add(connectedService);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Successfully connected service {Service} for user {UserId}", service, connectedService.UserId);
 
             return Ok(new { message = $"{service} connected successfully", serviceId = connectedService.Id });
         }
 
         [HttpDelete("{id}")]
-        public ActionResult Disconnect(Guid id)
+        public async Task<ActionResult> Disconnect(Guid id)
         {
-            var service = _services.FirstOrDefault(s => s.Id == id);
+            var service = await _context.ConnectedServices.FirstOrDefaultAsync(s => s.Id == id);
             if (service == null)
                 return NotFound();
 
-            _services.Remove(service);
+            _context.ConnectedServices.Remove(service);
+            await _context.SaveChangesAsync();
+            
+            _logger.LogInformation("Disconnected service {ServiceId}", id);
             return NoContent();
         }
 

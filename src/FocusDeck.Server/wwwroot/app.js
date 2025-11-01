@@ -1035,6 +1035,9 @@ class FocusDeckApp {
                 this.showToast('Automation created!', 'success');
                 this.loadAutomations();
                 this.closeAutomationModal();
+            } else {
+                const result = await response.json();
+                this.showToast(`Failed to create automation: ${result.message}`, 'error');
             }
         } catch (error) {
             console.error('Error saving automation:', error);
@@ -1162,19 +1165,24 @@ class FocusDeckApp {
     }
 
     async connectService(service) {
-        // For demo, just add it
         try {
-            await fetch(`/api/services/connect/${service}`, {
+            const response = await fetch(`/api/services/connect/${service}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({})
+                body: JSON.stringify({}) // Empty body for demo
             });
-            this.showToast(`${service} connected!`, 'success');
-            this.loadConnectedServices();
-            this.closeConnectServiceModal();
+
+            if (response.ok) {
+                this.showToast(`${service} connected!`, 'success');
+                this.loadConnectedServices();
+                this.closeConnectServiceModal();
+            } else {
+                const result = await response.json();
+                this.showToast(`Failed to connect: ${result.message}`, 'error');
+            }
         } catch (error) {
             console.error('Error connecting service:', error);
-            this.showToast('Service connection coming soon!', 'info');
+            this.showToast('Failed to connect service', 'error');
         }
     }
 
@@ -1187,6 +1195,7 @@ class FocusDeckApp {
             this.loadConnectedServices();
         } catch (error) {
             console.error('Error disconnecting service:', error);
+            this.showToast('Failed to disconnect service', 'error');
         }
     }
 
