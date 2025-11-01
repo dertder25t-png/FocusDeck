@@ -129,19 +129,59 @@ else
 fi
 
 # Install .NET 9.0 if not present
-if ! command -v dotnet &> /dev/null || ! dotnet --list-sdks | grep -q "9.0"; then
+if ! command -v dotnet &> /dev/null || ! dotnet --list-sdks 2>/dev/null | grep -q "9.0"; then
     echo -e "${YELLOW}➜${NC} Installing .NET 9.0 SDK..."
     
-    # Add Microsoft package repository
-    wget https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
-    dpkg -i packages-microsoft-prod.deb
-    rm packages-microsoft-prod.deb
+    # Install prerequisites
+    apt-get install -y wget apt-transport-https
     
-    apt-get update -qq
-    apt-get install -y dotnet-sdk-9.0
-    echo -e "${GREEN}✓ .NET 9.0 SDK installed${NC}"
+    # Detect Ubuntu/Debian version
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS_VERSION=$VERSION_ID
+        OS_NAME=$ID
+        
+        echo -e "${YELLOW}   Detected: $OS_NAME $OS_VERSION${NC}"
+        
+        # Add Microsoft package repository based on OS
+        if [ "$OS_NAME" = "ubuntu" ]; then
+            wget -q https://packages.microsoft.com/config/ubuntu/$OS_VERSION/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+        elif [ "$OS_NAME" = "debian" ]; then
+            wget -q https://packages.microsoft.com/config/debian/$OS_VERSION/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+        else
+            echo -e "${RED}   Unsupported OS: $OS_NAME${NC}"
+            echo -e "${YELLOW}   Trying generic installation...${NC}"
+            wget -q https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+        fi
+        
+        if [ -f packages-microsoft-prod.deb ]; then
+            dpkg -i packages-microsoft-prod.deb 2>/dev/null
+            rm -f packages-microsoft-prod.deb
+            
+            # Update and install
+            apt-get update -qq
+            apt-get install -y dotnet-sdk-9.0
+            
+            # Verify installation
+            if dotnet --version &>/dev/null; then
+                echo -e "${GREEN}✓ .NET 9.0 SDK installed successfully${NC}"
+                echo -e "${GREEN}   Version: $(dotnet --version)${NC}"
+            else
+                echo -e "${RED}✗ .NET SDK installation failed${NC}"
+                echo -e "${YELLOW}   Please install .NET 9.0 manually: https://dotnet.microsoft.com/download${NC}"
+                exit 1
+            fi
+        else
+            echo -e "${RED}✗ Failed to download .NET installer${NC}"
+            exit 1
+        fi
+    else
+        echo -e "${RED}✗ Cannot detect OS version${NC}"
+        exit 1
+    fi
 else
     echo -e "${GREEN}✓ .NET 9.0 SDK already installed${NC}"
+    echo -e "${GREEN}   Version: $(dotnet --version)${NC}"
 fi
 
 # Install OpenSSL for key generation
