@@ -29,6 +29,7 @@ namespace FocusDeck.Server.Controllers
 
                 // Configuration
                 var repoPath = Environment.GetEnvironmentVariable("FOCUSDECK_REPO") ?? "/home/focusdeck/FocusDeck";
+                var repoUrl = Environment.GetEnvironmentVariable("FOCUSDECK_REPO_URL") ?? "https://github.com/dertder25t-png/FocusDeck.git";
                 var appPath = "/opt/focusdeck";
                 var logFile = "/var/log/focusdeck/update.log";
 
@@ -41,6 +42,7 @@ namespace FocusDeck.Server.Controllers
 
 LOG_FILE=""{logFile}""
 REPO_PATH=""{repoPath}""
+REPO_URL=""{repoUrl}""
 APP_PATH=""{appPath}""
 
 log() {{
@@ -55,13 +57,25 @@ log ""========================================""
 sudo mkdir -p ""$(dirname ""$LOG_FILE"")""
 sudo chown focusdeck:focusdeck ""$(dirname ""$LOG_FILE"")""
 
-# Step 1: Navigate to repository
-log ""Step 1: Navigating to repository: $REPO_PATH""
-if [ ! -d ""$REPO_PATH"" ]; then
-    log ""ERROR: Repository path does not exist: $REPO_PATH""
-    exit 1
+# Step 1: Ensure repository exists (clone if missing)
+log ""Step 1: Ensuring repository exists at: $REPO_PATH""
+if [ ! -d ""$REPO_PATH/.git"" ]; then
+    log ""Repository not found at $REPO_PATH. Attempting to clone from $REPO_URL ...""
+    sudo mkdir -p ""$(dirname ""$REPO_PATH"")""
+    if [ -d ""$REPO_PATH"" ] && [ ""$(ls -A ""$REPO_PATH"")"" ]; then
+        log ""ERROR: $REPO_PATH exists but is not a git repository and is not empty. Please set FOCUSDECK_REPO to a valid git checkout path.""
+        exit 1
+    fi
+    rm -rf ""$REPO_PATH"" 2>/dev/null
+    git clone ""$REPO_URL"" ""$REPO_PATH"" 2>&1 | tee -a ""$LOG_FILE""
+    if [ $? -ne 0 ]; then
+        log ""ERROR: Failed to clone repository from $REPO_URL""
+        exit 1
+    fi
+    log ""SUCCESS: Cloned repository to $REPO_PATH""
 fi
 cd ""$REPO_PATH"" || {{ log ""ERROR: Failed to change directory to $REPO_PATH""; exit 1; }}
+git remote set-url origin ""$REPO_URL"" 2>&1 | tee -a ""$LOG_FILE""
 
 # Step 2: Pull latest changes from GitHub
 log ""Step 2: Pulling latest changes from GitHub...""
