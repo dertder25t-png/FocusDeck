@@ -1453,8 +1453,9 @@ class FocusDeckApp {
                 title: serverGuide.title || `Connect ${service}`,
                 icon: '🔗',
                 description: serverGuide.description || '',
-                steps: [],
-                links: [],
+                steps: serverGuide.steps || [],
+                links: serverGuide.links || [],
+                requiredServerConfig: serverGuide.requiredServerConfig || [],
                 fields: [],
                 flow: serverGuide.setupType === 'OAuth' ? 'oauth' : 'token'
             };
@@ -1475,15 +1476,23 @@ class FocusDeckApp {
             if (title) title.textContent = `${guide.icon} ${guide.title}`;
 
             const stepsHtml = guide.steps?.length ? `
-                <h3 class="section-title">Setup steps</h3>
+                <h3 class="section-title">Setup Instructions</h3>
                 <ol class="setup-steps">${guide.steps.map(s => `<li>${this.escapeHtml(s)}</li>`).join('')}</ol>
             ` : '';
 
             const linksHtml = guide.links?.length ? `
-                <h3 class="section-title">Helpful links</h3>
+                <h3 class="section-title">Helpful Links</h3>
                 <div class="links-list">
                     ${guide.links.map(l => `<a href="${l.url}" target="_blank" class="doc-link">${this.escapeHtml(l.label)} →</a>`).join('')}
                 </div>
+            ` : '';
+
+            const serverConfigHtml = guide.requiredServerConfig?.length ? `
+                <h3 class="section-title">Required Server Configuration</h3>
+                <div class="server-config-box">
+                    <code>${guide.requiredServerConfig.map(line => this.escapeHtml(line)).join('<br>')}</code>
+                </div>
+                <p class="help-text">Add this to your FocusDeck server's <strong>appsettings.json</strong> file and restart the server before clicking the OAuth button below.</p>
             ` : '';
 
             const fieldsHtml = (guide.fields || []).map(f => `
@@ -1499,7 +1508,8 @@ class FocusDeckApp {
                     <p class="setup-description">${this.escapeHtml(guide.description || '')}</p>
                     ${stepsHtml}
                     ${linksHtml}
-                    ${fieldsHtml ? `<h3 class="section-title">Required information</h3>${fieldsHtml}` : ''}
+                    ${serverConfigHtml}
+                    ${fieldsHtml ? `<h3 class="section-title">Required Information</h3>${fieldsHtml}` : ''}
                     <div class="help-text" style="margin-top: .5rem; color: var(--text-secondary);">
                         Mode: <strong>${guide.flow.toUpperCase()}</strong>
                     </div>

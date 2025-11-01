@@ -1963,3 +1963,62 @@ body {
 .data-table tbody tr:last-child td {
     border-bottom: none;
 }
+
+/* ====================================
+   OAuth Setup Guide Styles
+   ==================================== */
+
+.setup-steps {
+    margin: 0;
+    padding-left: 1.5rem;
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+
+.setup-steps li {
+    margin-bottom: 0.5rem;
+}
+
+.links-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.doc-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: all 150ms ease;
+}
+
+.doc-link:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--primary-color);
+    transform: translateX(2px);
+}
+
+.server-config-box {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 1rem;
+    margin: 0.75rem 0;
+    overflow-x: auto;
+}
+
+.server-config-box code {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    white-space: pre;
+}

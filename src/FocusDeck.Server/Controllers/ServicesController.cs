@@ -135,15 +135,124 @@ namespace FocusDeck.Server.Controllers
                     };
                     break;
 
-                case ServiceType.GoogleCalendar:
-                case ServiceType.GoogleDrive:
                 case ServiceType.Spotify:
                     guide = new ServiceSetupGuide
                     {
                         SetupType = "OAuth",
-                        Title = $"Connect {service}",
-                        Description = $"To connect {service}, you'll be redirected to their website to log in and grant FocusDeck permission.",
-                        OAuthButtonText = $"Connect with {service}"
+                        Title = "Connect Spotify",
+                        Description = "Spotify uses OAuth 2.0 for authentication. You'll need to create a Spotify Developer App first, then configure FocusDeck with your credentials.",
+                        Steps = new List<string>
+                        {
+                            "Go to https://developer.spotify.com/dashboard and log in",
+                            "Click 'Create an App'",
+                            "Name: 'FocusDeck' | Description: 'Study session automation'",
+                            "Accept Terms of Service",
+                            "After creation, click 'Edit Settings'",
+                            $"Add Redirect URI: {Request.Scheme}://{Request.Host}/api/services/oauth/Spotify/callback",
+                            "Save settings",
+                            "Copy your Client ID and Client Secret (click 'Show Client Secret')",
+                            "Add to FocusDeck server's appsettings.json: \"Spotify\": { \"ClientId\": \"your_id\", \"ClientSecret\": \"your_secret\" }",
+                            "Restart FocusDeck server",
+                            "Return here and click 'Start OAuth Flow' below"
+                        },
+                        Links = new List<SetupLink>
+                        {
+                            new SetupLink { Label = "Spotify Developer Dashboard", Url = "https://developer.spotify.com/dashboard" },
+                            new SetupLink { Label = "Spotify API Documentation", Url = "https://developer.spotify.com/documentation/web-api" }
+                        },
+                        RequiredServerConfig = new List<string>
+                        {
+                            "Add to appsettings.json:",
+                            "\"Spotify\": {",
+                            "  \"ClientId\": \"your_spotify_client_id\",",
+                            "  \"ClientSecret\": \"your_spotify_client_secret\"",
+                            "}"
+                        },
+                        OAuthButtonText = "Start OAuth Flow"
+                    };
+                    break;
+
+                case ServiceType.GoogleCalendar:
+                    guide = new ServiceSetupGuide
+                    {
+                        SetupType = "OAuth",
+                        Title = "Connect Google Calendar",
+                        Description = "Google Calendar uses OAuth 2.0 for authentication. You'll need to create a Google Cloud Project and enable the Calendar API.",
+                        Steps = new List<string>
+                        {
+                            "Go to https://console.cloud.google.com/ and log in",
+                            "Create a new project (or select existing)",
+                            "Enable the Google Calendar API: Navigate to 'APIs & Services' -> 'Library' -> Search 'Google Calendar API' -> Enable",
+                            "Configure OAuth consent screen: 'APIs & Services' -> 'OAuth consent screen'",
+                            "Choose 'External' user type (unless using Workspace)",
+                            "Fill in App name: 'FocusDeck', User support email, Developer contact",
+                            "Add scopes: Click 'Add or Remove Scopes' -> Select '.../auth/calendar.readonly'",
+                            "Add test users (your Google account email) if in testing mode",
+                            "Create OAuth 2.0 credentials: 'APIs & Services' -> 'Credentials' -> 'Create Credentials' -> 'OAuth client ID'",
+                            "Application type: 'Web application'",
+                            $"Add Authorized redirect URI: {Request.Scheme}://{Request.Host}/api/services/oauth/GoogleCalendar/callback",
+                            "Copy your Client ID and Client Secret",
+                            "Add to FocusDeck server's appsettings.json: \"GoogleCalendar\": { \"ClientId\": \"your_id.apps.googleusercontent.com\", \"ClientSecret\": \"your_secret\" }",
+                            "Restart FocusDeck server",
+                            "Return here and click 'Start OAuth Flow' below"
+                        },
+                        Links = new List<SetupLink>
+                        {
+                            new SetupLink { Label = "Google Cloud Console", Url = "https://console.cloud.google.com/" },
+                            new SetupLink { Label = "Enable Calendar API", Url = "https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" },
+                            new SetupLink { Label = "OAuth Credentials", Url = "https://console.cloud.google.com/apis/credentials" }
+                        },
+                        RequiredServerConfig = new List<string>
+                        {
+                            "Add to appsettings.json:",
+                            "\"GoogleCalendar\": {",
+                            "  \"ClientId\": \"your_id.apps.googleusercontent.com\",",
+                            "  \"ClientSecret\": \"your_google_client_secret\"",
+                            "}"
+                        },
+                        OAuthButtonText = "Start OAuth Flow"
+                    };
+                    break;
+
+                case ServiceType.GoogleDrive:
+                    guide = new ServiceSetupGuide
+                    {
+                        SetupType = "OAuth",
+                        Title = "Connect Google Drive",
+                        Description = "Google Drive uses OAuth 2.0 for authentication. You'll need to create a Google Cloud Project and enable the Drive API.",
+                        Steps = new List<string>
+                        {
+                            "Go to https://console.cloud.google.com/ and log in",
+                            "Create a new project (or select existing)",
+                            "Enable the Google Drive API: Navigate to 'APIs & Services' -> 'Library' -> Search 'Google Drive API' -> Enable",
+                            "Configure OAuth consent screen: 'APIs & Services' -> 'OAuth consent screen'",
+                            "Choose 'External' user type (unless using Workspace)",
+                            "Fill in App name: 'FocusDeck', User support email, Developer contact",
+                            "Add scopes: Click 'Add or Remove Scopes' -> Select '.../auth/drive.readonly'",
+                            "Add test users (your Google account email) if in testing mode",
+                            "Create OAuth 2.0 credentials: 'APIs & Services' -> 'Credentials' -> 'Create Credentials' -> 'OAuth client ID'",
+                            "Application type: 'Web application'",
+                            $"Add Authorized redirect URI: {Request.Scheme}://{Request.Host}/api/services/oauth/GoogleDrive/callback",
+                            "Copy your Client ID and Client Secret",
+                            "Add to FocusDeck server's appsettings.json: \"GoogleDrive\": { \"ClientId\": \"your_id.apps.googleusercontent.com\", \"ClientSecret\": \"your_secret\" }",
+                            "Restart FocusDeck server",
+                            "Return here and click 'Start OAuth Flow' below"
+                        },
+                        Links = new List<SetupLink>
+                        {
+                            new SetupLink { Label = "Google Cloud Console", Url = "https://console.cloud.google.com/" },
+                            new SetupLink { Label = "Enable Drive API", Url = "https://console.cloud.google.com/apis/library/drive.googleapis.com" },
+                            new SetupLink { Label = "OAuth Credentials", Url = "https://console.cloud.google.com/apis/credentials" }
+                        },
+                        RequiredServerConfig = new List<string>
+                        {
+                            "Add to appsettings.json:",
+                            "\"GoogleDrive\": {",
+                            "  \"ClientId\": \"your_id.apps.googleusercontent.com\",",
+                            "  \"ClientSecret\": \"your_google_client_secret\"",
+                            "}"
+                        },
+                        OAuthButtonText = "Start OAuth Flow"
                     };
                     break;
                     
@@ -502,6 +611,21 @@ namespace FocusDeck.Server.Controllers
         public string Description { get; set; } = null!;
 
         /// <summary>
+        /// Step-by-step instructions for setting up the service.
+        /// </summary>
+        public List<string>? Steps { get; set; }
+
+        /// <summary>
+        /// Helpful documentation links.
+        /// </summary>
+        public List<SetupLink>? Links { get; set; }
+
+        /// <summary>
+        /// Required server-side configuration (appsettings.json).
+        /// </summary>
+        public List<string>? RequiredServerConfig { get; set; }
+
+        /// <summary>
         /// A list of fields the user must fill out (for "Simple" setup).
         /// </summary>
         public List<SetupField>? Fields { get; set; }
@@ -510,6 +634,15 @@ namespace FocusDeck.Server.Controllers
         /// The text for the connect button (for "OAuth" setup).
         /// </summary>
         public string? OAuthButtonText { get; set; }
+    }
+
+    /// <summary>
+    /// Represents a documentation link.
+    /// </summary>
+    public class SetupLink
+    {
+        public string Label { get; set; } = null!;
+        public string Url { get; set; } = null!;
     }
 
     /// <summary>
