@@ -140,7 +140,7 @@ namespace FocusDeck.Server.Controllers
                     {
                         SetupType = "OAuth",
                         Title = "Connect Spotify",
-                        Description = "Spotify uses OAuth 2.0 for authentication. You'll need to create a Spotify Developer App first, then configure FocusDeck with your credentials.",
+                        Description = "Spotify uses OAuth 2.0. Create a Spotify Developer App and paste your credentials below.",
                         Steps = new List<string>
                         {
                             "Go to https://developer.spotify.com/dashboard and log in",
@@ -151,22 +151,31 @@ namespace FocusDeck.Server.Controllers
                             $"Add Redirect URI: {Request.Scheme}://{Request.Host}/api/services/oauth/Spotify/callback",
                             "Save settings",
                             "Copy your Client ID and Client Secret (click 'Show Client Secret')",
-                            "Add to FocusDeck server's appsettings.json: \"Spotify\": { \"ClientId\": \"your_id\", \"ClientSecret\": \"your_secret\" }",
-                            "Restart FocusDeck server",
-                            "Return here and click 'Start OAuth Flow' below"
+                            "Paste them in the fields below",
+                            "Click 'Save Configuration'",
+                            "Then click 'Start OAuth Flow' to connect your Spotify account"
                         },
                         Links = new List<SetupLink>
                         {
                             new SetupLink { Label = "Spotify Developer Dashboard", Url = "https://developer.spotify.com/dashboard" },
                             new SetupLink { Label = "Spotify API Documentation", Url = "https://developer.spotify.com/documentation/web-api" }
                         },
-                        RequiredServerConfig = new List<string>
+                        Fields = new List<SetupField>
                         {
-                            "Add to appsettings.json:",
-                            "\"Spotify\": {",
-                            "  \"ClientId\": \"your_spotify_client_id\",",
-                            "  \"ClientSecret\": \"your_spotify_client_secret\"",
-                            "}"
+                            new SetupField
+                            {
+                                Key = "clientId",
+                                Label = "Client ID",
+                                HelpText = "From your Spotify Developer Dashboard",
+                                InputType = "text"
+                            },
+                            new SetupField
+                            {
+                                Key = "clientSecret",
+                                Label = "Client Secret",
+                                HelpText = "Click 'Show Client Secret' in the dashboard",
+                                InputType = "password"
+                            }
                         },
                         OAuthButtonText = "Start OAuth Flow"
                     };
@@ -177,7 +186,7 @@ namespace FocusDeck.Server.Controllers
                     {
                         SetupType = "OAuth",
                         Title = "Connect Google Calendar",
-                        Description = "Google Calendar uses OAuth 2.0 for authentication. You'll need to create a Google Cloud Project and enable the Calendar API.",
+                        Description = "Google Calendar uses OAuth 2.0. Create a Google Cloud Project and paste your credentials below.",
                         Steps = new List<string>
                         {
                             "Go to https://console.cloud.google.com/ and log in",
@@ -192,9 +201,9 @@ namespace FocusDeck.Server.Controllers
                             "Application type: 'Web application'",
                             $"Add Authorized redirect URI: {Request.Scheme}://{Request.Host}/api/services/oauth/GoogleCalendar/callback",
                             "Copy your Client ID and Client Secret",
-                            "Add to FocusDeck server's appsettings.json: \"GoogleCalendar\": { \"ClientId\": \"your_id.apps.googleusercontent.com\", \"ClientSecret\": \"your_secret\" }",
-                            "Restart FocusDeck server",
-                            "Return here and click 'Start OAuth Flow' below"
+                            "Paste them in the fields below",
+                            "Click 'Save Configuration'",
+                            "Then click 'Start OAuth Flow' to connect your Google account"
                         },
                         Links = new List<SetupLink>
                         {
@@ -202,13 +211,22 @@ namespace FocusDeck.Server.Controllers
                             new SetupLink { Label = "Enable Calendar API", Url = "https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" },
                             new SetupLink { Label = "OAuth Credentials", Url = "https://console.cloud.google.com/apis/credentials" }
                         },
-                        RequiredServerConfig = new List<string>
+                        Fields = new List<SetupField>
                         {
-                            "Add to appsettings.json:",
-                            "\"GoogleCalendar\": {",
-                            "  \"ClientId\": \"your_id.apps.googleusercontent.com\",",
-                            "  \"ClientSecret\": \"your_google_client_secret\"",
-                            "}"
+                            new SetupField
+                            {
+                                Key = "clientId",
+                                Label = "Client ID",
+                                HelpText = "From Google Cloud Console (ends with .apps.googleusercontent.com)",
+                                InputType = "text"
+                            },
+                            new SetupField
+                            {
+                                Key = "clientSecret",
+                                Label = "Client Secret",
+                                HelpText = "From OAuth 2.0 credentials page",
+                                InputType = "password"
+                            }
                         },
                         OAuthButtonText = "Start OAuth Flow"
                     };
@@ -219,7 +237,7 @@ namespace FocusDeck.Server.Controllers
                     {
                         SetupType = "OAuth",
                         Title = "Connect Google Drive",
-                        Description = "Google Drive uses OAuth 2.0 for authentication. You'll need to create a Google Cloud Project and enable the Drive API.",
+                        Description = "Google Drive uses OAuth 2.0. Create a Google Cloud Project and paste your credentials below.",
                         Steps = new List<string>
                         {
                             "Go to https://console.cloud.google.com/ and log in",
@@ -234,9 +252,9 @@ namespace FocusDeck.Server.Controllers
                             "Application type: 'Web application'",
                             $"Add Authorized redirect URI: {Request.Scheme}://{Request.Host}/api/services/oauth/GoogleDrive/callback",
                             "Copy your Client ID and Client Secret",
-                            "Add to FocusDeck server's appsettings.json: \"GoogleDrive\": { \"ClientId\": \"your_id.apps.googleusercontent.com\", \"ClientSecret\": \"your_secret\" }",
-                            "Restart FocusDeck server",
-                            "Return here and click 'Start OAuth Flow' below"
+                            "Paste them in the fields below",
+                            "Click 'Save Configuration'",
+                            "Then click 'Start OAuth Flow' to connect your Google account"
                         },
                         Links = new List<SetupLink>
                         {
@@ -244,13 +262,22 @@ namespace FocusDeck.Server.Controllers
                             new SetupLink { Label = "Enable Drive API", Url = "https://console.cloud.google.com/apis/library/drive.googleapis.com" },
                             new SetupLink { Label = "OAuth Credentials", Url = "https://console.cloud.google.com/apis/credentials" }
                         },
-                        RequiredServerConfig = new List<string>
+                        Fields = new List<SetupField>
                         {
-                            "Add to appsettings.json:",
-                            "\"GoogleDrive\": {",
-                            "  \"ClientId\": \"your_id.apps.googleusercontent.com\",",
-                            "  \"ClientSecret\": \"your_google_client_secret\"",
-                            "}"
+                            new SetupField
+                            {
+                                Key = "clientId",
+                                Label = "Client ID",
+                                HelpText = "From Google Cloud Console (ends with .apps.googleusercontent.com)",
+                                InputType = "text"
+                            },
+                            new SetupField
+                            {
+                                Key = "clientSecret",
+                                Label = "Client Secret",
+                                HelpText = "From OAuth 2.0 credentials page",
+                                InputType = "password"
+                            }
                         },
                         OAuthButtonText = "Start OAuth Flow"
                     };
@@ -261,6 +288,98 @@ namespace FocusDeck.Server.Controllers
             }
             
             return Ok(guide);
+        }
+
+        // --- SAVE SERVICE CONFIGURATION (OAuth credentials) ---
+        [HttpPost("{service}/config")]
+        public async Task<ActionResult> SaveServiceConfig(string service, [FromBody] ServiceConfigDto config)
+        {
+            try
+            {
+                var existing = await _context.ServiceConfigurations
+                    .FirstOrDefaultAsync(s => s.ServiceName == service);
+
+                if (existing != null)
+                {
+                    // Update existing
+                    existing.ClientId = config.ClientId;
+                    existing.ClientSecret = config.ClientSecret;
+                    existing.ApiKey = config.ApiKey;
+                    existing.AdditionalConfig = config.AdditionalConfig;
+                    existing.UpdatedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    // Create new
+                    var newConfig = new FocusDeck.Server.Models.ServiceConfiguration
+                    {
+                        Id = Guid.NewGuid(),
+                        ServiceName = service,
+                        ClientId = config.ClientId,
+                        ClientSecret = config.ClientSecret,
+                        ApiKey = config.ApiKey,
+                        AdditionalConfig = config.AdditionalConfig,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.ServiceConfigurations.Add(newConfig);
+                }
+
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Configuration saved successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save service configuration for {Service}", service);
+                return StatusCode(500, new { message = "Failed to save configuration" });
+            }
+        }
+
+        // --- GET SERVICE CONFIGURATION ---
+        [HttpGet("{service}/config")]
+        public async Task<ActionResult> GetServiceConfig(string service)
+        {
+            var config = await _context.ServiceConfigurations
+                .FirstOrDefaultAsync(s => s.ServiceName == service);
+
+            if (config == null)
+            {
+                return Ok(new { configured = false });
+            }
+
+            // Return without exposing sensitive data fully (show masked versions)
+            return Ok(new
+            {
+                configured = true,
+                hasClientId = !string.IsNullOrEmpty(config.ClientId),
+                hasClientSecret = !string.IsNullOrEmpty(config.ClientSecret),
+                hasApiKey = !string.IsNullOrEmpty(config.ApiKey),
+                clientIdPreview = MaskSecret(config.ClientId),
+                updatedAt = config.UpdatedAt
+            });
+        }
+
+        // --- DELETE SERVICE CONFIGURATION ---
+        [HttpDelete("{service}/config")]
+        public async Task<ActionResult> DeleteServiceConfig(string service)
+        {
+            var config = await _context.ServiceConfigurations
+                .FirstOrDefaultAsync(s => s.ServiceName == service);
+
+            if (config != null)
+            {
+                _context.ServiceConfigurations.Remove(config);
+                await _context.SaveChangesAsync();
+            }
+
+            return Ok(new { message = "Configuration deleted" });
+        }
+
+        private string? MaskSecret(string? secret)
+        {
+            if (string.IsNullOrEmpty(secret)) return null;
+            if (secret.Length <= 8) return "****";
+            return secret.Substring(0, 4) + "..." + secret.Substring(secret.Length - 4);
         }
 
         [HttpPost("connect/{service}")]
@@ -324,10 +443,22 @@ namespace FocusDeck.Server.Controllers
         }
 
         [HttpGet("oauth/{service}/url")]
-        public ActionResult<string> GetOAuthUrl(ServiceType service)
+        public async Task<ActionResult<string>> GetOAuthUrl(ServiceType service)
         {
-            // IMPORTANT: Replace placeholders with real values from your appsettings.json
-            string clientId = _configuration[$"{service}:ClientId"] ?? "YOUR_CLIENT_ID";
+            // Try to get credentials from database first, fall back to appsettings
+            var config = await _context.ServiceConfigurations
+                .FirstOrDefaultAsync(s => s.ServiceName == service.ToString());
+
+            string? clientId = config?.ClientId ?? _configuration[$"{service}:ClientId"];
+            
+            if (string.IsNullOrEmpty(clientId))
+            {
+                return BadRequest(new { 
+                    message = $"OAuth credentials not configured for {service}. Please configure them in the UI first.",
+                    needsConfig = true 
+                });
+            }
+
             string redirectUri = $"{Request.Scheme}://{Request.Host}/api/services/oauth/{service}/callback";
             
             string url;
@@ -392,8 +523,18 @@ namespace FocusDeck.Server.Controllers
 
         private async Task<(string AccessToken, string? RefreshToken, DateTime? ExpiresAt)> ExchangeCodeForTokenAsync(ServiceType service, string code)
         {
-            var clientId = _configuration[$"{service}:ClientId"];
-            var clientSecret = _configuration[$"{service}:ClientSecret"];
+            // Try to get credentials from database first, fall back to appsettings
+            var config = await _context.ServiceConfigurations
+                .FirstOrDefaultAsync(s => s.ServiceName == service.ToString());
+
+            var clientId = config?.ClientId ?? _configuration[$"{service}:ClientId"];
+            var clientSecret = config?.ClientSecret ?? _configuration[$"{service}:ClientSecret"];
+
+            if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
+            {
+                throw new InvalidOperationException($"OAuth credentials not configured for {service}.");
+            }
+
             string redirectUri = $"{Request.Scheme}://{Request.Host}/api/services/oauth/{service}/callback";
 
             string tokenUrl;
@@ -402,8 +543,8 @@ namespace FocusDeck.Server.Controllers
                 { "grant_type", "authorization_code" },
                 { "code", code },
                 { "redirect_uri", redirectUri },
-                { "client_id", clientId ?? "" },
-                { "client_secret", clientSecret ?? "" }
+                { "client_id", clientId },
+                { "client_secret", clientSecret }
             };
 
             switch (service)
@@ -643,6 +784,17 @@ namespace FocusDeck.Server.Controllers
     {
         public string Label { get; set; } = null!;
         public string Url { get; set; } = null!;
+    }
+
+    /// <summary>
+    /// DTO for saving service configuration from the UI
+    /// </summary>
+    public class ServiceConfigDto
+    {
+        public string? ClientId { get; set; }
+        public string? ClientSecret { get; set; }
+        public string? ApiKey { get; set; }
+        public string? AdditionalConfig { get; set; }
     }
 
     /// <summary>

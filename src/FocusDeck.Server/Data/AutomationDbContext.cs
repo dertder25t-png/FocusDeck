@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using FocusDeck.Shared.Models.Automations;
+using FocusDeck.Server.Models;
 using System.Text.Json;
 
 namespace FocusDeck.Server.Data;
@@ -14,6 +15,7 @@ public class AutomationDbContext : DbContext
     public DbSet<Automation> Automations { get; set; }
     public DbSet<AutomationExecution> AutomationExecutions { get; set; }
     public DbSet<ConnectedService> ConnectedServices { get; set; }
+    public DbSet<ServiceConfiguration> ServiceConfigurations { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -75,6 +77,21 @@ public class AutomationDbContext : DbContext
             
             entity.HasIndex(e => e.Service);
             entity.HasIndex(e => e.UserId);
+        });
+
+        // Configure ServiceConfiguration
+        modelBuilder.Entity<ServiceConfiguration>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ServiceName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.ClientId).HasMaxLength(500);
+            entity.Property(e => e.ClientSecret).HasMaxLength(500);
+            entity.Property(e => e.ApiKey).HasMaxLength(500);
+            entity.Property(e => e.AdditionalConfig);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.UpdatedAt).IsRequired();
+            
+            entity.HasIndex(e => e.ServiceName).IsUnique();
         });
     }
 }

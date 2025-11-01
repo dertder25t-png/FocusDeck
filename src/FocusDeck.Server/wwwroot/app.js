@@ -1550,36 +1550,78 @@ class FocusDeckApp {
         const { service, guide } = this.currentServiceSetup;
 
         try {
-            if (guide.flow === 'oauth') {
-                // Try to get an OAuth URL from the server
-                const resp = await fetch(`/api/services/oauth/${service}/url`);
-                if (resp.ok) {
-                    const { url } = await resp.json();
-                    if (url) {
-                        window.open(url, '_blank');
-                        this.showToast('Opened provider authorization in a new tab', 'info');
-                        return;
-                    }
-                }
-                this.showToast('OAuth flow not available yet. Use the docs links above.', 'warning');
-                return;
-            }
-
-            // Token/manual flow — collect fields if any and connect
+            // Collect all field values
             const payload = {};
             if (guide.fields) {
                 for (const f of guide.fields) {
                     const el = document.getElementById(f.id);
                     if (el && el.value) {
-                        if (f.id.toLowerCase().includes('token')) payload['access_token'] = el.value;
-                        else payload[f.id] = el.value;
+                        payload[f.id] = el.value;
                     }
                 }
             }
 
+            if (guide.flow === 'oauth') {
+                // For OAuth services, save the config first (clientId, clientSecret)
+                if (payload.clientId || payload.clientSecret) {
+                    const configPayload = {
+                        clientId: payload.clientId || null,
+                        clientSecret: payload.clientSecret || null,
+                        apiKey: payload.apiKey || null
+                    };
+                    
+                    const saveResp = await fetch(`/api/services/${service}/config`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(configPayload)
+                    });
+
+                    if (!saveResp.ok) {
+                        this.showToast('Failed to save configuration', 'error');
+                        return;
+                    }
+                    this.showToast('Configuration saved! Starting OAuth flow...', 'success');
+                }
+
+                // Now try to get OAuth URL from the server
+                const resp = await fetch(`/api/services/oauth/${service}/url`);
+                if (!resp.ok) {
+                    const error = await resp.json();
+                    if (error.needsConfig) {
+                        this.showToast('Please enter your Client ID and Client Secret above first', 'warning');
+                    } else {
+                        this.showToast('OAuth not configured yet', 'error');
+                    }
+                    return;
+                }
+                
+                const { url } = await resp.json();
+                if (url) {
+                    window.open(url, '_blank');
+                    this.showToast('Opened authorization in a new tab. Complete the OAuth flow there.', 'info');
+                    return;
+                }
+                
+                this.showToast('OAuth flow not available', 'warning');
+                return;
+            }
+
+            // Token/manual flow — send credentials directly to connect
+            const connectPayload = {};
+            for (const key in payload) {
+                if (key.toLowerCase().includes('token')) {
+                    connectPayload['access_token'] = payload[key];
+                } else {
+                    connectPayload[key] = payload[key];
+                }
+            }
+
             const response = await fetch(`/api/services/connect/${service}`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(connectPayload)
             });
+            
             if (response.ok) {
                 this.showToast(`${service} connected!`, 'success');
                 this.loadConnectedServices();
