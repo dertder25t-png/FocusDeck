@@ -4,6 +4,12 @@ using FocusDeck.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Net.Http; // Added
+using Microsoft.Extensions.Configuration; // Added
+using System.Collections.Generic; // Added
+using System.Threading.Tasks; // Added
+using System.Linq; // Added
+using System; // Added
 
 namespace FocusDeck.Server.Controllers
 {
@@ -13,11 +19,19 @@ namespace FocusDeck.Server.Controllers
     {
         private readonly AutomationDbContext _context;
         private readonly ILogger<ServicesController> _logger;
+        private readonly IConfiguration _configuration; // Added
+        private readonly IHttpClientFactory _httpClientFactory; // Added
 
-        public ServicesController(AutomationDbContext context, ILogger<ServicesController> logger)
+        public ServicesController(
+            AutomationDbContext context,
+            ILogger<ServicesController> logger,
+            IConfiguration configuration, // Added
+            IHttpClientFactory httpClientFactory) // Added
         {
             _context = context;
             _logger = logger;
+            _configuration = configuration; // Added
+            _httpClientFactory = httpClientFactory; // Added
         }
 
         [HttpGet]
@@ -62,10 +76,88 @@ namespace FocusDeck.Server.Controllers
             return Ok(list);
         }
 
+        // --- NEW ENDPOINT TO GUIDE THE USER ---
+        [HttpGet("{service}/setup")]
+        public ActionResult<ServiceSetupGuide> GetSetupGuide(ServiceType service)
+        {
+            ServiceSetupGuide guide;
+            switch (service)
+            {
+                case ServiceType.HomeAssistant:
+                    guide = new ServiceSetupGuide
+                    {
+                        SetupType = "Simple",
+                        Title = "Connect Home Assistant",
+                        Description = "Please provide your Home Assistant instance URL and a Long-Lived Access Token.",
+                        Fields = new List<SetupField>
+                        {
+                            new SetupField
+                            {
+                                Key = "haBaseUrl",
+                                Label = "Home Assistant URL",
+                                HelpText = "The full URL you use to access Home Assistant (e.g., http://homeassistant.local:8123 or https://my-ha.duckdns.org).",
+                                InputType = "text"
+                            },
+                            new SetupField
+                            {
+                                Key = "access_token",
+                                Label = "Long-Lived Access Token",
+                                HelpText = "In Home Assistant, click your profile (bottom-left) -> 'Long-Lived Access Tokens' -> 'Create Token'. Give it a name (e.g., FocusDeck) and copy the token here.",
+                                InputType = "password"
+                            }
+                        }
+                    };
+                    break;
+                    
+                case ServiceType.Canvas:
+                    guide = new ServiceSetupGuide
+                    {
+                        SetupType = "Simple",
+                        Title = "Connect Canvas",
+                        Description = "Please provide your school's Canvas URL and a generated Access Token.",
+                        Fields = new List<SetupField>
+                        {
+                            new SetupField
+                            {
+                                Key = "canvasBaseUrl",
+                                Label = "Canvas URL",
+                                HelpText = "Your school's Canvas instance URL (e.g., https://pcc.instructure.com).",
+                                InputType = "text"
+                            },
+                            new SetupField
+                            {
+                                Key = "access_token",
+                                Label = "Access Token",
+                                HelpText = "In Canvas, go to Account -> Settings -> 'Approved Integrations' -> '+New Access Token'. Give it a name and copy the token here.",
+                                InputType = "password"
+                            }
+                        }
+                    };
+                    break;
+
+                case ServiceType.GoogleCalendar:
+                case ServiceType.GoogleDrive:
+                case ServiceType.Spotify:
+                    guide = new ServiceSetupGuide
+                    {
+                        SetupType = "OAuth",
+                        Title = $"Connect {service}",
+                        Description = $"To connect {service}, you'll be redirected to their website to log in and grant FocusDeck permission.",
+                        OAuthButtonText = $"Connect with {service}"
+                    };
+                    break;
+                    
+                default:
+                    return NotFound(new { message = "Setup guide not available for this service." });
+            }
+            
+            return Ok(guide);
+        }
+
         [HttpPost("connect/{service}")]
         public async Task<ActionResult> Connect(ServiceType service, [FromBody] Dictionary<string, string> credentials)
         {
-            // This would typically involve OAuth flow
+            // This endpoint is now used by your "Simple" setup
             var connectedService = new ConnectedService
             {
                 Id = Guid.NewGuid(),
@@ -73,7 +165,7 @@ namespace FocusDeck.Server.Controllers
                 Service = service,
                 AccessToken = credentials.GetValueOrDefault("access_token", string.Empty),
                 RefreshToken = credentials.GetValueOrDefault("refresh_token", string.Empty),
-                ExpiresAt = DateTime.UtcNow.AddDays(60),
+                ExpiresAt = null, // OAuth should set this
                 ConnectedAt = DateTime.UtcNow,
                 IsConfigured = false
             };
@@ -86,6 +178,7 @@ namespace FocusDeck.Server.Controllers
                     var meta = new JsonObject();
                     foreach (var kv in credentials)
                     {
+                        // This logic correctly saves haBaseUrl or canvasBaseUrl
                         if (kv.Key.Contains("token", StringComparison.OrdinalIgnoreCase) ||
                             kv.Key.Contains("secret", StringComparison.OrdinalIgnoreCase) ||
                             kv.Key.Contains("password", StringComparison.OrdinalIgnoreCase))
@@ -124,41 +217,120 @@ namespace FocusDeck.Server.Controllers
         [HttpGet("oauth/{service}/url")]
         public ActionResult<string> GetOAuthUrl(ServiceType service)
         {
-            // Generate OAuth URLs for different services
-            var urls = new Dictionary<ServiceType, string>
+            // IMPORTANT: Replace placeholders with real values from your appsettings.json
+            string clientId = _configuration[$"{service}:ClientId"] ?? "YOUR_CLIENT_ID";
+            string redirectUri = $"{Request.Scheme}://{Request.Host}/api/services/oauth/{service}/callback";
+            
+            string url;
+
+            switch (service)
             {
-                { ServiceType.GoogleCalendar, "https://accounts.google.com/o/oauth2/v2/auth?client_id=YOUR_CLIENT_ID&redirect_uri=YOUR_REDIRECT&scope=https://www.googleapis.com/auth/calendar.readonly" },
-                { ServiceType.Spotify, "https://accounts.spotify.com/authorize?client_id=YOUR_CLIENT_ID&response_type=code&redirect_uri=YOUR_REDIRECT&scope=user-modify-playback-state%20user-read-playback-state" },
-                { ServiceType.Canvas, "/api/services/canvas/setup" },
-                { ServiceType.HomeAssistant, "/api/services/homeassistant/setup" }
-            };
+                case ServiceType.GoogleCalendar:
+                    url = $"https://accounts.google.com/o/oauth2/v2/auth?client_id={clientId}&redirect_uri={redirectUri}&response_type=code&scope=https://www.googleapis.com/auth/calendar.readonly&access_type=offline&prompt=consent";
+                    break;
+                case ServiceType.GoogleDrive:
+                     url = $"https://accounts.google.com/o/oauth2/v2/auth?client_id={clientId}&redirect_uri={redirectUri}&response_type=code&scope=https://www.googleapis.com/auth/drive.readonly&access_type=offline&prompt=consent";
+                    break;
+                case ServiceType.Spotify:
+                    url = $"https://accounts.spotify.com/authorize?client_id={clientId}&redirect_uri={redirectUri}&response_type=code&scope=user-read-playback-state user-modify-playback-state";
+                    break;
+                default:
+                    return BadRequest(new { message = "OAuth not supported for this service" });
+            }
 
-            if (urls.TryGetValue(service, out var url))
-                return Ok(new { url });
-
-            return BadRequest(new { message = "OAuth not supported for this service" });
+            return Ok(new { url });
         }
-
+        
+        // --- CRITICAL FIX: REPLACED OAUTH CALLBACK ---
         [HttpGet("oauth/{service}/callback")]
-        public async Task<ActionResult> OAuthCallback(ServiceType service, [FromQuery] string code, [FromQuery] string state)
+        public async Task<ActionResult> OAuthCallback(ServiceType service, [FromQuery] string code, [FromQuery] string? state)
         {
-            // NOTE: This is a simplified placeholder. A real implementation should exchange the code for tokens.
-            var connected = new ConnectedService
+            if (string.IsNullOrEmpty(code))
             {
-                Id = Guid.NewGuid(),
-                UserId = "default_user",
-                Service = service,
-                AccessToken = $"code:{code}",
-                RefreshToken = string.Empty,
-                ConnectedAt = DateTime.UtcNow,
-                IsConfigured = true
-            };
-            _context.ConnectedServices.Add(connected);
-            await _context.SaveChangesAsync();
-            _logger.LogInformation("OAuth callback stored placeholder token for {Service}", service);
-            // Redirect back to app
-            return Redirect("/");
+                return BadRequest("OAuth flow failed: No code provided.");
+            }
+
+            try
+            {
+                var (accessToken, refreshToken, expiresAt) = await ExchangeCodeForTokenAsync(service, code);
+
+                var connected = new ConnectedService
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = "default_user", // Replace with actual user ID
+                    Service = service,
+                    AccessToken = accessToken,
+                    RefreshToken = refreshToken ?? string.Empty,
+                    ExpiresAt = expiresAt,
+                    ConnectedAt = DateTime.UtcNow,
+                    IsConfigured = true
+                };
+
+                _context.ConnectedServices.Add(connected);
+                await _context.SaveChangesAsync();
+                
+                _logger.LogInformation("OAuth callback successful for {Service}", service);
+                
+                // Redirect back to the root of your web app
+                return Redirect("/");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "OAuth callback failed for {Service}", service);
+                return BadRequest($"OAuth flow failed: {ex.Message}");
+            }
         }
+
+        private async Task<(string AccessToken, string? RefreshToken, DateTime? ExpiresAt)> ExchangeCodeForTokenAsync(ServiceType service, string code)
+        {
+            var clientId = _configuration[$"{service}:ClientId"];
+            var clientSecret = _configuration[$"{service}:ClientSecret"];
+            string redirectUri = $"{Request.Scheme}://{Request.Host}/api/services/oauth/{service}/callback";
+
+            string tokenUrl;
+            var tokenParams = new Dictionary<string, string>
+            {
+                { "grant_type", "authorization_code" },
+                { "code", code },
+                { "redirect_uri", redirectUri },
+                { "client_id", clientId ?? "" },
+                { "client_secret", clientSecret ?? "" }
+            };
+
+            switch (service)
+            {
+                case ServiceType.GoogleCalendar:
+                case ServiceType.GoogleDrive:
+                    tokenUrl = "https://oauth2.googleapis.com/token";
+                    break;
+                case ServiceType.Spotify:
+                    tokenUrl = "https://accounts.spotify.com/api/token";
+                    break;
+                default:
+                    throw new InvalidOperationException("Unsupported service for OAuth token exchange.");
+            }
+
+            var httpClient = _httpClientFactory.CreateClient();
+            var response = await httpClient.PostAsync(tokenUrl, new FormUrlEncodedContent(tokenParams));
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to exchange token: {StatusCode} - {Body}", response.StatusCode, errorBody);
+                throw new HttpRequestException($"Failed to get token from {service}.");
+            }
+
+            var json = await response.Content.ReadFromJsonAsync<JsonObject>();
+            var accessToken = json?["access_token"]?.ToString() ?? throw new Exception("Missing access_token in response.");
+            var refreshToken = json?["refresh_token"]?.ToString();
+            var expiresIn = json?["expires_in"]?.GetValue<int>();
+            var expiresAt = expiresIn.HasValue ? DateTime.UtcNow.AddSeconds(expiresIn.Value - 60) : (DateTime?)null; // 60s buffer
+
+            return (accessToken, refreshToken, expiresAt);
+        }
+
+        // ... (rest of your controller methods: UpdateMetadata, CheckServiceHealth, etc.) ...
+        // ... (They are unchanged and should remain) ...
 
         [HttpPost("{id}/metadata")]
         public async Task<ActionResult> UpdateMetadata(Guid id, [FromBody] JsonObject metadata)
@@ -216,6 +388,7 @@ namespace FocusDeck.Server.Controllers
                     return await CheckHomeAssistantHealth(service);
                 
                 case ServiceType.GoogleCalendar:
+                case ServiceType.GoogleDrive: // Added
                 case ServiceType.Spotify:
                     // OAuth services: check if token is expired
                     var isExpired = service.ExpiresAt.HasValue && service.ExpiresAt.Value < DateTime.UtcNow;
@@ -228,7 +401,6 @@ namespace FocusDeck.Server.Controllers
                     };
 
                 case ServiceType.Canvas:
-                case ServiceType.GoogleDrive:
                     // Token-based services: validate token exists
                     return new
                     {
@@ -266,10 +438,11 @@ namespace FocusDeck.Server.Controllers
                 }
 
                 // Try to ping Home Assistant API
-                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+                using var client = _httpClientFactory.CreateClient(); // Use factory
+                client.Timeout = TimeSpan.FromSeconds(5);
                 client.DefaultRequestHeaders.Add("Authorization", $"Bearer {service.AccessToken}");
                 
-                var response = await client.GetAsync($"{baseUrl}/api/");
+                var response = await client.GetAsync($"{baseUrl.TrimEnd('/')}/api/"); // Ensure single slash
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
@@ -304,5 +477,64 @@ namespace FocusDeck.Server.Controllers
                 };
             }
         }
+    }
+
+    // --- NEW HELPER CLASSES FOR THE SETUP GUIDE ---
+
+    /// <summary>
+    /// Defines the UI and instructions needed to connect a service.
+    /// </summary>
+    public class ServiceSetupGuide
+    {
+        /// <summary>
+        /// "Simple" (token/URL) or "OAuth" (button click).
+        /// </summary>
+        public string SetupType { get; set; } = null!;
+        
+        /// <summary>
+        /// e.g., "Connect Home Assistant"
+        /// </summary>
+        public string Title { get; set; } = null!;
+        
+        /// <summary>
+        /// Main description of the setup process.
+        /// </summary>
+        public string Description { get; set; } = null!;
+
+        /// <summary>
+        /// A list of fields the user must fill out (for "Simple" setup).
+        /// </summary>
+        public List<SetupField>? Fields { get; set; }
+        
+        /// <summary>
+        /// The text for the connect button (for "OAuth" setup).
+        /// </summary>
+        public string? OAuthButtonText { get; set; }
+    }
+
+    /// <summary>
+    /// Represents a single field in a "Simple" setup form.
+    /// </summary>
+    public class SetupField
+    {
+        /// <summary>
+        /// The key to use when sending data to the 'connect' endpoint (e.g., "haBaseUrl", "access_token").
+        /// </summary>
+        public string Key { get; set; } = null!; 
+        
+        /// <summary>
+        /// The user-friendly label for the input (e.g., "Home Assistant URL").
+        /// </summary>
+        public string Label { get; set; } = null!;
+        
+        /// <summary>
+        /// Instructions on how to find this value.
+        /// </summary>
+        public string HelpText { get; set; } = null!;
+        
+        /// <summary>
+        /// "text" or "password"
+        /// </summary>
+        public string InputType { get; set; } = "text"; 
     }
 }

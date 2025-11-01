@@ -8,6 +8,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
+// Add HttpClient for OAuth token exchange
+builder.Services.AddHttpClient();
+
 // Add Database
 builder.Services.AddDbContext<AutomationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") 

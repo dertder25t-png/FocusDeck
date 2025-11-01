@@ -1427,11 +1427,44 @@ class FocusDeckApp {
         };
     }
 
-    openServiceSetup(service, metadata = {}) {
+    async openServiceSetup(service, metadata = {}) {
         // Always hide the service picker to prevent overlay conflicts
         this.closeConnectServiceModal();
-        const guides = this.getServiceGuides();
-        const guide = guides[service] || { title: `Connect ${service}`, icon: '🔗', description: 'Follow the steps to connect this service.', steps: [], links: [], flow: 'token' };
+
+        // Fetch guide from server (server-driven setup)
+        let guide = null;
+        try {
+            const resp = await fetch(`/api/services/${service}/setup`);
+            if (resp.ok) {
+                guide = await resp.json();
+            }
+        } catch (err) {
+            console.error('Failed to fetch setup guide from server:', err);
+        }
+
+        // Fallback to hardcoded guides if server doesn't provide one
+        if (!guide) {
+            const guides = this.getServiceGuides();
+            guide = guides[service] || { title: `Connect ${service}`, icon: '🔗', description: 'Follow the steps to connect this service.', steps: [], links: [], flow: 'token' };
+        }
+
+        // Normalize server response to match frontend format
+        if (guide.setupType) {
+            guide.flow = guide.setupType.toLowerCase() === 'oauth' ? 'oauth' : 'token';
+        }
+        if (!guide.icon) guide.icon = '🔗';
+        if (!guide.steps) guide.steps = [];
+        if (!guide.links) guide.links = [];
+        if (guide.fields && !Array.isArray(guide.fields)) {
+            // Convert server fields [{key, label, helpText, inputType}] to frontend format [{id, label, placeholder}]
+            guide.fields = guide.fields.map(f => ({
+                id: f.key,
+                label: f.label,
+                placeholder: f.helpText || '',
+                type: f.inputType || 'text'
+            }));
+        }
+
         this.currentServiceSetup = { service, guide };
 
         // Compose body
@@ -1454,7 +1487,7 @@ class FocusDeckApp {
         const fieldsHtml = (guide.fields || []).map(f => `
             <div class="form-group">
                 <label class="form-label" for="${f.id}">${this.escapeHtml(f.label)}</label>
-                <input type="text" id="${f.id}" class="input-field" placeholder="${this.escapeHtml(f.placeholder || '')}">
+                <input type="${f.type || 'text'}" id="${f.id}" class="input-field" placeholder="${this.escapeHtml(f.placeholder || '')}">
             </div>
         `).join('');
 
