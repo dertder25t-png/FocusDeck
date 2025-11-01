@@ -731,6 +731,10 @@ class FocusDeckApp {
 
         document.getElementById('closeConnectServiceModal')?.addEventListener('click', () => this.closeConnectServiceModal());
 
+        // History modal buttons
+        document.getElementById('closeHistoryModal')?.addEventListener('click', () => this.closeAutomationHistoryModal());
+        document.getElementById('closeHistoryModalBtn')?.addEventListener('click', () => this.closeAutomationHistoryModal());
+
         // Service cards
         document.querySelectorAll('.service-card').forEach(card => {
             card.addEventListener('click', (e) => {
@@ -747,6 +751,7 @@ class FocusDeckApp {
 
         this.loadAutomations();
         this.loadConnectedServices();
+        this.loadAutomationStats();
     }
 
     async loadAutomations() {
@@ -776,6 +781,36 @@ class FocusDeckApp {
             }
         } catch (error) {
             console.error('Error loading services:', error);
+        }
+    }
+
+    async loadAutomationStats() {
+        try {
+            const response = await fetch('/api/automations/stats');
+            if (response.ok) {
+                const stats = await response.json();
+                
+                this.safeSetText('statsTotalAutomations', stats.totalAutomations?.toString() || '0');
+                this.safeSetText('statsEnabledAutomations', stats.enabledAutomations?.toString() || '0');
+                this.safeSetText('statsTotalExecutions', stats.totalExecutions?.toString() || '0');
+                
+                const successRate = stats.successRate || 0;
+                this.safeSetText('statsSuccessRate', `${successRate.toFixed(1)}%`);
+                
+                // Update color based on success rate
+                const successRateEl = document.getElementById('statsSuccessRate');
+                if (successRateEl) {
+                    if (successRate >= 90) {
+                        successRateEl.style.color = 'var(--success)';
+                    } else if (successRate >= 70) {
+                        successRateEl.style.color = 'var(--warning)';
+                    } else {
+                        successRateEl.style.color = 'var(--danger)';
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error loading automation stats:', error);
         }
     }
 
@@ -810,6 +845,9 @@ class FocusDeckApp {
                                    onchange="app.toggleAutomation('${automation.id}')">
                             <span class="toggle-slider"></span>
                         </label>
+                        <button class="btn-icon" onclick="app.viewAutomationHistory('${automation.id}', '${this.escapeHtml(automation.name)}')" title="View History">
+                            📊
+                        </button>
                         <button class="btn-icon" onclick="app.runAutomation('${automation.id}')" title="Run now">
                             ▶️
                         </button>
@@ -1043,6 +1081,86 @@ class FocusDeckApp {
         }
     }
 
+    async viewAutomationHistory(id, name) {
+        const modal = document.getElementById('automationHistoryModal');
+        const title = document.getElementById('historyModalTitle');
+        const tableBody = document.getElementById('historyTableBody');
+        
+        if (title) {
+            title.textContent = `History: ${name}`;
+        }
+
+        try {
+            // Fetch history from API
+            const response = await fetch(`/api/automations/${id}/history?limit=50`);
+            const history = await response.json();
+
+            if (response.ok && history.length > 0) {
+                // Calculate stats
+                const totalExecutions = history.length;
+                const successCount = history.filter(h => h.success).length;
+                const successRate = ((successCount / totalExecutions) * 100).toFixed(1);
+                const avgDuration = (history.reduce((sum, h) => sum + h.durationMs, 0) / totalExecutions).toFixed(0);
+                const lastRun = history[0].executedAt;
+
+                // Update stats
+                this.safeSetText('historyTotalExecutions', totalExecutions.toString());
+                this.safeSetText('historySuccessRate', `${successRate}%`);
+                this.safeSetText('historyAvgDuration', `${avgDuration}ms`);
+                this.safeSetText('historyLastRun', new Date(lastRun).toLocaleString());
+
+                // Update table
+                if (tableBody) {
+                    tableBody.innerHTML = history.map(exec => {
+                        const status = exec.success 
+                            ? '<span style="color: var(--success);">✓ Success</span>' 
+                            : '<span style="color: var(--error);">✗ Failed</span>';
+                        const errorMsg = exec.errorMessage || '-';
+                        const duration = `${exec.durationMs}ms`;
+                        const time = new Date(exec.executedAt).toLocaleString();
+
+                        return `
+                            <tr>
+                                <td>${time}</td>
+                                <td>${status}</td>
+                                <td>${duration}</td>
+                                <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${this.escapeHtml(errorMsg)}">${this.escapeHtml(errorMsg)}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            } else {
+                // No history
+                this.safeSetText('historyTotalExecutions', '0');
+                this.safeSetText('historySuccessRate', '0%');
+                this.safeSetText('historyAvgDuration', '0ms');
+                this.safeSetText('historyLastRun', 'Never');
+
+                if (tableBody) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                No execution history yet
+                            </td>
+                        </tr>
+                    `;
+                }
+            }
+
+            // Show modal
+            if (modal) modal.style.display = 'flex';
+
+        } catch (error) {
+            console.error('Error fetching automation history:', error);
+            this.showToast('Failed to load history', 'error');
+        }
+    }
+
+    closeAutomationHistoryModal() {
+        const modal = document.getElementById('automationHistoryModal');
+        if (modal) modal.style.display = 'none';
+    }
+
     async connectService(service) {
         // For demo, just add it
         try {
@@ -1083,6 +1201,8 @@ class FocusDeckApp {
         const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
         if (checkUpdatesBtn) {
             checkUpdatesBtn.addEventListener('click', () => this.checkForUpdates());
+            // Auto-check for updates on page load
+            setTimeout(() => this.checkForUpdates(), 500);
         }
 
         const viewUpdateGuideBtn = document.getElementById('viewUpdateGuideBtn');
@@ -1363,16 +1483,24 @@ sudo systemctl restart focusdeck`;
             const result = await response.json();
 
             if (response.ok) {
-                // Update current version info
+                // Update current version info (always show something)
                 if (currentInfo) {
-                    currentInfo.textContent = `${result.currentCommit} - ${new Date(result.currentDate).toLocaleDateString()}`;
+                    if (result.currentCommit && result.currentCommit !== 'unknown') {
+                        const date = result.currentDate && result.currentDate !== 'unknown' 
+                            ? new Date(result.currentDate).toLocaleDateString() 
+                            : 'Unknown date';
+                        currentInfo.textContent = `${result.currentCommit} - ${date}`;
+                    } else {
+                        currentInfo.textContent = 'Version tracking not available (not a git repository or not on Linux)';
+                    }
                 }
 
                 if (result.updateAvailable) {
                     // Show update available
                     if (updateInfo) updateInfo.style.display = 'block';
                     if (latestInfo) {
-                        latestInfo.innerHTML = `<strong>${result.latestCommit}</strong> - ${new Date(result.latestDate).toLocaleDateString()}<br/>${this.escapeHtml(result.latestMessage)}`;
+                        const latestDate = new Date(result.latestDate).toLocaleDateString();
+                        latestInfo.innerHTML = `<strong>${result.latestCommit}</strong> - ${latestDate}<br/>${this.escapeHtml(result.latestMessage)}`;
                     }
                     if (updateButton) updateButton.style.display = 'inline-flex';
                     this.showToast('✨ Updates available!', 'success');
@@ -1380,13 +1508,30 @@ sudo systemctl restart focusdeck`;
                     // No updates
                     if (updateInfo) updateInfo.style.display = 'none';
                     if (updateButton) updateButton.style.display = 'none';
-                    this.showToast('✅ You\'re up to date!', 'success');
+                    if (result.currentCommit !== 'unknown') {
+                        this.showToast('✅ You\'re up to date!', 'success');
+                    }
                 }
             } else {
-                this.showToast(`❌ ${result.message}`, 'error');
+                // Handle error response
+                if (currentInfo) {
+                    currentInfo.textContent = result.message || 'Unable to check version';
+                }
+                // Don't show error toast on first load, only if user manually checks
+                if (checkButton && checkButton.innerHTML.includes('Checking')) {
+                    this.showToast(`ℹ️ ${result.message}`, 'info');
+                }
             }
         } catch (error) {
-            this.showToast(`❌ Failed to check for updates: ${error.message}`, 'error');
+            // Handle network error
+            if (currentInfo) {
+                currentInfo.textContent = 'Unable to check version (server may be starting)';
+            }
+            console.error('Failed to check for updates:', error);
+            // Don't show error toast on auto-check
+            if (checkButton && checkButton.innerHTML.includes('Checking')) {
+                this.showToast(`❌ Failed to check for updates: ${error.message}`, 'error');
+            }
         } finally {
             if (checkButton) {
                 checkButton.disabled = false;

@@ -1694,3 +1694,56 @@ body {
     flex-direction: column;
     gap: 1rem;
 }
+
+/* ====================================
+   Table Styles
+   ==================================== */
+
+.table-container {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--stroke-subtle);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-primary);
+}
+
+.data-table thead {
+    background: var(--bg-tertiary);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.data-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--stroke);
+}
+
+.data-table td {
+    padding: 12px 16px;
+    font-size: 14px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--stroke-subtle);
+}
+
+.data-table tbody tr {
+    transition: background var(--transition-fast);
+}
+
+.data-table tbody tr:hover {
+    background: var(--bg-secondary);
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: none;
+}

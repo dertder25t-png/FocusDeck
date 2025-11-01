@@ -493,6 +493,29 @@
                 </header>
 
                 <div class="automations-container">
+                    <!-- Automation Statistics -->
+                    <div class="card">
+                        <h2 class="card-title">Automation Statistics</h2>
+                        <div class="stats-grid">
+                            <div class="stat-box">
+                                <div class="stat-label">Total Automations</div>
+                                <div class="stat-value" id="statsTotal Automations">0</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-label">Enabled</div>
+                                <div class="stat-value" id="statsEnabledAutomations" style="color: var(--success);">0</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-label">Total Executions</div>
+                                <div class="stat-value" id="statsTotalExecutions">0</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-label">Success Rate</div>
+                                <div class="stat-value" id="statsSuccessRate" style="color: var(--success);">0%</div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Connected Services -->
                     <div class="card">
                         <h2 class="card-title">Connected Services</h2>
@@ -844,6 +867,59 @@ sudo systemctl restart focusdeck
 
     <!-- Toast Notification -->
     <div id="toast" class="toast"></div>
+
+    <!-- Automation History Modal -->
+    <div id="automationHistoryModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2 class="modal-title" id="historyModalTitle">Automation History</h2>
+                <button class="modal-close" id="closeHistoryModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                    <div class="stat-box">
+                        <div class="stat-label">Total Executions</div>
+                        <div class="stat-value" id="historyTotalExecutions">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Success Rate</div>
+                        <div class="stat-value" id="historySuccessRate" style="color: var(--success);">0%</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Avg Duration</div>
+                        <div class="stat-value" id="historyAvgDuration">0ms</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Last Run</div>
+                        <div class="stat-value" id="historyLastRun" style="font-size: 0.9rem;">Never</div>
+                    </div>
+                </div>
+
+                <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Status</th>
+                                <th>Duration</th>
+                                <th>Error</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <tr>
+                                <td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                    No execution history yet
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="closeHistoryModalBtn">Close</button>
+            </div>
+        </div>
+    </div>
 
     <script src="app.js?v=1.1.0"></script>
 </body>
