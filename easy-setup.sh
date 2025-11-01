@@ -60,20 +60,49 @@ echo -e "${BLUE}📝 Configuration${NC}"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-read -p "Enter your Cloudflare domain (e.g., focusdeck.909436.xyz): " CF_DOMAIN
-if [[ -z "$CF_DOMAIN" ]]; then
-    echo -e "${RED}❌ Domain is required!${NC}"
-    exit 1
-fi
+# Get Cloudflare domain with retry logic
+CF_DOMAIN=""
+while [[ -z "$CF_DOMAIN" ]]; do
+    echo -n "Enter your Cloudflare domain (e.g., focusdeck.909436.xyz): "
+    read CF_DOMAIN
+    
+    # Trim whitespace
+    CF_DOMAIN=$(echo "$CF_DOMAIN" | xargs)
+    
+    if [[ -z "$CF_DOMAIN" ]]; then
+        echo -e "${RED}❌ Domain cannot be empty!${NC}"
+        echo ""
+    else
+        # Remove protocol if user included it
+        CF_DOMAIN=$(echo "$CF_DOMAIN" | sed 's|https\?://||' | sed 's|/$||')
+        echo -e "${GREEN}✓ Domain set to: ${CF_DOMAIN}${NC}"
+    fi
+done
 
-read -p "Enter FocusDeck username [default: focusdeck]: " FOCUSDECK_USER
+echo ""
+echo -n "Enter FocusDeck username [default: focusdeck]: "
+read FOCUSDECK_USER
 FOCUSDECK_USER="${FOCUSDECK_USER:-focusdeck}"
+# Trim whitespace
+FOCUSDECK_USER=$(echo "$FOCUSDECK_USER" | xargs)
 
 INSTALL_DIR="/home/${FOCUSDECK_USER}/FocusDeck"
 echo ""
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BLUE}📋 Configuration Summary${NC}"
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${GREEN}✓ Domain: https://${CF_DOMAIN}${NC}"
 echo -e "${GREEN}✓ User: ${FOCUSDECK_USER}${NC}"
 echo -e "${GREEN}✓ Install directory: ${INSTALL_DIR}${NC}"
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+echo -n "Does this look correct? [Y/n]: "
+read CONFIRM
+CONFIRM="${CONFIRM:-Y}"
+if [[ ! "$CONFIRM" =~ ^[Yy] ]]; then
+    echo -e "${YELLOW}Setup cancelled. Run the script again to start over.${NC}"
+    exit 0
+fi
 echo ""
 
 # ============================================================================
