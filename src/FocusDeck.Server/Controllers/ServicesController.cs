@@ -188,5 +188,121 @@ namespace FocusDeck.Server.Controllers
 
             return Ok(new { message = "Metadata updated" });
         }
+
+        [HttpGet("{id}/health")]
+        public async Task<ActionResult> CheckServiceHealth(Guid id)
+        {
+            var svc = await _context.ConnectedServices.FirstOrDefaultAsync(s => s.Id == id);
+            if (svc == null) return NotFound();
+
+            try
+            {
+                var health = await PerformHealthCheck(svc);
+                return Ok(health);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Health check failed for {ServiceId}", id);
+                return Ok(new { healthy = false, message = ex.Message, status = "error" });
+            }
+        }
+
+        private async Task<object> PerformHealthCheck(ConnectedService service)
+        {
+            // Service-specific health checks
+            switch (service.Service)
+            {
+                case ServiceType.HomeAssistant:
+                    return await CheckHomeAssistantHealth(service);
+                
+                case ServiceType.GoogleCalendar:
+                case ServiceType.Spotify:
+                    // OAuth services: check if token is expired
+                    var isExpired = service.ExpiresAt.HasValue && service.ExpiresAt.Value < DateTime.UtcNow;
+                    return new
+                    {
+                        healthy = !isExpired && !string.IsNullOrEmpty(service.AccessToken),
+                        status = isExpired ? "token_expired" : "ok",
+                        message = isExpired ? "Token expired, please reconnect" : "Connected",
+                        expiresAt = service.ExpiresAt
+                    };
+
+                case ServiceType.Canvas:
+                case ServiceType.GoogleDrive:
+                    // Token-based services: validate token exists
+                    return new
+                    {
+                        healthy = !string.IsNullOrEmpty(service.AccessToken),
+                        status = string.IsNullOrEmpty(service.AccessToken) ? "not_configured" : "ok",
+                        message = string.IsNullOrEmpty(service.AccessToken) ? "Token not configured" : "Connected"
+                    };
+
+                default:
+                    // Generic check: ensure token exists
+                    return new
+                    {
+                        healthy = !string.IsNullOrEmpty(service.AccessToken),
+                        status = "ok",
+                        message = "Service configured"
+                    };
+            }
+        }
+
+        private async Task<object> CheckHomeAssistantHealth(ConnectedService service)
+        {
+            try
+            {
+                // Parse metadata for base URL
+                JsonObject? meta = null;
+                if (!string.IsNullOrWhiteSpace(service.MetadataJson))
+                {
+                    meta = JsonNode.Parse(service.MetadataJson) as JsonObject;
+                }
+
+                var baseUrl = meta?["haBaseUrl"]?.ToString();
+                if (string.IsNullOrEmpty(baseUrl) || string.IsNullOrEmpty(service.AccessToken))
+                {
+                    return new { healthy = false, status = "not_configured", message = "Missing base URL or token" };
+                }
+
+                // Try to ping Home Assistant API
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {service.AccessToken}");
+                
+                var response = await client.GetAsync($"{baseUrl}/api/");
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    var json = JsonDocument.Parse(content);
+                    var message = json.RootElement.GetProperty("message").GetString();
+                    
+                    return new
+                    {
+                        healthy = true,
+                        status = "ok",
+                        message = $"Connected: {message}",
+                        baseUrl = baseUrl
+                    };
+                }
+                else
+                {
+                    return new
+                    {
+                        healthy = false,
+                        status = "connection_failed",
+                        message = $"Failed to connect: {response.StatusCode}"
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                return new
+                {
+                    healthy = false,
+                    status = "error",
+                    message = $"Health check error: {ex.Message}"
+                };
+            }
+        }
     }
 }

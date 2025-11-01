@@ -788,6 +788,9 @@ class FocusDeckApp {
             if (response.ok) {
                 this.connectedServices = await response.json();
                 this.renderConnectedServices();
+                
+                // Check health of configured services after rendering
+                setTimeout(() => this.checkAllServicesHealth(), 100);
             }
         } catch (error) {
             console.error('Error loading services:', error);
@@ -878,34 +881,141 @@ class FocusDeckApp {
         const container = document.getElementById('connectedServicesList');
         if (!container) return;
 
-        if (this.connectedServices.length === 0) {
-            container.innerHTML = `
+        // Separate configured and discovered (not configured) services
+        const configured = this.connectedServices.filter(s => s.configured);
+        const discovered = this.connectedServices.filter(s => !s.configured);
+
+        let html = '';
+
+        // Discovered section (services that can be added but aren't configured yet)
+        if (discovered.length > 0) {
+            html += `
+                <div class="integrations-section">
+                    <h3 class="section-header">Discovered</h3>
+                    <div class="discovered-grid">
+                        ${discovered.map(s => `
+                            <div class="discovered-card">
+                                <div class="discovered-icon">${this.getServiceIcon(s.service)}</div>
+                                <div class="discovered-info">
+                                    <div class="discovered-name">${s.service}</div>
+                                    <div class="discovered-description">${this.getServiceDescription(s.service)}</div>
+                                </div>
+                                <div class="discovered-actions">
+                                    <button class="btn-text" onclick="app.disconnectService('${s.id}')">Ignore</button>
+                                    <button class="btn btn-primary btn-small" onclick="app.openServiceSetup('${s.service}', ${JSON.stringify(s.metadata || {})})">Add</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Configured section
+        if (configured.length > 0) {
+            html += `
+                <div class="integrations-section">
+                    <h3 class="section-header">Configured</h3>
+                    <div class="configured-grid">
+                        ${configured.map(s => {
+                            const entityCount = this.getServiceEntityCount(s);
+                            const statusIcon = this.getServiceStatusIcon(s);
+                            return `
+                                <div class="integration-card" data-service-id="${s.id}" onclick="app.openServiceSetup('${s.service}', ${JSON.stringify(s.metadata || {})})">
+                                    <div class="integration-header">
+                                        <div class="integration-icon">${this.getServiceIcon(s.service)}</div>
+                                        <div class="integration-title">${s.service}</div>
+                                        <button class="btn-icon-more" onclick="event.stopPropagation(); app.showServiceMenu('${s.id}')" title="Options">⋮</button>
+                                    </div>
+                                    <div class="integration-footer">
+                                        <span class="integration-count">${entityCount}</span>
+                                        <div class="integration-status">
+                                            ${statusIcon}
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        if (configured.length === 0 && discovered.length === 0) {
+            html = `
                 <div class="empty-state-small">
                     <p>No services connected yet. Click "Connect New Service" to get started.</p>
                 </div>
             `;
-            return;
         }
 
-        // HA-style tiles
-        container.innerHTML = this.connectedServices.map(s => {
-            const configured = !!s.configured;
-            const statusBadge = configured ? '<span class="badge badge-success">Configured</span>' : '<span class="badge badge-warning">Not configured</span>';
-            const actions = `
-                <div class="tile-actions">
-                    <button class="btn btn-secondary btn-small" onclick="app.openServiceSetup('${s.service}', ${JSON.stringify(s.metadata || {})})">${configured ? 'Reconfigure' : 'Configure'}</button>
-                    ${configured ? `<button class="btn btn-danger btn-small" onclick="app.disconnectService('${s.id}')">Disconnect</button>` : ''}
-                </div>`;
-            return `
-                <div class="service-tile">
-                    <div class="tile-header">
-                        <div class="tile-icon">${this.getServiceIcon(s.service)}</div>
-                        <div class="tile-title">${s.service}</div>
-                        <div class="tile-status">${statusBadge}</div>
-                    </div>
-                    ${actions}
-                </div>`;
-        }).join('');
+        container.innerHTML = html;
+    }
+
+    getServiceDescription(service) {
+        const descriptions = {
+            'GoogleCalendar': 'Sync events and schedules',
+            'HomeAssistant': 'Control smart home devices',
+            'Spotify': 'Music playback control',
+            'Canvas': 'LMS assignments and grades',
+            'Notion': 'Notes and task management',
+            'Todoist': 'Task synchronization',
+            'Slack': 'Team notifications',
+            'Discord': 'Community notifications',
+            'PhilipsHue': 'Smart lighting control',
+            'IFTTT': 'Automation platform',
+            'Zapier': 'Workflow automation',
+            'AppleMusic': 'Music playback'
+        };
+        return descriptions[service] || 'Integration service';
+    }
+
+    getServiceEntityCount(service) {
+        // In a real implementation, this would come from the API
+        // For now, use placeholder counts
+        const counts = {
+            'GoogleCalendar': '11 entities',
+            'HomeAssistant': '2 devices',
+            'Spotify': '1 service',
+            'Canvas': '1 device',
+            'Notion': '1 service',
+            'Todoist': '1 service',
+            'Slack': '1 service',
+            'Discord': '1 service'
+        };
+        return counts[service.service] || '1 service';
+    }
+
+    getServiceStatusIcon(service) {
+        // Show status badges based on configuration
+        let badges = '';
+        
+        // Cloud connection badge
+        if (['GoogleCalendar', 'Spotify', 'Notion', 'Todoist', 'Slack'].includes(service.service)) {
+            badges += '<span class="status-badge" title="Cloud connected">☁️</span>';
+        }
+        
+        // Local network badge
+        if (['HomeAssistant', 'PhilipsHue'].includes(service.service)) {
+            badges += '<span class="status-badge" title="Local network">🌐</span>';
+        }
+
+        // Warning badge for unconfigured issues
+        if (service.metadata && service.metadata.warning) {
+            badges += '<span class="status-badge status-warning" title="Needs attention">⚠️</span>';
+        }
+
+        return badges;
+    }
+
+    showServiceMenu(serviceId) {
+        // TODO: Implement context menu for service options (reconfigure, disconnect, etc.)
+        const service = this.connectedServices.find(s => s.id === serviceId);
+        if (!service) return;
+        
+        if (confirm(`Disconnect ${service.service}?`)) {
+            this.disconnectService(serviceId);
+        }
     }
 
     getServiceIcon(service) {
@@ -926,6 +1036,73 @@ class FocusDeckApp {
             'AppleMusic': '🎧'
         };
         return icons[service] || '🔗';
+    }
+
+    async checkServiceHealth(serviceId) {
+        try {
+            const response = await fetch(`/api/services/${serviceId}/health`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const health = await response.json();
+            return health;
+        } catch (error) {
+            console.error(`Health check failed for service ${serviceId}:`, error);
+            return {
+                healthy: false,
+                status: 'error',
+                message: error.message
+            };
+        }
+    }
+
+    async checkAllServicesHealth() {
+        const configured = this.connectedServices.filter(s => s.configured);
+        const healthChecks = await Promise.all(
+            configured.map(s => this.checkServiceHealth(s.id))
+        );
+
+        // Update services with health data
+        configured.forEach((service, index) => {
+            const health = healthChecks[index];
+            service.health = health;
+            
+            // Update status badges in the UI
+            const card = document.querySelector(`[data-service-id="${service.id}"]`);
+            if (card) {
+                const statusContainer = card.querySelector('.integration-status');
+                if (statusContainer && health) {
+                    this.updateServiceStatusBadges(statusContainer, service, health);
+                }
+            }
+        });
+    }
+
+    updateServiceStatusBadges(container, service, health) {
+        let badges = '';
+        
+        // Health status badge
+        if (health.healthy) {
+            badges += '<span class="status-badge status-ok" title="Connected">✓</span>';
+        } else {
+            badges += '<span class="status-badge status-warning" title="' + (health.message || 'Not connected') + '">⚠️</span>';
+        }
+        
+        // Cloud/Local badge
+        if (['GoogleCalendar', 'Spotify', 'Notion', 'Todoist', 'Slack'].includes(service.service)) {
+            badges += '<span class="status-badge" title="Cloud connected">☁️</span>';
+        }
+        
+        if (['HomeAssistant', 'PhilipsHue'].includes(service.service)) {
+            badges += '<span class="status-badge" title="Local network">🌐</span>';
+        }
+
+        container.innerHTML = badges;
     }
 
     openAutomationModal(automationId = null) {
