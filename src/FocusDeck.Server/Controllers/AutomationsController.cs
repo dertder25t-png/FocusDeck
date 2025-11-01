@@ -9,6 +9,8 @@ namespace FocusDeck.Server.Controllers
     {
         private static readonly List<Automation> _automations = new();
 
+        public static List<Automation> GetAutomations() => _automations;
+
         [HttpGet]
         public ActionResult<List<Automation>> GetAll()
         {

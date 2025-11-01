@@ -1,8 +1,13 @@
+using FocusDeck.Server.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+
+// Add background services
+builder.Services.AddHostedService<AutomationEngine>();
 
 // Add CORS support for web UI
 builder.Services.AddCors(options =>
