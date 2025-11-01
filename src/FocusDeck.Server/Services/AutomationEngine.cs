@@ -1,4 +1,5 @@
 using FocusDeck.Shared.Models.Automations;
+using FocusDeck.Server.Controllers;
 
 namespace FocusDeck.Server.Services
 {
