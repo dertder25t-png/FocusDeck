@@ -523,8 +523,8 @@
                     <div class="card">
                         <h2 class="card-title">Connected Services</h2>
                         <p class="card-description">Manage your external service integrations</p>
-                        <div id="connectedServicesList" class="services-grid">
-                            <!-- Services will be loaded here -->
+                        <div id="connectedServicesList" class="services-container">
+                            <!-- Services will be loaded here (discovered & configured sections) -->
                         </div>
                         <div class="card-actions">
                             <button class="btn btn-secondary" id="connectServiceBtn">
@@ -811,6 +811,13 @@
                         <div class="service-info">
                             <h3>Discord</h3>
                             <p>Send notifications to Discord servers</p>
+                        </div>
+                    </button>
+                    <button class="service-card" data-service="GoogleGenerativeAI">
+                        <div class="service-icon">🤖</div>
+                        <div class="service-info">
+                            <h3>Google Generative AI</h3>
+                            <p>AI-powered study assistance with Gemini</p>
                         </div>
                     </button>
                     <button class="service-card" data-service="IFTTT">

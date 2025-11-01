@@ -1205,36 +1205,117 @@ class FocusDeckApp {
             Notion: {
                 title: 'Connect Notion', icon: '📓',
                 description: 'Sync notes and tasks between FocusDeck and Notion.',
-                steps: ['Create a Notion internal integration', 'Share your database with the integration'],
-                links: [ { label: 'Notion Integrations', url: 'https://www.notion.so/my-integrations' } ],
+                steps: [
+                    'Go to Notion Integrations and create a new internal integration',
+                    'Copy the Internal Integration Token',
+                    'Share your database(s) with the integration'
+                ],
+                links: [ 
+                    { label: 'Create Notion Integration', url: 'https://www.notion.so/my-integrations' },
+                    { label: 'Notion API Docs', url: 'https://developers.notion.com/docs/getting-started' }
+                ],
+                fields: [
+                    { id: 'notionToken', label: 'Integration Token', placeholder: 'secret_...' }
+                ],
                 flow: 'token'
             },
             Todoist: {
                 title: 'Connect Todoist', icon: '✅',
                 description: 'Sync tasks with your Todoist projects.',
-                steps: ['Create a Todoist app and obtain a token'],
-                links: [ { label: 'Todoist Developers', url: 'https://developer.todoist.com/appconsole.html' } ],
+                steps: [
+                    'Go to Todoist Settings → Integrations → Developer',
+                    'Copy your API token'
+                ],
+                links: [ 
+                    { label: 'Get Todoist API Token', url: 'https://todoist.com/prefs/integrations' },
+                    { label: 'Todoist API Docs', url: 'https://developer.todoist.com/rest/v2/#overview' }
+                ],
+                fields: [
+                    { id: 'todoistToken', label: 'API Token', placeholder: 'Paste your API token' }
+                ],
                 flow: 'token'
             },
             Slack: {
                 title: 'Connect Slack', icon: '💬', description: 'Send study notifications to Slack channels.',
-                steps: ['Create a Slack app and OAuth token (bot token)'],
-                links: [ { label: 'Slack API Apps', url: 'https://api.slack.com/apps' } ], flow: 'oauth'
+                steps: [
+                    'Create a Slack app in your workspace',
+                    'Add OAuth scopes (chat:write, channels:read)',
+                    'Install app to workspace and copy Bot Token'
+                ],
+                links: [ 
+                    { label: 'Create Slack App', url: 'https://api.slack.com/apps' },
+                    { label: 'Slack OAuth Guide', url: 'https://api.slack.com/authentication/oauth-v2' }
+                ],
+                fields: [
+                    { id: 'slackToken', label: 'Bot User OAuth Token', placeholder: 'xoxb-...' }
+                ],
+                flow: 'token'
             },
             Discord: {
                 title: 'Connect Discord', icon: '🎮', description: 'Send notifications to your Discord server.',
-                steps: ['Create a bot and invite it to your server; use a bot token or webhook'],
-                links: [ { label: 'Discord Developer Portal', url: 'https://discord.com/developers/applications' } ], flow: 'token'
+                steps: [
+                    'Create a Discord application and bot',
+                    'Copy the Bot Token',
+                    'Invite bot to your server with "Send Messages" permission'
+                ],
+                links: [ 
+                    { label: 'Discord Developer Portal', url: 'https://discord.com/developers/applications' },
+                    { label: 'Discord Bot Guide', url: 'https://discord.com/developers/docs/getting-started' }
+                ],
+                fields: [
+                    { id: 'discordToken', label: 'Bot Token', placeholder: 'Paste your bot token' }
+                ],
+                flow: 'token'
             },
             PhilipsHue: {
                 title: 'Connect Philips Hue', icon: '💡', description: 'Control your lighting scenes.',
-                steps: ['Create a Hue developer app and get a token; or use local bridge pairing'],
-                links: [ { label: 'Philips Hue Developer', url: 'https://developers.meethue.com/' } ], flow: 'token'
+                steps: [
+                    'Find your Hue Bridge IP address',
+                    'Press the link button on your Hue Bridge',
+                    'Click Start Setup within 30 seconds to create a user'
+                ],
+                links: [ 
+                    { label: 'Philips Hue API', url: 'https://developers.meethue.com/develop/get-started-2/' }
+                ],
+                fields: [
+                    { id: 'hueIP', label: 'Bridge IP Address', placeholder: '192.168.1.x' }
+                ],
+                flow: 'token'
             },
             Canvas: {
-                title: 'Connect Canvas LMS', icon: '🎓', description: 'Get assignments and grades into FocusDeck.',
-                steps: ['Create an access token from your Canvas profile settings'],
-                links: [ { label: 'Canvas: Create Access Token', url: 'https://community.canvaslms.com/t5/Instructor-Guide/How-do-I-obtain-an-API-access-token-for-an-account/ta-p/278' } ], flow: 'token'
+                title: 'Connect Canvas LMS', icon: '🎓', 
+                description: 'Get assignments and grades from your Canvas LMS.',
+                steps: [
+                    'Log into Canvas and go to Account → Settings',
+                    'Scroll to "Approved Integrations" and click "+ New Access Token"',
+                    'Give it a purpose (e.g., "FocusDeck") and generate',
+                    'Copy the token (it will only be shown once!)'
+                ],
+                links: [ 
+                    { label: 'Canvas Token Guide', url: 'https://community.canvaslms.com/t5/Instructor-Guide/How-do-I-manage-API-access-tokens-as-an-instructor/ta-p/1177' }
+                ],
+                fields: [
+                    { id: 'canvasBaseUrl', label: 'Canvas Instance URL', placeholder: 'https://canvas.school.edu' },
+                    { id: 'canvasToken', label: 'Access Token', placeholder: 'Paste your access token' }
+                ],
+                flow: 'token'
+            },
+            GoogleGenerativeAI: {
+                title: 'Google Generative AI',
+                icon: '🤖',
+                description: 'Use Google\'s Gemini AI for smart study assistance.',
+                steps: [
+                    'Go to Google AI Studio',
+                    'Click "Get API Key" and create or select a project',
+                    'Copy your API key'
+                ],
+                links: [
+                    { label: 'Get API key from here', url: 'https://aistudio.google.com/app/apikey' }
+                ],
+                fields: [
+                    { id: 'googleAIKey', label: 'API key', placeholder: 'Paste your API key' }
+                ],
+                flow: 'token'
             },
             IFTTT: { title: 'Connect IFTTT', icon: '🔗', description: 'Integrate with thousands of services.', steps: ['Create a webhook key'], links: [ { label: 'IFTTT Webhooks', url: 'https://ifttt.com/maker_webhooks' } ], flow: 'token' },
             Zapier: { title: 'Connect Zapier', icon: '⚡', description: 'Automate workflows with Zapier.', steps: ['Create a Zap with Webhooks'], links: [ { label: 'Zapier Webhooks', url: 'https://zapier.com/apps/webhook/integrations' } ], flow: 'token' },
