@@ -37,4 +37,11 @@ public interface IAssetStorage
     /// <param name="storagePath">Path to check</param>
     /// <returns>True if the file exists</returns>
     bool Exists(string storagePath);
+
+    /// <summary>
+    /// Gets the physical file system path for an asset
+    /// </summary>
+    /// <param name="assetId">Asset ID</param>
+    /// <returns>Physical file path</returns>
+    string GetPhysicalPath(string assetId);
 }

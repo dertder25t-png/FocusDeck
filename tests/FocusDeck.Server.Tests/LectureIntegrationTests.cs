@@ -218,4 +218,129 @@ public class LectureIntegrationTests : IClassFixture<WebApplicationFactory<Progr
         
         return ms.ToArray();
     }
+
+    [Fact]
+    public async Task ProcessLecture_WithAudio_StartsTranscription()
+    {
+        // Arrange
+        var token = await GetAuthTokenAsync();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Create course, lecture, and upload audio
+        var course = await CreateTestCourseAsync();
+        var lecture = await CreateTestLectureAsync(course.Id);
+        
+        var wavData = GenerateTinyWavFile();
+        using var content = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(wavData);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
+        content.Add(fileContent, "audio", "test-lecture.wav");
+        
+        var uploadResponse = await _client.PostAsync($"/v1/lectures/{lecture.Id}/audio", content);
+        uploadResponse.EnsureSuccessStatusCode();
+
+        // Act
+        var processResponse = await _client.PostAsync($"/v1/lectures/{lecture.Id}/process", null);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Accepted, processResponse.StatusCode);
+        var result = await processResponse.Content.ReadFromJsonAsync<dynamic>();
+        Assert.NotNull(result);
+    }
+
+    [Fact]
+    public async Task ProcessLecture_WithoutAudio_ReturnsBadRequest()
+    {
+        // Arrange
+        var token = await GetAuthTokenAsync();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Create course and lecture without audio
+        var course = await CreateTestCourseAsync();
+        var lecture = await CreateTestLectureAsync(course.Id);
+
+        // Act
+        var processResponse = await _client.PostAsync($"/v1/lectures/{lecture.Id}/process", null);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, processResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task TranscriptionJob_ProducesNonEmptyTranscript()
+    {
+        // Arrange
+        var token = await GetAuthTokenAsync();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Create course, lecture, and upload audio
+        var course = await CreateTestCourseAsync();
+        var lecture = await CreateTestLectureAsync(course.Id);
+        
+        var wavData = GenerateTinyWavFile();
+        using var content = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(wavData);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
+        content.Add(fileContent, "audio", "test-lecture.wav");
+        
+        var uploadResponse = await _client.PostAsync($"/v1/lectures/{lecture.Id}/audio", content);
+        uploadResponse.EnsureSuccessStatusCode();
+
+        // Act - trigger processing
+        var processResponse = await _client.PostAsync($"/v1/lectures/{lecture.Id}/process", null);
+        processResponse.EnsureSuccessStatusCode();
+
+        // Wait for processing (stub implementation should be fast)
+        await Task.Delay(1000);
+
+        // Assert - check lecture has transcription
+        var lectureResponse = await _client.GetAsync($"/v1/lectures/{lecture.Id}");
+        lectureResponse.EnsureSuccessStatusCode();
+        var updatedLecture = await lectureResponse.Content.ReadFromJsonAsync<LectureDto>();
+        
+        Assert.NotNull(updatedLecture);
+        Assert.NotNull(updatedLecture.TranscriptionText);
+        Assert.NotEmpty(updatedLecture.TranscriptionText);
+        Assert.True(updatedLecture.TranscriptionText.Length > 10, "Transcription should contain meaningful text");
+    }
+
+    [Fact]
+    public async Task LectureProcessing_ChainsToSummarization()
+    {
+        // Arrange
+        var token = await GetAuthTokenAsync();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Create course, lecture, and upload audio
+        var course = await CreateTestCourseAsync();
+        var lecture = await CreateTestLectureAsync(course.Id);
+        
+        var wavData = GenerateTinyWavFile();
+        using var content = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(wavData);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
+        content.Add(fileContent, "audio", "test-lecture.wav");
+        
+        var uploadResponse = await _client.PostAsync($"/v1/lectures/{lecture.Id}/audio", content);
+        uploadResponse.EnsureSuccessStatusCode();
+
+        // Act - trigger processing
+        var processResponse = await _client.PostAsync($"/v1/lectures/{lecture.Id}/process", null);
+        processResponse.EnsureSuccessStatusCode();
+
+        // Wait for both transcription and summarization (stub implementations should be fast)
+        await Task.Delay(2000);
+
+        // Assert - check lecture has both transcription and summary
+        var lectureResponse = await _client.GetAsync($"/v1/lectures/{lecture.Id}");
+        lectureResponse.EnsureSuccessStatusCode();
+        var updatedLecture = await lectureResponse.Content.ReadFromJsonAsync<LectureDto>();
+        
+        Assert.NotNull(updatedLecture);
+        Assert.NotNull(updatedLecture.TranscriptionText);
+        Assert.NotEmpty(updatedLecture.TranscriptionText);
+        Assert.NotNull(updatedLecture.SummaryText);
+        Assert.NotEmpty(updatedLecture.SummaryText);
+        Assert.Equal("Summarized", updatedLecture.Status);
+    }
 }

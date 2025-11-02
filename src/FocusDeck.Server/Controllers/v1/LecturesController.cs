@@ -2,8 +2,10 @@ using Asp.Versioning;
 using FocusDeck.Contracts.DTOs;
 using FocusDeck.Domain.Entities;
 using FocusDeck.Persistence;
+using FocusDeck.Server.Jobs;
 using FocusDeck.Server.Services.Storage;
 using FocusDeck.SharedKernel;
+using Hangfire;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +22,7 @@ public class LecturesController : ControllerBase
     private readonly IAssetStorage _assetStorage;
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
+    private readonly IBackgroundJobClient _backgroundJobClient;
     private readonly ILogger<LecturesController> _logger;
 
     public LecturesController(
@@ -27,12 +30,14 @@ public class LecturesController : ControllerBase
         IAssetStorage assetStorage,
         IIdGenerator idGenerator,
         IClock clock,
+        IBackgroundJobClient backgroundJobClient,
         ILogger<LecturesController> logger)
     {
         _context = context;
         _assetStorage = assetStorage;
         _idGenerator = idGenerator;
         _clock = clock;
+        _backgroundJobClient = backgroundJobClient;
         _logger = logger;
     }
 
@@ -185,6 +190,46 @@ public class LecturesController : ControllerBase
             .ToListAsync();
 
         return Ok(lectures.Select(MapToDto).ToList());
+    }
+
+    /// <summary>
+    /// Process lecture (transcribe and summarize)
+    /// </summary>
+    [HttpPost("{id}/process")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ProcessLecture(string id)
+    {
+        var lecture = await _context.Lectures.FindAsync(id);
+        if (lecture == null)
+        {
+            return NotFound(new { message = "Lecture not found" });
+        }
+
+        if (string.IsNullOrEmpty(lecture.AudioAssetId))
+        {
+            return BadRequest(new { message = "Lecture does not have an audio file" });
+        }
+
+        if (lecture.Status == LectureStatus.Transcribing || lecture.Status == LectureStatus.Summarizing)
+        {
+            return BadRequest(new { message = $"Lecture is already being processed (status: {lecture.Status})" });
+        }
+
+        _logger.LogInformation("Enqueueing transcription job for lecture {LectureId}", id);
+
+        // Enqueue transcription job
+        var jobId = _backgroundJobClient.Enqueue<ITranscribeLectureJob>(
+            x => x.TranscribeAsync(id, $"/assets/{lecture.AudioAssetId}", "en"));
+
+        return Accepted(new
+        {
+            message = "Lecture processing started",
+            lectureId = id,
+            jobId = jobId,
+            status = "Queued for transcription"
+        });
     }
 
     private static LectureDto MapToDto(Lecture lecture)

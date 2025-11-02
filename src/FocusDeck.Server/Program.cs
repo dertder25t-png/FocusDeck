@@ -150,6 +150,10 @@ try
     // Add Storage services
     builder.Services.AddSingleton<FocusDeck.Server.Services.Storage.IAssetStorage, FocusDeck.Server.Services.Storage.LocalFileSystemAssetStorage>();
 
+    // Add Transcription and Text Generation services
+    builder.Services.AddSingleton<FocusDeck.Server.Services.Transcription.IWhisperAdapter, FocusDeck.Server.Services.Transcription.StubWhisperAdapter>();
+    builder.Services.AddSingleton<FocusDeck.Server.Services.TextGeneration.ITextGen, FocusDeck.Server.Services.TextGeneration.StubTextGen>();
+
     // Add Job services
     builder.Services.AddScoped<ITranscribeLectureJob, TranscribeLectureJob>();
     builder.Services.AddScoped<ISummarizeLectureJob, SummarizeLectureJob>();

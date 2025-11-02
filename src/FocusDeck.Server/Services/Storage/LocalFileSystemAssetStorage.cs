@@ -125,4 +125,25 @@ public class LocalFileSystemAssetStorage : IAssetStorage
         var fullPath = Path.Combine(_storageRoot, storagePath);
         return File.Exists(fullPath);
     }
+
+    public string GetPhysicalPath(string assetId)
+    {
+        // Find the asset file by searching for files matching the assetId
+        // Since we store in /data/assets/{yyyy}/{MM}/{id.ext}, we need to search
+        var searchPattern = $"{assetId}.*";
+        
+        foreach (var yearDir in Directory.GetDirectories(_storageRoot))
+        {
+            foreach (var monthDir in Directory.GetDirectories(yearDir))
+            {
+                var files = Directory.GetFiles(monthDir, searchPattern);
+                if (files.Length > 0)
+                {
+                    return files[0];
+                }
+            }
+        }
+
+        throw new FileNotFoundException($"Asset file not found for ID: {assetId}");
+    }
 }
