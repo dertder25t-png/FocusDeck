@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using FocusDeck.Shared.Models;
 using FocusDeck.Shared.Models.Automations;
 using FocusDeck.Shared.Models.Sync;
 using FocusDeck.Server.Models;
@@ -17,6 +18,8 @@ public class AutomationDbContext : DbContext
     public DbSet<AutomationExecution> AutomationExecutions { get; set; }
     public DbSet<ConnectedService> ConnectedServices { get; set; }
     public DbSet<ServiceConfiguration> ServiceConfigurations { get; set; }
+    public DbSet<Note> Notes { get; set; }
+    public DbSet<StudySession> StudySessions { get; set; }
     
     // Sync tables
     public DbSet<DeviceRegistration> DeviceRegistrations { get; set; }
@@ -99,6 +102,53 @@ public class AutomationDbContext : DbContext
             entity.Property(e => e.UpdatedAt).IsRequired();
             
             entity.HasIndex(e => e.ServiceName).IsUnique();
+        });
+
+        modelBuilder.Entity<Note>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnType("TEXT");
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(300);
+            entity.Property(e => e.Content).IsRequired();
+            entity.Property(e => e.Color).HasMaxLength(32);
+            entity.Property(e => e.IsPinned).HasDefaultValue(false);
+            entity.Property(e => e.CreatedDate).IsRequired();
+            entity.Property(e => e.LastModified);
+            entity.Property(e => e.Tags)
+                .HasConversion(
+                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>())
+                .HasColumnType("TEXT");
+            entity.Property(e => e.Bookmarks)
+                .HasConversion(
+                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => JsonSerializer.Deserialize<List<NoteBookmark>>(v, (JsonSerializerOptions?)null) ?? new List<NoteBookmark>())
+                .HasColumnType("TEXT");
+
+            entity.HasIndex(e => e.IsPinned);
+            entity.HasIndex(e => e.CreatedDate);
+            entity.HasIndex(e => e.LastModified);
+        });
+
+        modelBuilder.Entity<StudySession>(entity =>
+        {
+            entity.HasKey(e => e.SessionId);
+            entity.Property(e => e.SessionId).ValueGeneratedNever();
+            entity.Property(e => e.StartTime).IsRequired();
+            entity.Property(e => e.EndTime);
+            entity.Property(e => e.DurationMinutes).IsRequired();
+            entity.Property(e => e.SessionNotes);
+            entity.Property(e => e.Status).IsRequired();
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.UpdatedAt).IsRequired();
+            entity.Property(e => e.FocusRate);
+            entity.Property(e => e.BreaksCount).HasDefaultValue(0);
+            entity.Property(e => e.BreakDurationMinutes).HasDefaultValue(0);
+            entity.Property(e => e.Category).HasMaxLength(120);
+
+            entity.HasIndex(e => e.StartTime);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.Category);
         });
 
         // Configure DeviceRegistration

@@ -276,6 +276,37 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="card mt-1">
+                            <h2 class="card-title-small">Focus Summary (14 days)</h2>
+                            <div class="focus-summary-grid">
+                                <div class="focus-summary-item">
+                                    <div class="summary-label">Total</div>
+                                    <div class="summary-value" id="studyTotalMinutes">0m</div>
+                                </div>
+                                <div class="focus-summary-item">
+                                    <div class="summary-label">Productive</div>
+                                    <div class="summary-value" id="studyProductiveMinutes">0m</div>
+                                </div>
+                                <div class="focus-summary-item">
+                                    <div class="summary-label">Avg Focus</div>
+                                    <div class="summary-value" id="studyAverageFocus">0%</div>
+                                </div>
+                                <div class="focus-summary-item">
+                                    <div class="summary-label">Active</div>
+                                    <div class="summary-value" id="studyActiveSessions">0</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card mt-1">
+                            <h2 class="card-title-small">Top Categories</h2>
+                            <div id="focusCategoryList" class="focus-category-list"></div>
+                        </div>
+
+                        <div class="card mt-1">
+                            <h2 class="card-title-small">Daily Trend</h2>
+                            <div id="focusTrendBars" class="focus-trend-bars"></div>
+                        </div>
                     </aside>
                 </div>
             </div>
@@ -328,6 +359,19 @@
                                 <label class="form-label-small">Session Notes</label>
                                 <textarea id="sessionNotes" class="textarea-field" placeholder="What are you working on?" rows="3"></textarea>
                             </div>
+                            <div class="timer-session-meta">
+                                <div class="form-group">
+                                    <label class="form-label-small">Focus Rating</label>
+                                    <div class="focus-slider">
+                                        <input type="range" id="sessionFocusRate" min="0" max="100" step="5" value="80" />
+                                        <span class="focus-value" id="sessionFocusValue">80%</span>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label-small">Category</label>
+                                    <input type="text" id="sessionCategory" class="input-field-small" placeholder="e.g. Calculus" />
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -345,7 +389,7 @@
                         </div>
 
                         <div class="card mt-1">
-                            <h2 class="card-title-small">STATISTICS</h2>
+                            <h2 class="card-title-small">Today</h2>
                             <div class="timer-stats">
                                 <div class="timer-stat-item">
                                     <span class="timer-stat-label">Total Time</span>
@@ -362,6 +406,82 @@
                             </div>
                         </div>
                     </aside>
+                </div>
+            </div>
+
+            <!-- Notes View -->
+            <div id="notesView" class="view">
+                <header class="view-header">
+                    <h1 class="view-title">Notes</h1>
+                    <div class="header-actions notes-header-actions">
+                        <div class="notes-search">
+                            <span class="input-icon">🔍</span>
+                            <input type="search" id="noteSearchInput" class="input-field" placeholder="Search notes, tags, or content..." />
+                        </div>
+                        <label class="checkbox-inline">
+                            <input type="checkbox" id="notePinnedToggle" />
+                            <span>Show pinned only</span>
+                        </label>
+                        <button class="btn btn-secondary" id="clearNoteFiltersBtn">
+                            <span>✖️</span> Clear
+                        </button>
+                        <button class="btn btn-primary" id="newNoteBtn">
+                            <span>＋</span> New Note
+                        </button>
+                    </div>
+                </header>
+
+                <div class="notes-layout">
+                    <aside class="notes-sidebar">
+                        <div class="card notes-summary-card">
+                            <h2 class="card-title-small">Overview</h2>
+                            <div class="notes-summary-grid">
+                                <div class="notes-summary-item">
+                                    <div class="summary-label">Total</div>
+                                    <div class="summary-value" id="notesTotalCount">0</div>
+                                </div>
+                                <div class="notes-summary-item">
+                                    <div class="summary-label">Pinned</div>
+                                    <div class="summary-value" id="notesPinnedCount">0</div>
+                                </div>
+                                <div class="notes-summary-item">
+                                    <div class="summary-label">Recent</div>
+                                    <div class="summary-value" id="notesRecentCount">0</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card notes-tags-card">
+                            <div class="card-header-inline">
+                                <h2 class="card-title-small">Tags</h2>
+                                <button class="text-button small" id="showAllNotesBtn">View all</button>
+                            </div>
+                            <div id="noteTagsList" class="note-tags-container"></div>
+                        </div>
+
+                        <div class="card notes-recent-card">
+                            <h2 class="card-title-small">Recently Edited</h2>
+                            <div id="recentNotesList" class="recent-notes-list"></div>
+                        </div>
+                    </aside>
+
+                    <section class="notes-content">
+                        <div id="pinnedNotesSection" class="notes-section">
+                            <div class="section-header">
+                                <h2 class="section-title">Pinned</h2>
+                                <span class="section-count" id="pinnedNotesCount">0</span>
+                            </div>
+                            <div id="pinnedNotesGrid" class="notes-grid compact"></div>
+                        </div>
+
+                        <div class="notes-section">
+                            <div class="section-header">
+                                <h2 class="section-title">All Notes</h2>
+                                <span class="section-count" id="notesGridCount">0</span>
+                            </div>
+                            <div id="notesGrid" class="notes-grid"></div>
+                        </div>
+                    </section>
                 </div>
             </div>
 
@@ -980,6 +1100,49 @@
         </div>
     </div>
 
+    <!-- Note Modal -->
+    <div id="noteModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2 class="modal-title" id="noteModalTitle">New Note</h2>
+                <button class="modal-close" id="closeNoteModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid note-form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Title</label>
+                        <input type="text" id="noteTitleInput" class="input-field" placeholder="Note title" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tags</label>
+                        <input type="text" id="noteTagsInput" class="input-field" placeholder="Tags (comma separated)" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Color</label>
+                        <input type="color" id="noteColorInput" class="color-input" value="#7C5CFF" />
+                    </div>
+                    <div class="form-group note-pin-group">
+                        <input type="checkbox" id="notePinnedInput" />
+                        <label for="notePinnedInput">Pin note</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Content</label>
+                    <textarea id="noteContentInput" class="textarea-field tall" placeholder="Write your note..." rows="10"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer note-modal-footer">
+                <button class="btn btn-danger" id="deleteNoteBtn">
+                    <span>🗑️</span> Delete
+                </button>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" id="cancelNoteBtn">Cancel</button>
+                    <button class="btn btn-primary" id="saveNoteBtn">Save Note</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Update Guide Modal -->
     <div id="updateModal" class="modal">
         <div class="modal-content" style="max-width: 700px;">
@@ -1089,4 +1252,5 @@ sudo systemctl restart focusdeck
     <script src="app.js?v=__VERSION__"></script>
 </body>
 </html>
+
 

@@ -185,6 +185,33 @@ using (var scope = app.Services.CreateScope())
                 LastSyncVersion INTEGER NOT NULL,
                 LastSyncTime TEXT NOT NULL,
                 EntityVersions TEXT
+            );",
+            // Notes
+            @"CREATE TABLE IF NOT EXISTS Notes (
+                Id TEXT PRIMARY KEY,
+                Title TEXT NOT NULL,
+                Content TEXT NOT NULL,
+                Tags TEXT,
+                Color TEXT,
+                IsPinned INTEGER NOT NULL DEFAULT 0,
+                CreatedDate TEXT NOT NULL,
+                LastModified TEXT,
+                Bookmarks TEXT
+            );",
+            // StudySessions
+            @"CREATE TABLE IF NOT EXISTS StudySessions (
+                SessionId TEXT PRIMARY KEY,
+                StartTime TEXT NOT NULL,
+                EndTime TEXT,
+                DurationMinutes INTEGER NOT NULL,
+                SessionNotes TEXT,
+                Status INTEGER NOT NULL,
+                CreatedAt TEXT NOT NULL,
+                UpdatedAt TEXT NOT NULL,
+                FocusRate INTEGER,
+                BreaksCount INTEGER NOT NULL DEFAULT 0,
+                BreakDurationMinutes INTEGER NOT NULL DEFAULT 0,
+                Category TEXT
             );"
         };
 
