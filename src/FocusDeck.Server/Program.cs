@@ -57,6 +57,18 @@ try
     builder.Services.AddControllers();
     builder.Services.AddOpenApi();
 
+    // Add API Versioning
+    builder.Services.AddApiVersioning(options =>
+    {
+        options.DefaultApiVersion = new Asp.Versioning.ApiVersion(1, 0);
+        options.AssumeDefaultVersionWhenUnspecified = true;
+        options.ReportApiVersions = true;
+    }).AddApiExplorer(options =>
+    {
+        options.GroupNameFormat = "'v'VVV";
+        options.SubstituteApiVersionInUrl = true;
+    });
+
     // Add HttpClient for OAuth token exchange
     builder.Services.AddHttpClient();
 
@@ -81,6 +93,9 @@ try
     builder.Services.AddSingleton<IClock, SystemClock>();
     builder.Services.AddSingleton<IIdGenerator, GuidIdGenerator>();
 
+    // Add Auth services
+    builder.Services.AddScoped<FocusDeck.Server.Services.Auth.ITokenService, FocusDeck.Server.Services.Auth.TokenService>();
+
     // Add Sync Service
     builder.Services.AddScoped<ISyncService, SyncService>();
 
@@ -101,7 +116,7 @@ try
         .AddDbContextCheck<AutomationDbContext>("database", tags: new[] { "db", "sql" })
         .AddCheck("filesystem", new FileSystemWriteHealthCheck("/data/assets"), tags: new[] { "filesystem" });
 
-    // Add CORS support for Cloudflare-proxied web UI and clients
+    // Add CORS support for web, desktop, and mobile clients
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("FocusDeckCors", policy =>
@@ -110,12 +125,17 @@ try
                     "https://focusdeck.909436.xyz",  // Production Cloudflare hostname
                     "http://localhost:3000",          // Local dev (React/Vite)
                     "http://localhost:5173",          // Local dev (Vite default)
-                    "http://localhost:5239"           // Local dev (Kestrel)
+                    "http://localhost:5239",          // Local dev (Kestrel)
+                    "capacitor://localhost",          // Capacitor mobile apps (iOS/Android)
+                    "ionic://localhost",              // Ionic mobile apps
+                    "http://localhost",               // General localhost for mobile dev
+                    "tauri://localhost",              // Tauri desktop apps
+                    "https://tauri.localhost"         // Tauri desktop apps (secure)
                   )
                   .SetIsOriginAllowedToAllowWildcardSubdomains()
                   .AllowAnyMethod()
                   .AllowAnyHeader()
-                  .AllowCredentials(); // Only if using cookies/auth
+                  .AllowCredentials(); // For cookies/auth tokens
         });
     });
 
@@ -340,15 +360,17 @@ try
     app.UseAuthentication();
     app.UseAuthorization();
 
-    // Map API controllers
-    app.MapControllers();
+    // Map API controllers with authorization
+    app.MapControllers()
+        .RequireAuthorization(); // All API controllers require auth by default
 
     // Health check endpoint (no auth required)
     app.MapGet("/healthz", () => Results.Ok(new { ok = true, time = DateTimeOffset.UtcNow }))
         .WithName("HealthCheck")
-        .WithOpenApi();
+        .WithOpenApi()
+        .AllowAnonymous();
 
-    // System health check endpoint with detailed checks
+    // System health check endpoint with detailed checks (no auth required)
     app.MapHealthChecks("/v1/system/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
     {
         ResponseWriter = async (context, report) =>
@@ -368,7 +390,7 @@ try
             };
             await context.Response.WriteAsJsonAsync(response);
         }
-    });
+    }).AllowAnonymous();
 
     // Custom endpoint to serve the root index.html with version injection
     app.MapGet("/", async (HttpContext context, VersionService versionService, IWebHostEnvironment env) =>

@@ -18,6 +18,7 @@ public class AutomationDbContext : DbContext
     public DbSet<ServiceConfiguration> ServiceConfigurations { get; set; }
     public DbSet<Note> Notes { get; set; }
     public DbSet<StudySession> StudySessions { get; set; }
+    public DbSet<RefreshToken> RefreshTokens { get; set; }
 
     // Sync tables
     public DbSet<DeviceRegistration> DeviceRegistrations { get; set; }
