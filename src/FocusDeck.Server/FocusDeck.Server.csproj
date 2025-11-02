@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InternalsVisibleTo>FocusDeck.Server.Tests</InternalsVisibleTo>
   </PropertyGroup>
 
   <ItemGroup>

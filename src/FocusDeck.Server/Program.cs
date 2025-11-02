@@ -147,6 +147,9 @@ try
     // Add Auth services
     builder.Services.AddScoped<FocusDeck.Server.Services.Auth.ITokenService, FocusDeck.Server.Services.Auth.TokenService>();
 
+    // Add Storage services
+    builder.Services.AddSingleton<FocusDeck.Server.Services.Storage.IAssetStorage, FocusDeck.Server.Services.Storage.LocalFileSystemAssetStorage>();
+
     // Add Job services
     builder.Services.AddScoped<ITranscribeLectureJob, TranscribeLectureJob>();
     builder.Services.AddScoped<ISummarizeLectureJob, SummarizeLectureJob>();
@@ -532,3 +535,6 @@ finally
 {
     Log.CloseAndFlush();
 }
+
+// Make Program class accessible to integration tests
+public partial class Program { }
