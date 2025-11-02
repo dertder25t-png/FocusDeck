@@ -11,6 +11,8 @@ public interface ITokenService
     string GenerateAccessToken(string userId, string[] roles);
     string GenerateRefreshToken();
     ClaimsPrincipal? GetPrincipalFromExpiredToken(string token);
+    string ComputeTokenHash(string token);
+    string ComputeClientFingerprint(string? clientId, string? userAgent);
 }
 
 public class TokenService : ITokenService
@@ -98,5 +100,20 @@ public class TokenService : ITokenService
             _logger.LogWarning(ex, "Failed to get principal from token");
             return null;
         }
+    }
+
+    public string ComputeTokenHash(string token)
+    {
+        using var sha256 = SHA256.Create();
+        var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(token));
+        return Convert.ToBase64String(hashBytes);
+    }
+
+    public string ComputeClientFingerprint(string? clientId, string? userAgent)
+    {
+        var input = $"{clientId ?? "unknown"}|{userAgent ?? "unknown"}";
+        using var sha256 = SHA256.Create();
+        var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
+        return Convert.ToBase64String(hashBytes);
     }
 }

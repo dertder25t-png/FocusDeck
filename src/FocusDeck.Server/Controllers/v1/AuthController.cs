@@ -38,7 +38,7 @@ public class AuthController : ControllerBase
         // Simple dev authentication - replace with proper authentication
         if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
         {
-            return BadRequest(new { message = "Username and password are required" });
+            return BadRequest(new { code = "INVALID_INPUT", message = "Username and password are required", traceId = HttpContext.TraceIdentifier });
         }
 
         // For development: accept any username/password
@@ -48,15 +48,21 @@ public class AuthController : ControllerBase
 
         var accessToken = _tokenService.GenerateAccessToken(userId, roles);
         var refreshToken = _tokenService.GenerateRefreshToken();
+        
+        // Compute client fingerprint
+        var clientId = request.ClientId ?? HttpContext.Connection.RemoteIpAddress?.ToString();
+        var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
+        var clientFingerprint = _tokenService.ComputeClientFingerprint(clientId, userAgent);
 
-        // Store refresh token
+        // Store refresh token with hash
         var refreshTokenEntity = new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = userId,
-            Token = refreshToken,
-            ExpiresAt = DateTime.UtcNow.AddDays(_configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7)),
-            CreatedAt = DateTime.UtcNow
+            TokenHash = _tokenService.ComputeTokenHash(refreshToken),
+            ClientFingerprint = clientFingerprint,
+            IssuedUtc = DateTime.UtcNow,
+            ExpiresUtc = DateTime.UtcNow.AddDays(_configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7))
         };
 
         _db.RefreshTokens.Add(refreshTokenEntity);
@@ -76,69 +82,132 @@ public class AuthController : ControllerBase
     {
         if (string.IsNullOrEmpty(request.RefreshToken))
         {
-            return BadRequest(new { message = "Refresh token is required" });
+            return BadRequest(new { code = "INVALID_INPUT", message = "Refresh token is required", traceId = HttpContext.TraceIdentifier });
         }
 
-        var storedToken = await _db.RefreshTokens
-            .FirstOrDefaultAsync(t => t.Token == request.RefreshToken);
-
-        if (storedToken == null || !storedToken.IsActive)
+        var tokenHash = _tokenService.ComputeTokenHash(request.RefreshToken);
+        
+        // Use transaction for atomic token rotation
+        using var transaction = await _db.Database.BeginTransactionAsync();
+        
+        try
         {
-            return Unauthorized(new { message = "Invalid or expired refresh token" });
+            var storedToken = await _db.RefreshTokens
+                .FirstOrDefaultAsync(t => t.TokenHash == tokenHash);
+
+            if (storedToken == null)
+            {
+                await transaction.RollbackAsync();
+                return Unauthorized(new { code = "INVALID_TOKEN", message = "Invalid refresh token", traceId = HttpContext.TraceIdentifier });
+            }
+
+            // Check if token was already used (replay attack detection)
+            if (storedToken.IsRevoked)
+            {
+                _logger.LogWarning("Replay attack detected: Token {TokenId} already revoked for user {UserId}", 
+                    storedToken.Id, storedToken.UserId);
+                
+                // Revoke all descendant tokens for this user (token family breach)
+                var userTokens = await _db.RefreshTokens
+                    .Where(t => t.UserId == storedToken.UserId && t.IsActive)
+                    .ToListAsync();
+                
+                foreach (var token in userTokens)
+                {
+                    token.RevokedUtc = DateTime.UtcNow;
+                }
+                
+                await _db.SaveChangesAsync();
+                await transaction.CommitAsync();
+                
+                return Unauthorized(new { code = "TOKEN_REUSE", message = "Token reuse detected. All tokens revoked.", traceId = HttpContext.TraceIdentifier });
+            }
+
+            if (!storedToken.IsActive)
+            {
+                await transaction.RollbackAsync();
+                return Unauthorized(new { code = "EXPIRED_TOKEN", message = "Refresh token expired", traceId = HttpContext.TraceIdentifier });
+            }
+
+            // Verify client fingerprint
+            var clientId = request.ClientId ?? HttpContext.Connection.RemoteIpAddress?.ToString();
+            var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
+            var clientFingerprint = _tokenService.ComputeClientFingerprint(clientId, userAgent);
+            
+            if (storedToken.ClientFingerprint != clientFingerprint)
+            {
+                _logger.LogWarning("Client fingerprint mismatch for token {TokenId}. Expected: {Expected}, Got: {Got}", 
+                    storedToken.Id, storedToken.ClientFingerprint, clientFingerprint);
+                await transaction.RollbackAsync();
+                return Unauthorized(new { code = "FINGERPRINT_MISMATCH", message = "Client fingerprint mismatch", traceId = HttpContext.TraceIdentifier });
+            }
+
+            // Get user ID from the old access token (even if expired)
+            var principal = _tokenService.GetPrincipalFromExpiredToken(request.AccessToken ?? "");
+            if (principal == null)
+            {
+                await transaction.RollbackAsync();
+                return Unauthorized(new { code = "INVALID_ACCESS_TOKEN", message = "Invalid access token", traceId = HttpContext.TraceIdentifier });
+            }
+
+            var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null || userId != storedToken.UserId)
+            {
+                await transaction.RollbackAsync();
+                return Unauthorized(new { code = "TOKEN_MISMATCH", message = "Token mismatch", traceId = HttpContext.TraceIdentifier });
+            }
+
+            // Generate new tokens
+            var roles = principal.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
+            var newAccessToken = _tokenService.GenerateAccessToken(userId, roles);
+            var newRefreshToken = _tokenService.GenerateRefreshToken();
+            var newTokenHash = _tokenService.ComputeTokenHash(newRefreshToken);
+
+            // Revoke old refresh token atomically
+            storedToken.RevokedUtc = DateTime.UtcNow;
+            storedToken.ReplacedByTokenHash = newTokenHash;
+
+            // Create new refresh token
+            var newRefreshTokenEntity = new RefreshToken
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                TokenHash = newTokenHash,
+                ClientFingerprint = clientFingerprint,
+                IssuedUtc = DateTime.UtcNow,
+                ExpiresUtc = DateTime.UtcNow.AddDays(_configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7))
+            };
+
+            _db.RefreshTokens.Add(newRefreshTokenEntity);
+            await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(new
+            {
+                accessToken = newAccessToken,
+                refreshToken = newRefreshToken,
+                expiresIn = _configuration.GetValue<int>("Jwt:AccessTokenExpirationMinutes", 60) * 60
+            });
         }
-
-        // Get user ID from the old access token (even if expired)
-        var principal = _tokenService.GetPrincipalFromExpiredToken(request.AccessToken ?? "");
-        if (principal == null)
+        catch (Exception ex)
         {
-            return Unauthorized(new { message = "Invalid access token" });
+            _logger.LogError(ex, "Error during token refresh");
+            await transaction.RollbackAsync();
+            return StatusCode(500, new { code = "INTERNAL_ERROR", message = "Token refresh failed", traceId = HttpContext.TraceIdentifier });
         }
-
-        var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null || userId != storedToken.UserId)
-        {
-            return Unauthorized(new { message = "Token mismatch" });
-        }
-
-        // Generate new tokens
-        var roles = principal.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
-        var newAccessToken = _tokenService.GenerateAccessToken(userId, roles);
-        var newRefreshToken = _tokenService.GenerateRefreshToken();
-
-        // Revoke old refresh token and create new one
-        storedToken.RevokedAt = DateTime.UtcNow;
-        storedToken.ReplacedByToken = newRefreshToken;
-
-        var newRefreshTokenEntity = new RefreshToken
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            Token = newRefreshToken,
-            ExpiresAt = DateTime.UtcNow.AddDays(_configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7)),
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _db.RefreshTokens.Add(newRefreshTokenEntity);
-        await _db.SaveChangesAsync();
-
-        return Ok(new
-        {
-            accessToken = newAccessToken,
-            refreshToken = newRefreshToken,
-            expiresIn = _configuration.GetValue<int>("Jwt:AccessTokenExpirationMinutes", 60) * 60
-        });
     }
 
     [HttpPost("revoke")]
     [Authorize]
     public async Task<IActionResult> Revoke([FromBody] RevokeRequest request)
     {
+        var tokenHash = _tokenService.ComputeTokenHash(request.RefreshToken);
         var storedToken = await _db.RefreshTokens
-            .FirstOrDefaultAsync(t => t.Token == request.RefreshToken);
+            .FirstOrDefaultAsync(t => t.TokenHash == tokenHash);
 
         if (storedToken == null)
         {
-            return NotFound(new { message = "Token not found" });
+            return NotFound(new { code = "TOKEN_NOT_FOUND", message = "Token not found", traceId = HttpContext.TraceIdentifier });
         }
 
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -147,13 +216,13 @@ public class AuthController : ControllerBase
             return Forbid();
         }
 
-        storedToken.RevokedAt = DateTime.UtcNow;
+        storedToken.RevokedUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
         return Ok(new { message = "Token revoked successfully" });
     }
 }
 
-public record LoginRequest(string Username, string Password);
-public record RefreshRequest(string? AccessToken, string RefreshToken);
+public record LoginRequest(string Username, string Password, string? ClientId = null);
+public record RefreshRequest(string? AccessToken, string RefreshToken, string? ClientId = null);
 public record RevokeRequest(string RefreshToken);

@@ -4,12 +4,13 @@ public class RefreshToken
 {
     public Guid Id { get; set; }
     public string UserId { get; set; } = string.Empty;
-    public string Token { get; set; } = string.Empty;
-    public DateTime ExpiresAt { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime? RevokedAt { get; set; }
-    public string? ReplacedByToken { get; set; }
-    public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
-    public bool IsRevoked => RevokedAt != null;
+    public string TokenHash { get; set; } = string.Empty; // SHA-256 hash of the token
+    public string ClientFingerprint { get; set; } = string.Empty; // SHA-256 of ClientId/UserAgent
+    public DateTime IssuedUtc { get; set; }
+    public DateTime ExpiresUtc { get; set; }
+    public DateTime? RevokedUtc { get; set; }
+    public string? ReplacedByTokenHash { get; set; }
+    public bool IsExpired => DateTime.UtcNow >= ExpiresUtc;
+    public bool IsRevoked => RevokedUtc != null;
     public bool IsActive => !IsRevoked && !IsExpired;
 }

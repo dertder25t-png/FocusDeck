@@ -204,25 +204,23 @@ try
         .AddDbContextCheck<AutomationDbContext>("database", tags: new[] { "db", "sql" })
         .AddCheck("filesystem", new FileSystemWriteHealthCheck("/data/assets"), tags: new[] { "filesystem" });
 
-    // Add CORS support for web, desktop, and mobile clients
+    // Add CORS support with strict allow-list from configuration
+    var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() 
+        ?? new[] {
+            "http://localhost:5173",          // Local dev (Vite default)
+            "http://localhost:5000",          // Local dev
+            "focusdeck-desktop://app",        // Desktop app
+            "focusdeck-mobile://app"          // Mobile app
+        };
+
     builder.Services.AddCors(options =>
     {
-        options.AddPolicy("FocusDeckCors", policy =>
+        options.AddPolicy("StrictCors", policy =>
         {
-            policy.WithOrigins(
-                    "https://focusdeck.909436.xyz",  // Production Cloudflare hostname
-                    "http://localhost:3000",          // Local dev (React/Vite)
-                    "http://localhost:5173",          // Local dev (Vite default)
-                    "http://localhost:5239",          // Local dev (Kestrel)
-                    "capacitor://localhost",          // Capacitor mobile apps (iOS/Android)
-                    "ionic://localhost",              // Ionic mobile apps
-                    "http://localhost",               // General localhost for mobile dev
-                    "tauri://localhost",              // Tauri desktop apps
-                    "https://tauri.localhost"         // Tauri desktop apps (secure)
-                  )
-                  .SetIsOriginAllowedToAllowWildcardSubdomains()
-                  .AllowAnyMethod()
-                  .AllowAnyHeader()
+            policy.WithOrigins(allowedOrigins)
+                  .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE") // Explicit methods only
+                  .WithHeaders("Content-Type", "Authorization", "X-Requested-With", "Accept")
+                  .WithExposedHeaders("traceId") // Expose traceId for error tracking
                   .AllowCredentials(); // For cookies/auth tokens
         });
     });
@@ -434,8 +432,8 @@ try
         }
     });
 
-    // Enable CORS (must be after UseRouting if you have it)
-    app.UseCors("FocusDeckCors");
+    // Enable CORS with strict policy
+    app.UseCors("StrictCors");
 
     // Enable Swagger UI
     app.UseSwagger();
