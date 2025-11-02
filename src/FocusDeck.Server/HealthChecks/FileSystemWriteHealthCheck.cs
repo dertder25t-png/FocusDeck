@@ -4,25 +4,28 @@ namespace FocusDeck.Server.HealthChecks;
 
 public class FileSystemWriteHealthCheck : IHealthCheck
 {
-    private readonly string _path;
+    private readonly IConfiguration _configuration;
 
-    public FileSystemWriteHealthCheck(string path)
+    public FileSystemWriteHealthCheck(IConfiguration configuration)
     {
-        _path = path;
+        _configuration = configuration;
     }
 
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
+        // Get storage root from configuration (same as LocalFileSystemAssetStorage uses)
+        var storageRoot = _configuration.GetValue<string>("Storage:Root") ?? "/data/assets";
+        
         try
         {
             // Ensure directory exists
-            Directory.CreateDirectory(_path);
+            Directory.CreateDirectory(storageRoot);
 
-            // Try to write a test file
-            var testFile = Path.Combine(_path, $".healthcheck_{Guid.NewGuid()}.tmp");
+            // Try to write a temporary health check file
+            var testFile = Path.Combine(storageRoot, "_health.tmp");
             await File.WriteAllTextAsync(testFile, "health check", cancellationToken);
             
-            // Try to read it back
+            // Try to read it back to verify
             var content = await File.ReadAllTextAsync(testFile, cancellationToken);
             
             // Clean up
@@ -30,18 +33,22 @@ public class FileSystemWriteHealthCheck : IHealthCheck
 
             if (content == "health check")
             {
-                return HealthCheckResult.Healthy($"Write access verified for path: {_path}");
+                return HealthCheckResult.Healthy($"Storage write access verified for: {storageRoot}");
             }
 
-            return HealthCheckResult.Degraded($"Write verification failed for path: {_path}");
+            return HealthCheckResult.Degraded($"Storage write verification failed for: {storageRoot}");
         }
         catch (UnauthorizedAccessException ex)
         {
-            return HealthCheckResult.Unhealthy($"No write access to path: {_path}", ex);
+            return HealthCheckResult.Unhealthy($"No write access to storage directory: {storageRoot}. Uploads will fail.", ex);
+        }
+        catch (IOException ex)
+        {
+            return HealthCheckResult.Unhealthy($"I/O error accessing storage directory: {storageRoot}. Check permissions and disk space.", ex);
         }
         catch (Exception ex)
         {
-            return HealthCheckResult.Unhealthy($"File system check failed for path: {_path}", ex);
+            return HealthCheckResult.Unhealthy($"Storage health check failed for: {storageRoot}. Error: {ex.Message}", ex);
         }
     }
 }
