@@ -25,6 +25,15 @@ public static class MobileServiceConfiguration
         services.AddSingleton<ICloudSyncService>(sp => 
             new PocketBaseCloudSyncService(cloudServerUrl));
         
+        // Register device identification service
+        services.AddSingleton<IDeviceIdService, DeviceIdService>();
+        
+        // Register WebSocket client service
+        services.AddSingleton<IWebSocketClientService, WebSocketClientService>();
+        
+        // Register heartbeat service (disabled by default)
+        services.AddSingleton<IHeartbeatService, HeartbeatService>();
+        
         // Register ViewModels
         services.AddSingleton<StudyTimerViewModel>();
         services.AddSingleton<CloudSettingsViewModel>();

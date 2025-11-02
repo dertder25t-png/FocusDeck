@@ -43,6 +43,18 @@ public partial class CloudSettingsViewModel : ObservableObject
     private bool isTestingConnection = false;
 
     /// <summary>
+    /// Is currently signing in?
+    /// </summary>
+    [ObservableProperty]
+    private bool isSigningIn = false;
+
+    /// <summary>
+    /// Sign in button text
+    /// </summary>
+    [ObservableProperty]
+    private string signInButtonText = "Sign In";
+
+    /// <summary>
     /// Should show connection test result?
     /// </summary>
     [ObservableProperty]
@@ -266,6 +278,76 @@ public partial class CloudSettingsViewModel : ObservableObject
         {
             ShowTestResult("✗ Error", $"Failed to save: {ex.Message}", Colors.LightPink, Colors.Red, Colors.Red, Colors.Red);
             Debug.WriteLine($"[Settings] Error saving settings: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Sign in to the server
+    /// </summary>
+    [RelayCommand]
+    public async Task SignInAsync()
+    {
+        if (IsSigningIn)
+        {
+            return;
+        }
+
+        try
+        {
+            IsSigningIn = true;
+            SignInButtonText = "Signing In...";
+
+            // Validate inputs
+            if (string.IsNullOrWhiteSpace(CloudServerUrl))
+            {
+                ShowTestResult("Invalid Input", "Please enter server URL", Colors.LightPink, Colors.Red, Colors.Red, Colors.Red);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(CloudEmail) || string.IsNullOrWhiteSpace(CloudPassword))
+            {
+                ShowTestResult("Invalid Input", "Please enter username and password", Colors.LightPink, Colors.Red, Colors.Red, Colors.Red);
+                return;
+            }
+
+            Debug.WriteLine($"[Settings] Attempting sign in to {CloudServerUrl}");
+
+            // Create a test service to authenticate
+            var testService = new PocketBaseCloudSyncService(CloudServerUrl);
+            var authToken = await testService.AuthenticateAsync(CloudEmail, CloudPassword);
+
+            if (!string.IsNullOrWhiteSpace(authToken))
+            {
+                // Save credentials on successful authentication
+                Preferences.Set("cloud_server_url", CloudServerUrl);
+                Preferences.Set("cloud_email", CloudEmail);
+                Preferences.Set("cloud_password", CloudPassword);
+                Preferences.Set("auth_token", authToken);
+
+                // Update status
+                UpdateCloudStatus();
+
+                ShowTestResult("✓ Signed In", "Successfully authenticated! Your sessions will now sync automatically.", Colors.LightGreen, Colors.Green, Colors.Green, Colors.Green);
+                Debug.WriteLine("[Settings] Sign in successful");
+
+                // Hide result after 3 seconds
+                await Task.Delay(3000);
+                ShowConnectionTestResult = false;
+            }
+            else
+            {
+                ShowTestResult("✗ Failed", "Authentication failed. Check your credentials.", Colors.LightPink, Colors.Red, Colors.Red, Colors.Red);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowTestResult("✗ Error", $"Sign in failed: {ex.Message}", Colors.LightPink, Colors.Red, Colors.Red, Colors.Red);
+            Debug.WriteLine($"[Settings] Sign in error: {ex.Message}");
+        }
+        finally
+        {
+            IsSigningIn = false;
+            SignInButtonText = "Sign In";
         }
     }
 

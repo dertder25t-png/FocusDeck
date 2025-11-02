@@ -75,11 +75,11 @@
                         Text="Authentication"
                         TextColor="#333333" />
 
-                    <!-- Email Input -->
+                    <!-- Username/Email Input -->
                     <Entry
                         BackgroundColor="White"
                         Keyboard="Email"
-                        Placeholder="Email (optional)"
+                        Placeholder="Username or Email"
                         PlaceholderColor="#999999"
                         Text="{Binding CloudEmail}"
                         TextColor="#333333" />
@@ -88,10 +88,27 @@
                     <Entry
                         BackgroundColor="White"
                         IsPassword="True"
-                        Placeholder="Password (optional)"
+                        Placeholder="Password"
                         PlaceholderColor="#999999"
                         Text="{Binding CloudPassword}"
                         TextColor="#333333" />
+
+                    <!-- Sign In Button -->
+                    <Button
+                        BackgroundColor="#512BD4"
+                        Command="{Binding SignInCommand}"
+                        CornerRadius="8"
+                        FontAttributes="Bold"
+                        FontSize="14"
+                        IsEnabled="{Binding IsSigningIn, Converter={StaticResource InvertedBoolConverter}}"
+                        Padding="10"
+                        Text="{Binding SignInButtonText}"
+                        TextColor="White" />
+                    
+                    <Label
+                        FontSize="11"
+                        Text="Sign in to enable real-time sync and cloud features"
+                        TextColor="#999999" />
                 </StackLayout>
 
                 <!-- Action Buttons -->
