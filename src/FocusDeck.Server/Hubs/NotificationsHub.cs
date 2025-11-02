@@ -102,4 +102,19 @@ public interface INotificationClient
     /// General notification message
     /// </summary>
     Task NotificationReceived(string title, string message, string severity);
+    
+    /// <summary>
+    /// Notify client when lecture transcription is complete
+    /// </summary>
+    Task LectureTranscribed(string lectureId, string transcriptionText, string message);
+    
+    /// <summary>
+    /// Notify client when lecture summarization is complete
+    /// </summary>
+    Task LectureSummarized(string lectureId, string summaryText, string message);
+    
+    /// <summary>
+    /// Notify client when lecture notes are ready
+    /// </summary>
+    Task LectureNoteReady(string lectureId, string noteId, string message);
 }

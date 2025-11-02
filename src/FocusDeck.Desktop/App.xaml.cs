@@ -8,6 +8,9 @@ namespace FocusDeck.Desktop;
 public partial class App : Application
 {
     private ServiceProvider? _serviceProvider;
+    
+    public static new App Current => (App)Application.Current;
+    public IServiceProvider Services => _serviceProvider!;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -47,6 +50,7 @@ public partial class App : Application
         services.AddSingleton<ISnackbarService, SnackbarService>();
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<ICommandPaletteService, CommandPaletteService>();
+        services.AddSingleton<IAudioRecorderService, AudioRecorderService>();
 
         // Register views
         services.AddSingleton<ShellWindow>();
