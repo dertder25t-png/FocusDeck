@@ -21,6 +21,9 @@ namespace FocusDeck.Server.Services
         private const string ServiceName = "focusdeck";
         private const string LogDirectory = "/var/log/focusdeck";
         private const string LogFileName = "update.log";
+        private const string DefaultPublishDirectory = "/home/focusdeck/focusdeck-server";
+        private const string RepoEnvVar = "FOCUSDECK_REPO";
+        private const string PublishEnvVar = "FOCUSDECK_PUBLISH_DIR";
 
         private readonly ILogger<ServerUpdateService> _logger;
         private readonly IConfiguration _configuration;
@@ -65,11 +68,11 @@ namespace FocusDeck.Server.Services
 
             try
             {
-                var repoPath = GetRepositoryPath();
-                if (!Directory.Exists(repoPath))
-                {
-                    _updateSemaphore.Release();
-                    _isUpdating = false;
+            var repoPath = GetRepositoryPath();
+            if (!Directory.Exists(repoPath))
+            {
+                _updateSemaphore.Release();
+                _isUpdating = false;
 
                     return new UpdateResponse
                     {
@@ -101,7 +104,7 @@ namespace FocusDeck.Server.Services
                 return new UpdateResponse
                 {
                     Success = true,
-                    Message = "Update process started. The server will restart in approximately 30–60 seconds.",
+                    Message = "Update process started. The server will restart in approximately 30-60 seconds.",
                     IsUpdating = true
                 };
             }
@@ -152,6 +155,13 @@ namespace FocusDeck.Server.Services
                 checks.Add(await VerifyCommandAsync("git --version", "Git installed", "Git is required to pull updates", cancellationToken));
                 checks.Add(await VerifyCommandAsync("dotnet --version", "dotnet CLI installed", ".NET SDK is required to build the server", cancellationToken));
                 checks.Add(await VerifyCommandAsync("systemctl --version", "systemctl available", "systemctl access is required to restart the service", cancellationToken));
+
+                // Verify passwordless sudo for systemctl restart
+                checks.Add(await VerifyCommandAsync(
+                    "sudo -n -l | grep -E 'systemctl( .*)?restart( .*)?focusdeck'",
+                    "sudo NOPASSWD configured for systemctl restart focusdeck",
+                    "Passwordless sudo for 'systemctl restart focusdeck' is required (configure with visudo)",
+                    cancellationToken));
 
                 var repoExists = Directory.Exists(repoPath);
                 checks.Add(new ConfigCheck
@@ -238,6 +248,7 @@ namespace FocusDeck.Server.Services
             var timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC");
             var logDir = LogDirectory;
             var logPath = Path.Combine(logDir, LogFileName);
+            var publishDirectory = GetPublishDirectory();
 
             Directory.CreateDirectory(logDir);
 
@@ -250,16 +261,16 @@ namespace FocusDeck.Server.Services
                 var pullResult = await RunCommandAsync("git", "pull origin master", repoPath, cancellationToken);
                 logBuilder.AppendLine(pullResult);
 
-                logBuilder.AppendLine("\nStep 2: Building server (Release)...");
-                var buildResult = await RunCommandAsync(
+                logBuilder.AppendLine($"\nStep 2: Publishing server (Release, self-contained) to {publishDirectory}...");
+                var publishResult = await RunCommandAsync(
                     "dotnet",
-                    "build src/FocusDeck.Server/FocusDeck.Server.csproj -c Release",
+                    $"publish src/FocusDeck.Server/FocusDeck.Server.csproj -c Release -r linux-x64 --self-contained true -o \"{publishDirectory}\"",
                     repoPath,
                     cancellationToken);
-                logBuilder.AppendLine(buildResult);
+                logBuilder.AppendLine(publishResult);
 
                 logBuilder.AppendLine("\nStep 3: Restarting FocusDeck service...");
-                var restartResult = await RunCommandAsync("sudo", $"systemctl restart {ServiceName}", repoPath, cancellationToken);
+                var restartResult = await RunCommandAsync("sudo", $"-n systemctl restart {ServiceName}", repoPath, cancellationToken);
                 logBuilder.AppendLine(restartResult);
 
                 logBuilder.AppendLine($"\n=== Update Completed: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss UTC} ===");
@@ -372,9 +383,14 @@ namespace FocusDeck.Server.Services
         }
 
         private string GetRepositoryPath() =>
-            Environment.GetEnvironmentVariable("FOCUSDECK_REPO")
+            ExpandPath(Environment.GetEnvironmentVariable(RepoEnvVar))
             ?? _configuration["Update:RepositoryPath"]
             ?? DefaultRepoPath;
+
+        private string GetPublishDirectory() =>
+            ExpandPath(Environment.GetEnvironmentVariable(PublishEnvVar))
+            ?? _configuration["Update:PublishDirectory"]
+            ?? DefaultPublishDirectory;
 
         private string GetConfigurationStatus()
         {
@@ -387,6 +403,27 @@ namespace FocusDeck.Server.Services
             return Directory.Exists(repoPath)
                 ? $"Repository detected at {repoPath}."
                 : $"Repository not found. Expected at {repoPath}.";
+        }
+
+        private static string? ExpandPath(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return null;
+            }
+
+            if (path.StartsWith("~/", StringComparison.Ordinal))
+            {
+                var home = Environment.GetEnvironmentVariable("HOME")
+                    ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+                if (!string.IsNullOrEmpty(home))
+                {
+                    return Path.Combine(home, path[2..]);
+                }
+            }
+
+            return path;
         }
 
         private string? GetLastUpdateLog()

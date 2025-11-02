@@ -2708,7 +2708,7 @@ class FocusDeckApp {
         });
 
         document.getElementById('resetDataBtn').addEventListener('click', () => {
-            if (confirm('ΓÜá∩╕Å This will delete ALL your data. Are you sure?')) {
+            if (confirm('⚠️ This will delete ALL your data. Are you sure?')) {
                 this.tasks = [];
                 this.decks = [];
                 this.sessions = [];
@@ -2824,9 +2824,9 @@ sudo systemctl restart focusdeck`;
             this.showToast('Command copied to clipboard!', 'success');
             const btn = document.getElementById('copyUpdateCmd');
             if (btn) {
-                btn.textContent = 'Γ£ô Copied!';
+                btn.textContent = '✓ Copied!';
                 setTimeout(() => {
-                    btn.textContent = '≡ƒôï Copy';
+                    btn.textContent = 'Copy';
                 }, 2000);
             }
         }).catch(err => {
@@ -3401,7 +3401,7 @@ sudo systemctl restart focusdeck`;
 
         if (generateBtn) {
             generateBtn.disabled = true;
-            generateBtn.innerHTML = '<span>ΓÅ│</span> Generating...';
+            generateBtn.innerHTML = '<span>⏳</span> Generating...';
         }
 
         try {
@@ -3428,17 +3428,17 @@ sudo systemctl restart focusdeck`;
                     tokenExpiry.textContent = expiryDate.toLocaleDateString() + ' ' + expiryDate.toLocaleTimeString();
                 }
 
-                this.showToast('Γ£à Token generated successfully!', 'success');
+                this.showToast('Token generated successfully!', 'success');
             } else {
-                this.showToast(`Γ¥î Failed to generate token: ${result.error}`, 'error');
+                this.showToast(`Failed to generate token: ${result.error}`, 'error');
             }
         } catch (error) {
             console.error('Failed to generate token:', error);
-            this.showToast(`Γ¥î Failed to generate token: ${error.message}`, 'error');
+            this.showToast(`Failed to generate token: ${error.message}`, 'error');
         } finally {
             if (generateBtn) {
                 generateBtn.disabled = false;
-                generateBtn.innerHTML = '<span>≡ƒöæ</span> Generate Token';
+                generateBtn.innerHTML = '<span>🔐</span> Generate Token';
             }
         }
     }
@@ -3454,7 +3454,7 @@ sudo systemctl restart focusdeck`;
 
         if (checkBtn) {
             checkBtn.disabled = true;
-            checkBtn.innerHTML = '<span>ΓÅ│</span> Checking...';
+            checkBtn.innerHTML = '<span>⏳</span> Checking...';
         }
 
         try {
@@ -3469,9 +3469,9 @@ sudo systemctl restart focusdeck`;
             // Update status
             if (updateSystemStatus) {
                 if (result.isConfigured) {
-                    updateSystemStatus.innerHTML = '<span style="color: var(--success)">Γ£à Ready</span>';
+                    updateSystemStatus.innerHTML = '<span style="color: var(--success)">✅ Ready</span>';
                 } else {
-                    updateSystemStatus.innerHTML = '<span style="color: var(--warning)">ΓÜá∩╕Å Not Configured</span>';
+                    updateSystemStatus.innerHTML = '<span style="color: var(--warning)">⚠️ Not Configured</span>';
                 }
             }
 
@@ -3479,16 +3479,16 @@ sudo systemctl restart focusdeck`;
             if (configBox) configBox.style.display = 'block';
             if (configTitle) {
                 if (result.isConfigured) {
-                    configTitle.innerHTML = 'Γ£à Configuration Status: Ready';
+                    configTitle.innerHTML = '✅ Configuration Status: Ready';
                 } else {
-                    configTitle.innerHTML = 'ΓÜá∩╕Å Configuration Status: Incomplete';
+                    configTitle.innerHTML = '⚠️ Configuration Status: Incomplete';
                 }
             }
 
             // Show checks
             if (configChecksList && result.checks) {
                 configChecksList.innerHTML = result.checks.map(check => {
-                    const icon = check.passed ? 'Γ£à' : 'Γ¥î';
+                    const icon = check.passed ? '✅' : '❌';
                     const color = check.passed ? 'var(--success)' : 'var(--error)';
                     return `
                         <div style="display: flex; align-items: start; gap: 0.5rem; margin-bottom: 0.5rem;">
@@ -3514,18 +3514,18 @@ sudo systemctl restart focusdeck`;
             }
 
             if (result.isConfigured) {
-                this.showToast('Γ£à Update system is configured', 'success');
+                this.showToast('Update system is configured', 'success');
             } else {
-                this.showToast(`ΓÜá∩╕Å ${result.message}`, 'warning');
+                this.showToast(`${result.message}`, 'warning');
             }
         } catch (error) {
             console.error('Failed to check configuration:', error);
-            this.showToast(`Γ¥î Failed to check configuration: ${error.message}`, 'error');
+            this.showToast(`Failed to check configuration: ${error.message}`, 'error');
             if (configBox) configBox.style.display = 'none';
         } finally {
             if (checkBtn) {
                 checkBtn.disabled = false;
-                checkBtn.innerHTML = '<span>ΓÜÖ∩╕Å</span> Check Configuration';
+                checkBtn.innerHTML = '<span>⚙️</span> Check Configuration';
             }
         }
     }
@@ -3539,12 +3539,12 @@ function copyToken() {
     if (token) {
         navigator.clipboard.writeText(token).then(() => {
             if (window.app) {
-                window.app.showToast('≡ƒôï Token copied to clipboard!', 'success');
+                window.app.showToast('Token copied to clipboard!', 'success');
             }
         }).catch(err => {
             console.error('Failed to copy token:', err);
             if (window.app) {
-                window.app.showToast('Γ¥î Failed to copy token', 'error');
+                window.app.showToast('Failed to copy token', 'error');
             }
         });
     }
