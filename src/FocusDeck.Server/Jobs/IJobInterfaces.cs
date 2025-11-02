@@ -83,3 +83,26 @@ public record VerificationResult
     public bool IsComplete { get; init; }
     public string? ErrorMessage { get; init; }
 }
+
+/// <summary>
+/// Job interface for generating structured notes from lectures
+/// </summary>
+public interface IGenerateLectureNoteJob
+{
+    /// <summary>
+    /// Generate a structured note from a lecture's transcript and summary
+    /// </summary>
+    /// <param name="lectureId">Unique identifier for the lecture</param>
+    /// <returns>Note generation result with note ID</returns>
+    Task<NoteGenerationResult> GenerateNoteAsync(string lectureId);
+}
+
+/// <summary>
+/// Result from note generation job
+/// </summary>
+public record NoteGenerationResult
+{
+    public bool Success { get; init; }
+    public string? NoteId { get; init; }
+    public string? ErrorMessage { get; init; }
+}

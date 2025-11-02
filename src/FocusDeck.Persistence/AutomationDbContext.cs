@@ -22,6 +22,8 @@ public class AutomationDbContext : DbContext
     public DbSet<Asset> Assets { get; set; }
     public DbSet<Course> Courses { get; set; }
     public DbSet<Lecture> Lectures { get; set; }
+    public DbSet<ReviewPlan> ReviewPlans { get; set; }
+    public DbSet<ReviewSession> ReviewSessions { get; set; }
 
     // Sync tables
     public DbSet<DeviceRegistration> DeviceRegistrations { get; set; }

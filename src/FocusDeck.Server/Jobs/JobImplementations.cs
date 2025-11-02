@@ -152,17 +152,20 @@ public class SummarizeLectureJob : ISummarizeLectureJob
     private readonly IHubContext<NotificationsHub, INotificationClient> _hubContext;
     private readonly Services.TextGeneration.ITextGen _textGen;
     private readonly AutomationDbContext _context;
+    private readonly IBackgroundJobClient _backgroundJobClient;
 
     public SummarizeLectureJob(
         ILogger<SummarizeLectureJob> logger,
         IHubContext<NotificationsHub, INotificationClient> hubContext,
         Services.TextGeneration.ITextGen textGen,
-        AutomationDbContext context)
+        AutomationDbContext context,
+        IBackgroundJobClient backgroundJobClient)
     {
         _logger = logger;
         _hubContext = hubContext;
         _textGen = textGen;
         _context = context;
+        _backgroundJobClient = backgroundJobClient;
     }
 
     public async Task<SummaryResult> SummarizeAsync(string lectureId, string content, int maxLength = 500)
@@ -233,6 +236,9 @@ public class SummarizeLectureJob : ISummarizeLectureJob
                 true,
                 "Summarization completed successfully",
                 result);
+
+            // Enqueue note generation job
+            _backgroundJobClient.Enqueue<IGenerateLectureNoteJob>(x => x.GenerateNoteAsync(lectureId));
 
             return result;
         }
@@ -327,5 +333,192 @@ public class VerifyNoteJob : IVerifyNoteJob
             result);
 
         return result;
+    }
+}
+
+/// <summary>
+/// Implementation of lecture note generation job
+/// </summary>
+public class GenerateLectureNoteJob : IGenerateLectureNoteJob
+{
+    private readonly ILogger<GenerateLectureNoteJob> _logger;
+    private readonly IHubContext<NotificationsHub, INotificationClient> _hubContext;
+    private readonly Services.TextGeneration.ITextGen _textGen;
+    private readonly AutomationDbContext _context;
+    private readonly SharedKernel.IIdGenerator _idGenerator;
+
+    public GenerateLectureNoteJob(
+        ILogger<GenerateLectureNoteJob> logger,
+        IHubContext<NotificationsHub, INotificationClient> hubContext,
+        Services.TextGeneration.ITextGen textGen,
+        AutomationDbContext context,
+        SharedKernel.IIdGenerator idGenerator)
+    {
+        _logger = logger;
+        _hubContext = hubContext;
+        _textGen = textGen;
+        _context = context;
+        _idGenerator = idGenerator;
+    }
+
+    public async Task<NoteGenerationResult> GenerateNoteAsync(string lectureId)
+    {
+        _logger.LogInformation("Starting note generation job for lecture {LectureId}", lectureId);
+
+        try
+        {
+            // Check if note already generated (idempotency)
+            var lecture = await _context.Lectures.FindAsync(lectureId);
+            if (lecture == null)
+            {
+                throw new Exception($"Lecture {lectureId} not found");
+            }
+
+            if (!string.IsNullOrEmpty(lecture.GeneratedNoteId))
+            {
+                _logger.LogInformation(
+                    "Note already generated for lecture {LectureId}, note ID: {NoteId}. Returning existing.",
+                    lectureId, lecture.GeneratedNoteId);
+                
+                return new NoteGenerationResult
+                {
+                    Success = true,
+                    NoteId = lecture.GeneratedNoteId
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(lecture.TranscriptionText))
+            {
+                throw new Exception($"Lecture {lectureId} has no transcription");
+            }
+
+            lecture.Status = LectureStatus.GeneratingNotes;
+            await _context.SaveChangesAsync();
+
+            // Notify progress
+            await _hubContext.Clients.All.JobProgress(lectureId, "GenerateLectureNote", 0, "Starting note generation...");
+
+            var transcript = lecture.TranscriptionText;
+            var summary = lecture.SummaryText ?? "";
+
+            // Generate Key Points section
+            await _hubContext.Clients.All.JobProgress(lectureId, "GenerateLectureNote", 20, "Generating key points...");
+            var keyPointsPrompt = $"Extract 5-7 key points from this lecture in bullet format:\n\n{transcript}";
+            var keyPoints = await _textGen.GenerateAsync(keyPointsPrompt, 300, 0.5);
+
+            // Generate Definitions section
+            await _hubContext.Clients.All.JobProgress(lectureId, "GenerateLectureNote", 40, "Extracting definitions...");
+            var definitionsPrompt = $"List important terms and their definitions from this lecture:\n\n{transcript}";
+            var definitions = await _textGen.GenerateAsync(definitionsPrompt, 400, 0.5);
+
+            // Generate Likely Test Questions
+            await _hubContext.Clients.All.JobProgress(lectureId, "GenerateLectureNote", 60, "Creating test questions...");
+            var questionsPrompt = $"Generate 5 potential test questions based on this lecture:\n\n{transcript}";
+            var questions = await _textGen.GenerateAsync(questionsPrompt, 300, 0.5);
+
+            // Generate References
+            await _hubContext.Clients.All.JobProgress(lectureId, "GenerateLectureNote", 80, "Compiling references...");
+            var referencesPrompt = $"Suggest reading materials or topics for further study based on this lecture:\n\n{summary}";
+            var references = await _textGen.GenerateAsync(referencesPrompt, 200, 0.5);
+
+            await _hubContext.Clients.All.JobProgress(lectureId, "GenerateLectureNote", 90, "Creating note...");
+
+            // Create structured note
+            var noteId = _idGenerator.NewId().ToString();
+            var courseTitle = lecture.Course?.Name ?? "Unknown Course";
+            
+            var noteContent = $@"# {lecture.Title}
+
+**Course:** {courseTitle}
+**Date:** {lecture.RecordedAt:yyyy-MM-dd}
+
+## Summary
+
+{summary}
+
+## Key Points
+
+{keyPoints}
+
+## Definitions
+
+{definitions}
+
+## Likely Test Questions
+
+{questions}
+
+## References & Further Study
+
+{references}
+
+---
+*Auto-generated from lecture recording on {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC*
+";
+
+            var note = new Note
+            {
+                Id = noteId,
+                Title = $"📚 {lecture.Title}",
+                Content = noteContent,
+                Tags = new List<string> { "lecture", "auto-generated", courseTitle.ToLower().Replace(" ", "-") },
+                Color = "#4F46E5", // Indigo for lecture notes
+                IsPinned = false,
+                CreatedDate = DateTime.UtcNow,
+                LastModified = DateTime.UtcNow
+            };
+
+            _context.Notes.Add(note);
+            
+            lecture.GeneratedNoteId = noteId;
+            lecture.Status = LectureStatus.Completed;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Note generation completed successfully for lecture {LectureId}, note ID: {NoteId}",
+                lectureId, noteId);
+
+            // Send SignalR event
+            await _hubContext.Clients.All.LectureNoteReady(lectureId, noteId, "Note generated successfully");
+
+            // Notify completion
+            await _hubContext.Clients.All.JobCompleted(
+                lectureId,
+                "GenerateLectureNote",
+                true,
+                "Note generation completed successfully",
+                new { NoteId = noteId });
+
+            return new NoteGenerationResult
+            {
+                Success = true,
+                NoteId = noteId
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating note for lecture {LectureId}", lectureId);
+
+            // Update lecture status to failed
+            var lecture = await _context.Lectures.FindAsync(lectureId);
+            if (lecture != null)
+            {
+                lecture.Status = LectureStatus.Failed;
+                await _context.SaveChangesAsync();
+            }
+
+            await _hubContext.Clients.All.JobCompleted(
+                lectureId,
+                "GenerateLectureNote",
+                false,
+                $"Note generation failed: {ex.Message}",
+                null);
+
+            return new NoteGenerationResult
+            {
+                Success = false,
+                ErrorMessage = ex.Message
+            };
+        }
     }
 }

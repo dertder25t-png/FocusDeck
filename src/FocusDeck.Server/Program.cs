@@ -158,6 +158,7 @@ try
     builder.Services.AddScoped<ITranscribeLectureJob, TranscribeLectureJob>();
     builder.Services.AddScoped<ISummarizeLectureJob, SummarizeLectureJob>();
     builder.Services.AddScoped<IVerifyNoteJob, VerifyNoteJob>();
+    builder.Services.AddScoped<IGenerateLectureNoteJob, GenerateLectureNoteJob>();
 
     // Add Sync Service
     builder.Services.AddScoped<ISyncService, SyncService>();
