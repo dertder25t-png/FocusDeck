@@ -23,13 +23,24 @@ public partial class App : Application
 
     private void ConfigureServices(IServiceCollection services)
     {
-        // Register HttpClient with Polly retry policy
-        services.AddHttpClient<IApiClient, ApiClient>(client =>
+        // Check if we should use fake server for development
+        var useFakeServer = Environment.GetEnvironmentVariable("USE_FAKE_SERVER") == "true";
+
+        if (useFakeServer)
         {
-            client.BaseAddress = new Uri("https://localhost:5239"); // Configure from settings
-            client.Timeout = TimeSpan.FromSeconds(30);
-        })
-        .AddStandardResilienceHandler(); // Adds retry, circuit breaker, timeout policies
+            // Use fake API client with canned data for development without backend
+            services.AddSingleton<IApiClient, FakeApiClient>();
+        }
+        else
+        {
+            // Register HttpClient with Polly retry policy
+            services.AddHttpClient<IApiClient, ApiClient>(client =>
+            {
+                client.BaseAddress = new Uri("https://localhost:5239"); // Configure from settings
+                client.Timeout = TimeSpan.FromSeconds(30);
+            })
+            .AddStandardResilienceHandler(); // Adds retry, circuit breaker, timeout policies
+        }
 
         // Register services
         services.AddSingleton<IThemeService, ThemeService>();
