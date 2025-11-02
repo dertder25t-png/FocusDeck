@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using FocusDeck.Shared.Models.Automations;
-using FocusDeck.Server.Data;
+using FocusDeck.Domain.Entities.Automations;
+using FocusDeck.Persistence;
 
 namespace FocusDeck.Server.Controllers
 {

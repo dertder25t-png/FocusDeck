@@ -1,5 +1,5 @@
-using FocusDeck.Server.Data;
-using FocusDeck.Shared.Models.Sync;
+using FocusDeck.Persistence;
+using FocusDeck.Domain.Entities.Sync;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using FocusDeck.Server.Controllers.Models;
-using FocusDeck.Shared.Models.Automations;
+using FocusDeck.Domain.Entities.Automations;
 using Microsoft.AspNetCore.Http;
 
 namespace FocusDeck.Server.Controllers.Support

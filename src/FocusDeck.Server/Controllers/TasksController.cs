@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using FocusDeck.Shared.Models;
+using FocusDeck.Domain.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;

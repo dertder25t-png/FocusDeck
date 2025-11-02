@@ -1,5 +1,5 @@
-using FocusDeck.Shared.Models.Automations;
-using FocusDeck.Server.Data;
+using FocusDeck.Domain.Entities.Automations;
+using FocusDeck.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
 

@@ -1,5 +1,6 @@
 using FocusDeck.Server.Services;
-using FocusDeck.Server.Data;
+using FocusDeck.Persistence;
+using FocusDeck.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -19,6 +20,10 @@ builder.Services.AddHttpClient();
 builder.Services.AddDbContext<AutomationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") 
         ?? "Data Source=focusdeck.db"));
+
+// Add SharedKernel services
+builder.Services.AddSingleton<IClock, SystemClock>();
+builder.Services.AddSingleton<IIdGenerator, GuidIdGenerator>();
 
 // Add Sync Service
 builder.Services.AddScoped<ISyncService, SyncService>();

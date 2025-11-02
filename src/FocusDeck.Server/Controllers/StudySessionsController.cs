@@ -1,5 +1,5 @@
-using FocusDeck.Server.Data;
-using FocusDeck.Shared.Models;
+using FocusDeck.Persistence;
+using FocusDeck.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;

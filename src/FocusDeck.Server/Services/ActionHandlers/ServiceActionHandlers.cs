@@ -1,5 +1,5 @@
-using FocusDeck.Shared.Models.Automations;
-using FocusDeck.Server.Data;
+using FocusDeck.Domain.Entities.Automations;
+using FocusDeck.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Net.Http.Headers;
@@ -132,7 +132,7 @@ namespace FocusDeck.Server.Services.ActionHandlers
         public async Task<ActionResult> ExecuteAsync(AutomationAction action, AutomationDbContext db, ILogger logger)
         {
             var service = await db.ConnectedServices
-                .FirstOrDefaultAsync(s => s.Service == Shared.Models.Automations.ServiceType.HomeAssistant);
+                .FirstOrDefaultAsync(s => s.Service == Domain.Entities.Automations.ServiceType.HomeAssistant);
 
             if (service == null)
                 return new ActionResult { Success = false, Message = "Home Assistant not connected" };
@@ -243,7 +243,7 @@ namespace FocusDeck.Server.Services.ActionHandlers
         public async Task<ActionResult> ExecuteAsync(AutomationAction action, AutomationDbContext db, ILogger logger)
         {
             var service = await db.ConnectedServices
-                .FirstOrDefaultAsync(s => s.Service == Shared.Models.Automations.ServiceType.PhilipsHue);
+                .FirstOrDefaultAsync(s => s.Service == Domain.Entities.Automations.ServiceType.PhilipsHue);
 
             if (service == null)
                 return new ActionResult { Success = false, Message = "Philips Hue not connected" };
@@ -340,7 +340,7 @@ namespace FocusDeck.Server.Services.ActionHandlers
         public async Task<ActionResult> ExecuteAsync(AutomationAction action, AutomationDbContext db, ILogger logger)
         {
             var service = await db.ConnectedServices
-                .FirstOrDefaultAsync(s => s.Service == Shared.Models.Automations.ServiceType.Slack);
+                .FirstOrDefaultAsync(s => s.Service == Domain.Entities.Automations.ServiceType.Slack);
 
             if (service == null)
                 return new ActionResult { Success = false, Message = "Slack not connected" };
@@ -413,7 +413,7 @@ namespace FocusDeck.Server.Services.ActionHandlers
         public async Task<ActionResult> ExecuteAsync(AutomationAction action, AutomationDbContext db, ILogger logger)
         {
             var service = await db.ConnectedServices
-                .FirstOrDefaultAsync(s => s.Service == Shared.Models.Automations.ServiceType.Discord);
+                .FirstOrDefaultAsync(s => s.Service == Domain.Entities.Automations.ServiceType.Discord);
 
             if (service == null)
                 return new ActionResult { Success = false, Message = "Discord not connected" };

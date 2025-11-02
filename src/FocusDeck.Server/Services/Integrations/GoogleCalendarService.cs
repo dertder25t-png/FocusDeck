@@ -1,4 +1,4 @@
-using FocusDeck.Shared.Models.Automations;
+using FocusDeck.Domain.Entities.Automations;
 
 namespace FocusDeck.Server.Services.Integrations
 {

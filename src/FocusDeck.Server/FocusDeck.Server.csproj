@@ -4,6 +4,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,6 +19,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FocusDeck.Shared\FocusDeck.Shared.csproj" />
+    <ProjectReference Include="..\FocusDeck.SharedKernel\FocusDeck.SharedKernel.csproj" />
+    <ProjectReference Include="..\FocusDeck.Domain\FocusDeck.Domain.csproj" />
+    <ProjectReference Include="..\FocusDeck.Persistence\FocusDeck.Persistence.csproj" />
+    <ProjectReference Include="..\FocusDeck.Contracts\FocusDeck.Contracts.csproj" />
   </ItemGroup>
 
 </Project>
