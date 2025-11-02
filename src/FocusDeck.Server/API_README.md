@@ -2,7 +2,7 @@
 
 ## Overview
 
-FocusDeck Server provides a REST API with JWT authentication, refresh tokens, API versioning, and comprehensive observability features.
+FocusDeck Server provides a REST API with JWT authentication, refresh tokens, API versioning, comprehensive observability features, background job processing, and real-time notifications.
 
 ## Features
 
@@ -12,13 +12,16 @@ FocusDeck Server provides a REST API with JWT authentication, refresh tokens, AP
 - **Health Checks**: Database and filesystem monitoring at `/v1/system/health`
 - **Observability**: Serilog logging with correlation IDs, OpenTelemetry traces
 - **Global Exception Handling**: Structured error responses with trace IDs
+- **Background Jobs**: Hangfire for processing long-running tasks (transcription, summarization, verification)
+- **Real-Time Notifications**: SignalR hub for live updates to connected clients
+- **Protected Hangfire Dashboard**: Monitor and manage background jobs at `/hangfire`
 
 ## Getting Started
 
 ### Prerequisites
 
 - .NET 9.0 SDK
-- SQLite (default) or PostgreSQL (optional)
+- SQLite (default) or PostgreSQL (recommended for production)
 
 ### Configuration
 
@@ -45,6 +48,9 @@ cp appsettings.Sample.json appsettings.json
 **Database:**
 - **SQLite (Default)**: `"DefaultConnection": "Data Source=focusdeck.db"`
 - **PostgreSQL**: `"DefaultConnection": "Host=localhost;Port=5432;Database=focusdeck;Username=postgres;Password=yourpassword"`
+- **Hangfire (PostgreSQL only)**: `"HangfireConnection": "Host=localhost;Port=5432;Database=focusdeck_jobs;Username=postgres;Password=yourpassword"`
+
+**Note**: Hangfire background jobs require PostgreSQL. If using SQLite for the main database, Hangfire will be disabled.
 
 ### Running the Server
 
@@ -237,6 +243,122 @@ Every request gets a correlation ID (`Activity.Current.Id` or `TraceIdentifier`)
 - Logs
 - Error responses (as `traceId`)
 - Response headers
+
+## Real-Time Notifications (SignalR)
+
+### SignalR Hub
+
+Connect to the notifications hub at: `/hubs/notifications`
+
+**Authentication Required**: Include JWT token in connection.
+
+### Client Events
+
+The hub provides typed client events:
+
+```typescript
+// Session events
+SessionCreated(sessionId: string, message: string)
+SessionUpdated(sessionId: string, status: string, message: string)
+SessionCompleted(sessionId: string, durationMinutes: number, message: string)
+
+// Automation events
+AutomationExecuted(automationId: string, success: boolean, message: string)
+
+// Job events
+JobCompleted(jobId: string, jobType: string, success: boolean, message: string, result: any)
+JobProgress(jobId: string, jobType: string, progressPercent: number, message: string)
+
+// General notifications
+NotificationReceived(title: string, message: string, severity: string)
+```
+
+### Server Methods
+
+Clients can invoke these methods to manage group subscriptions:
+
+```typescript
+// Join user-specific group for targeted notifications
+await connection.invoke("JoinUserGroup", userId);
+
+// Join session-specific group for session updates
+await connection.invoke("JoinSessionGroup", sessionId);
+
+// Leave groups when done
+await connection.invoke("LeaveUserGroup", userId);
+await connection.invoke("LeaveSessionGroup", sessionId);
+```
+
+### Example (JavaScript/TypeScript)
+
+```javascript
+import * as signalR from "@microsoft/signalr";
+
+const connection = new signalR.HubConnectionBuilder()
+    .withUrl("/hubs/notifications", {
+        accessTokenFactory: () => yourAccessToken
+    })
+    .withAutomaticReconnect()
+    .build();
+
+// Listen for job progress
+connection.on("JobProgress", (jobId, jobType, percent, message) => {
+    console.log(`${jobType} ${percent}%: ${message}`);
+});
+
+// Listen for job completion
+connection.on("JobCompleted", (jobId, jobType, success, message, result) => {
+    console.log(`${jobType} completed:`, result);
+});
+
+await connection.start();
+await connection.invoke("JoinUserGroup", currentUserId);
+```
+
+## Background Jobs
+
+### Hangfire Dashboard
+
+Monitor and manage background jobs at: **`/hangfire`**
+
+**Authentication Required**: Must be logged in to access the dashboard.
+
+The dashboard shows:
+- Job execution history
+- Failed jobs with error details
+- Recurring job schedules
+- Server statistics
+
+### Available Jobs
+
+#### ITranscribeLectureJob
+Transcribe lecture audio/video to text.
+
+```csharp
+Task<TranscriptionResult> TranscribeAsync(string lectureId, string fileUrl, string language = "en")
+```
+
+#### ISummarizeLectureJob
+Summarize lecture content or transcripts.
+
+```csharp
+Task<SummaryResult> SummarizeAsync(string lectureId, string content, int maxLength = 500)
+```
+
+#### IVerifyNoteJob
+Verify and fact-check notes for accuracy.
+
+```csharp
+Task<VerificationResult> VerifyAsync(string noteId, string noteContent, string? sourceContent = null)
+```
+
+**Note**: Current implementations are stubs that log and return success. Replace with actual AI/ML service integrations.
+
+### Job Notifications
+
+All jobs send real-time progress updates via SignalR:
+- **JobProgress**: Percentage and status updates during execution
+- **JobCompleted**: Final result when job finishes
 
 ## Database Migrations
 

@@ -1,6 +1,8 @@
 using FocusDeck.Server.Services;
 using FocusDeck.Server.Middleware;
 using FocusDeck.Server.HealthChecks;
+using FocusDeck.Server.Hubs;
+using FocusDeck.Server.Jobs;
 using FocusDeck.Persistence;
 using FocusDeck.SharedKernel;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +16,8 @@ using Serilog.Events;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using System.Diagnostics;
+using Hangfire;
+using Hangfire.PostgreSql;
 
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
@@ -96,6 +100,11 @@ try
     // Add Auth services
     builder.Services.AddScoped<FocusDeck.Server.Services.Auth.ITokenService, FocusDeck.Server.Services.Auth.TokenService>();
 
+    // Add Job services
+    builder.Services.AddScoped<ITranscribeLectureJob, TranscribeLectureJob>();
+    builder.Services.AddScoped<ISummarizeLectureJob, SummarizeLectureJob>();
+    builder.Services.AddScoped<IVerifyNoteJob, VerifyNoteJob>();
+
     // Add Sync Service
     builder.Services.AddScoped<ISyncService, SyncService>();
 
@@ -110,6 +119,30 @@ try
 
     // Add Version Service
     builder.Services.AddSingleton<VersionService>();
+
+    // Add SignalR for real-time notifications
+    builder.Services.AddSignalR();
+
+    // Add Hangfire with PostgreSQL storage
+    var hangfireConnection = builder.Configuration.GetConnectionString("HangfireConnection") 
+        ?? builder.Configuration.GetConnectionString("DefaultConnection") 
+        ?? "Data Source=focusdeck.db";
+    
+    // Only add Hangfire if using PostgreSQL (Hangfire.PostgreSql requires PostgreSQL)
+    if (hangfireConnection.Contains("Host=") || hangfireConnection.Contains("Server="))
+    {
+        builder.Services.AddHangfire(configuration => configuration
+            .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+            .UseSimpleAssemblyNameTypeSerializer()
+            .UseRecommendedSerializerSettings()
+            .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(hangfireConnection)));
+
+        builder.Services.AddHangfireServer(options =>
+        {
+            options.WorkerCount = 5; // Number of concurrent job workers
+            options.ServerName = $"FocusDeck-{Environment.MachineName}";
+        });
+    }
 
     // Add Health Checks
     builder.Services.AddHealthChecks()
@@ -360,9 +393,23 @@ try
     app.UseAuthentication();
     app.UseAuthorization();
 
+    // Hangfire Dashboard (protected by authorization) - only if using PostgreSQL
+    if (hangfireConnection.Contains("Host=") || hangfireConnection.Contains("Server="))
+    {
+        app.UseHangfireDashboard("/hangfire", new DashboardOptions
+        {
+            Authorization = new[] { new HangfireAuthorizationFilter() },
+            DashboardTitle = "FocusDeck Background Jobs"
+        });
+    }
+
     // Map API controllers with authorization
     app.MapControllers()
         .RequireAuthorization(); // All API controllers require auth by default
+
+    // Map SignalR hub
+    app.MapHub<NotificationsHub>("/hubs/notifications")
+        .RequireAuthorization();
 
     // Health check endpoint (no auth required)
     app.MapGet("/healthz", () => Results.Ok(new { ok = true, time = DateTimeOffset.UtcNow }))
