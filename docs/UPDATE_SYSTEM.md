@@ -1,261 +1,104 @@
-# FocusDeck Update System
+# FocusDeck Server Update System
 
 ## Overview
 
-The FocusDeck server now includes a comprehensive update system that allows you to check for updates and automatically update the server with a single click from the web interface.
+FocusDeck includes a built-in update workflow designed for self-hosted Linux deployments. From the web dashboard you can check for new releases, trigger an update, and watch the server come back online without leaving the browser.
 
-## Features
+The update controller now exposes a single implementation that powers both the web UI and API consumers. This document explains how it works, how to configure it, and how to troubleshoot common issues.
 
-### ✅ Check for Updates
-- **Button**: "Check for Updates" in Settings → Server Management
-- **Function**: Queries GitHub API to compare your current commit with the latest master branch commit
-- **Display**: Shows current version (commit hash + date) and available updates
+## Feature Highlights
 
-### 🔄 One-Click Update
-- **Button**: "Update Server Now" (appears only when updates are available)
-- **Process**: 
-  1. Pulls latest code from GitHub
-  2. Rebuilds the application
-  3. Restarts the server
-  4. **Auto-reloads the webpage** when server is back online
-
-### 🚀 Auto-Reload After Update
-- The webpage automatically detects when the server is back online
-- Health checks ping `/api/server/health` every second
-- Page reloads automatically within 2 seconds of server being ready
-- 60-second timeout with manual refresh option as fallback
+- **One-click updates** – pulls the latest code, compiles, and restarts the service.
+- **GitHub awareness** – compares the current commit with `master` on GitHub.
+- **Status reporting** – exposes update progress, configuration checks, and the most recent log entries.
+- **Health monitoring** – lightweight ping endpoint keeps the UI aware of server availability.
+- **Scriptable setup** – helper script configures sudo, logging, and environment defaults on fresh servers.
 
 ## API Endpoints
 
-### `GET /api/server/check-updates`
-Checks GitHub for available updates.
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| `GET` | `/api/update/check-updates` | Returns information about the current and latest GitHub commits. |
+| `POST` | `/api/update/trigger` | Starts the update process (Linux only). |
+| `GET` | `/api/update/status` | Reports whether an update is running and last log entry. |
+| `GET` | `/api/update/check-config` | Validates repository path, required tools, and permissions. |
+| `GET` | `/api/server/check-updates` | Same as `update/check-updates` (kept for UI compatibility). |
+| `POST` | `/api/server/update` | Delegates to the update trigger endpoint (legacy route). |
+| `GET` | `/api/server/update-status` | Returns recent log lines and derived status. |
+| `GET` | `/api/server/health` | Quick health probe used by the UI to detect restarts. |
 
-**Response:**
-```json
-{
-  "updateAvailable": true,
-  "currentCommit": "7490ffb",
-  "currentDate": "2025-10-31T10:30:00Z",
-  "latestCommit": "a9d0069",
-  "latestDate": "2025-10-31T12:00:00Z",
-  "latestMessage": "feat: Add comprehensive check for updates system",
-  "message": "Updates available!"
-}
-```
+All responses are JSON. Update-related endpoints return HTTP 400 when prerequisites are missing or an update is already running.
 
-### `POST /api/server/update`
-Initiates the server update process.
+## Update Flow
 
-**Response:**
-```json
-{
-  "message": "Server update started! The server will restart in about 30 seconds.",
-  "logFile": "/var/log/focusdeck/update.log",
-  "estimatedTime": "30-60 seconds"
-}
-```
+1. User clicks **Check for Updates**.
+2. UI calls `GET /api/update/check-updates` and compares the commits.
+3. If an update is available, the user clicks **Update Server**.
+4. UI sends `POST /api/update/trigger`.
+5. Server runs:
+   - `git pull origin master`
+   - `dotnet build src/FocusDeck.Server/FocusDeck.Server.csproj -c Release`
+   - `sudo systemctl restart focusdeck`
+6. UI polls `GET /api/server/health` every second. When it succeeds the page refreshes automatically.
 
-### `GET /api/server/update-status`
-Checks the status of an ongoing update.
-
-**Response:**
-```json
-{
-  "status": "completed",
-  "lastUpdate": "2025-10-31 12:05:00 - FocusDeck Server Update Complete",
-  "recentLogs": ["...", "..."]
-}
-```
-
-### `GET /api/server/health`
-Health check endpoint for monitoring server status.
-
-**Response:**
-```json
-{
-  "status": "healthy",
-  "timestamp": "2025-10-31T12:05:30Z",
-  "platform": "Linux 6.1.0-1023-aws",
-  "uptime": 3600
-}
-```
-
-## UI Components
-
-### Settings Page
-The Server Management card includes:
-
-1. **Current Version**: Displays current commit hash and date
-2. **Update Available** (conditional): Shows latest version when updates exist
-3. **Check for Updates Button**: Manually check GitHub for new commits
-4. **Update Server Now Button** (conditional): Visible only when updates are available
-5. **Update Status Box** (during update): Shows spinner and progress messages
-
-### Update Flow
-
-```
-User clicks "Check for Updates"
-         ↓
-Query GitHub API for latest commit
-         ↓
-Compare with local commit
-         ↓
-   Updates Available?
-    ↙           ↘
-  YES            NO
-Show "Update     Show "You're
-Server Now"      up to date!"
-button
-   ↓
-User clicks "Update Server Now"
-         ↓
-Show confirmation dialog
-         ↓
-Send POST /api/server/update
-         ↓
-Show status box with spinner
-         ↓
-Poll /api/server/health every 1s
-         ↓
-Server back online?
-         ↓
-Auto-reload page
-```
-
-## Technical Implementation
-
-### Backend (ServerController.cs)
-
-```csharp
-// Check for updates using GitHub API
-[HttpGet("check-updates")]
-public async Task<IActionResult> CheckForUpdates()
-{
-    // 1. Get current local commit hash using git
-    // 2. Query GitHub API for latest master commit
-    // 3. Compare commit hashes
-    // 4. Return update availability status
-}
-
-// Health check endpoint
-[HttpGet("health")]
-public IActionResult HealthCheck()
-{
-    return Ok(new { 
-        status = "healthy",
-        timestamp = DateTime.UtcNow,
-        platform = RuntimeInformation.OSDescription,
-        uptime = Environment.TickCount64 / 1000
-    });
-}
-```
-
-### Frontend (app.js)
-
-```javascript
-// Check for updates
-async checkForUpdates() {
-    const response = await fetch('/api/server/check-updates');
-    const result = await response.json();
-    
-    if (result.updateAvailable) {
-        // Show update button and latest version info
-        document.getElementById('updateServerBtn').style.display = 'inline-flex';
-    }
-}
-
-// Update server with auto-reload
-async updateServer() {
-    // 1. Send update request
-    await fetch('/api/server/update', { method: 'POST' });
-    
-    // 2. Show status box
-    document.getElementById('updateStatusBox').style.display = 'block';
-    
-    // 3. Poll health endpoint every second
-    const checkInterval = setInterval(async () => {
-        try {
-            const health = await fetch('/api/server/health');
-            if (health.ok) {
-                clearInterval(checkInterval);
-                // 4. Auto-reload page
-                window.location.reload();
-            }
-        } catch (err) {
-            // Server still restarting...
-        }
-    }, 1000);
-}
-```
+The log for each run is written to `/var/log/focusdeck/update.log`.
 
 ## Requirements
 
-- **Platform**: Linux only (update script uses bash, systemctl, etc.)
-- **Git Repository**: Must be a git repository with remote origin
-- **Permissions**: Service must have permissions to:
-  - Pull from git
-  - Build with dotnet
-  - Restart systemctl service
-  - Write to log directory
+- Linux host with `git`, `dotnet`, and `systemctl`.
+- FocusDeck repository cloned locally (default `/home/focusdeck/FocusDeck`).
+- FocusDeck service user (`focusdeck` by default) needs passwordless sudo for `systemctl restart focusdeck`.
+- Static files served by the FocusDeck web server (no special reverse proxy rules required).
 
-## Environment Variables
+Set `FOCUSDECK_REPO` if the repository lives somewhere other than the default path.
 
-- `FOCUSDECK_REPO`: Path to git repository (default: `/home/focusdeck/FocusDeck`)
+## Quick Configuration Script
 
-## Log Files
+Run as root to prepare a fresh server:
 
-Updates are logged to: `/var/log/focusdeck/update.log`
-
-View logs:
 ```bash
-tail -f /var/log/focusdeck/update.log
+sudo bash configure-update-system.sh
 ```
 
-## Safety Features
+The script will:
 
-1. **Confirmation Dialog**: User must confirm before update starts
-2. **Timeout Protection**: 60-second timeout with manual refresh option
-3. **Error Handling**: Graceful error messages if update fails
-4. **Rollback**: Git reset --hard ensures clean state
-5. **Status Tracking**: Update status logged to file for debugging
+1. Confirm or clone the repository location.
+2. Fix permissions for the focusdeck user.
+3. Set the `FOCUSDECK_REPO` environment variable in the systemd service (if needed).
+4. Grant sudo access for restarting the service.
+5. Create `/var/log/focusdeck` and apply sane permissions.
+6. Reload systemd and restart the FocusDeck service.
 
-## Future Enhancements
+## Viewing Logs
 
-- [ ] Add version tagging system
-- [ ] Show changelog/release notes
-- [ ] Add rollback to previous version
-- [ ] Email notifications on update completion
-- [ ] Scheduled automatic updates (opt-in)
-- [ ] Pre-update backup creation
-- [ ] Windows support for update script
+```
+sudo tail -f /var/log/focusdeck/update.log
+```
+
+The UI also exposes the last ten lines through `GET /api/server/update-status`.
 
 ## Troubleshooting
 
-### Update button doesn't appear
-- Check that you're on Linux platform
-- Verify git repository is properly configured
-- Check GitHub API rate limits
+| Symptom | Suggested Checks |
+| ------- | ---------------- |
+| Update button disabled | Confirm the server is running on Linux and `FOCUSDECK_REPO` is correct. |
+| Update fails immediately | Run `sudo -u focusdeck git status` and `dotnet --version` to verify tools are installed and permissions valid. |
+| Service does not restart | Check `journalctl -u focusdeck` for runtime errors. |
+| UI never reloads | Ensure `/api/server/health` returns HTTP 200 and reverse proxies forward the correct scheme/headers. |
+| GitHub rate limit | Add a token-backed proxy or reduce frequency of checks (GitHub allows 60 unauthenticated requests/hour). |
 
-### Page doesn't auto-reload
-- Check browser console for errors
-- Verify `/api/server/health` endpoint is accessible
-- Manually refresh after 60 seconds
+## Security Notes
 
-### Update fails
-- Check `/var/log/focusdeck/update.log` for errors
-- Verify git permissions: `sudo -u focusdeck git pull`
-- Check dotnet is installed and accessible
-- Verify systemctl service permissions
+- Protect the update endpoints with authentication for production deployments.
+- Serve the dashboard over HTTPS.
+- Keep `/var/log/focusdeck` readable only by the FocusDeck service account and administrators.
+- Consider adding alerting on update failures or unusual log messages.
 
-## Security Considerations
+## Next Steps
 
-1. **Authentication**: Add authentication to update endpoints in production
-2. **Rate Limiting**: GitHub API has rate limits (60 requests/hour unauthenticated)
-3. **HTTPS**: Always use HTTPS in production
-4. **Input Validation**: Update script validates paths and commands
-5. **Logging**: All update actions are logged for audit trail
+- Add changelog visibility in the UI.
+- Support scheduled or automatic updates (opt-in).
+- Implement rollback and backup hooks.
+- Extend support to Windows deployments.
 
----
-
-**Last Updated**: October 31, 2025  
-**Version**: 1.1.0
+_Last updated: November 2025_

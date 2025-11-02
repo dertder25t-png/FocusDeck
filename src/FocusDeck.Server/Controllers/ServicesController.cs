@@ -1,15 +1,18 @@
-using Microsoft.AspNetCore.Mvc;
-using FocusDeck.Shared.Models.Automations;
-using FocusDeck.Server.Data;
-using Microsoft.EntityFrameworkCore;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Net.Http; // Added
-using Microsoft.Extensions.Configuration; // Added
-using System.Collections.Generic; // Added
-using System.Threading.Tasks; // Added
-using System.Linq; // Added
-using System; // Added
+using System.Threading.Tasks;
+using FocusDeck.Server.Controllers.Models;
+using FocusDeck.Server.Controllers.Support;
+using FocusDeck.Server.Data;
+using FocusDeck.Server.Models;
+using FocusDeck.Shared.Models.Automations;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace FocusDeck.Server.Controllers
 {
@@ -19,601 +22,65 @@ namespace FocusDeck.Server.Controllers
     {
         private readonly AutomationDbContext _context;
         private readonly ILogger<ServicesController> _logger;
-        private readonly IConfiguration _configuration; // Added
-        private readonly IHttpClientFactory _httpClientFactory; // Added
+        private readonly IConfiguration _configuration;
+        private readonly IHttpClientFactory _httpClientFactory;
+
+        private const string DefaultUserId = "default_user";
+        private static readonly string[] SensitiveMetadataIndicators = { "token", "secret", "password" };
 
         public ServicesController(
             AutomationDbContext context,
             ILogger<ServicesController> logger,
-            IConfiguration configuration, // Added
-            IHttpClientFactory httpClientFactory) // Added
+            IConfiguration configuration,
+            IHttpClientFactory httpClientFactory)
         {
             _context = context;
             _logger = logger;
-            _configuration = configuration; // Added
-            _httpClientFactory = httpClientFactory; // Added
+            _configuration = configuration;
+            _httpClientFactory = httpClientFactory;
         }
 
         [HttpGet]
         public async Task<ActionResult> GetAll()
         {
-            var services = await _context.ConnectedServices.ToListAsync();
-            
-            var list = services.Select(s =>
-            {
-                // Sanitize metadata by stripping any token/secret/password keys
-                JsonObject? meta = null;
-                try
-                {
-                    if (!string.IsNullOrWhiteSpace(s.MetadataJson))
-                    {
-                        meta = JsonNode.Parse(s.MetadataJson) as JsonObject;
-                        if (meta != null)
-                        {
-                            var keysToRemove = meta.Where(kv =>
-                                kv.Key.Contains("token", StringComparison.OrdinalIgnoreCase) ||
-                                kv.Key.Contains("secret", StringComparison.OrdinalIgnoreCase) ||
-                                kv.Key.Contains("password", StringComparison.OrdinalIgnoreCase)
-                            ).Select(kv => kv.Key).ToList();
-                            foreach (var k in keysToRemove) meta.Remove(k);
-                        }
-                    }
-                }
-                catch { meta = null; }
+            var services = await _context.ConnectedServices
+                .AsNoTracking()
+                .ToListAsync();
 
-                var configured = s.IsConfigured || (!string.IsNullOrEmpty(s.AccessToken));
+            var projections = services.Select(service =>
+            {
+                var metadata = TryParseMetadata(service.MetadataJson);
+                if (metadata != null)
+                {
+                    RemoveSensitiveMetadata(metadata);
+                }
+
+                var configured = service.IsConfigured || !string.IsNullOrEmpty(service.AccessToken);
                 return new
                 {
-                    id = s.Id,
-                    service = s.Service.ToString(),
+                    id = service.Id,
+                    service = service.Service.ToString(),
                     configured,
-                    connectedAt = s.ConnectedAt,
+                    connectedAt = service.ConnectedAt,
                     status = configured ? "Connected" : "Not configured",
-                    metadata = meta
+                    metadata
                 };
-            }).ToList();
+            });
 
-            return Ok(list);
+            return Ok(projections);
         }
 
-        // --- NEW ENDPOINT TO GUIDE THE USER ---
         [HttpGet("{service}/setup")]
         public ActionResult<ServiceSetupGuide> GetSetupGuide(ServiceType service)
         {
-            ServiceSetupGuide guide;
-            switch (service)
+            if (!ServiceSetupGuideFactory.TryCreate(service, Request, out var guide))
             {
-                case ServiceType.HomeAssistant:
-                    guide = new ServiceSetupGuide
-                    {
-                        SetupType = "Simple",
-                        Title = "Connect Home Assistant",
-                        Description = "Please provide your Home Assistant instance URL and a Long-Lived Access Token.",
-                        Fields = new List<SetupField>
-                        {
-                            new SetupField
-                            {
-                                Key = "haBaseUrl",
-                                Label = "Home Assistant URL",
-                                HelpText = "The full URL you use to access Home Assistant (e.g., http://homeassistant.local:8123 or https://my-ha.duckdns.org).",
-                                InputType = "text"
-                            },
-                            new SetupField
-                            {
-                                Key = "access_token",
-                                Label = "Long-Lived Access Token",
-                                HelpText = "In Home Assistant, click your profile (bottom-left) -> 'Long-Lived Access Tokens' -> 'Create Token'. Give it a name (e.g., FocusDeck) and copy the token here.",
-                                InputType = "password"
-                            }
-                        }
-                    };
-                    break;
-                    
-                case ServiceType.Canvas:
-                    guide = new ServiceSetupGuide
-                    {
-                        SetupType = "Simple",
-                        Title = "Connect Canvas",
-                        Description = "Please provide your school's Canvas URL and a generated Access Token.",
-                        Fields = new List<SetupField>
-                        {
-                            new SetupField
-                            {
-                                Key = "canvasBaseUrl",
-                                Label = "Canvas URL",
-                                HelpText = "Your school's Canvas instance URL (e.g., https://pcc.instructure.com).",
-                                InputType = "text"
-                            },
-                            new SetupField
-                            {
-                                Key = "access_token",
-                                Label = "Access Token",
-                                HelpText = "In Canvas, go to Account -> Settings -> 'Approved Integrations' -> '+New Access Token'. Give it a name and copy the token here.",
-                                InputType = "password"
-                            }
-                        }
-                    };
-                    break;
-
-                case ServiceType.Spotify:
-                    guide = new ServiceSetupGuide
-                    {
-                        SetupType = "OAuth",
-                        Title = "Connect Spotify",
-                        Description = "Spotify uses OAuth 2.0. Create a Spotify Developer App and paste your credentials below.",
-                        Steps = new List<string>
-                        {
-                            "Go to https://developer.spotify.com/dashboard and log in",
-                            "Click 'Create an App'",
-                            "Name: 'FocusDeck' | Description: 'Study session automation'",
-                            "Accept Terms of Service",
-                            "After creation, click 'Edit Settings'",
-                            $"Add Redirect URI: {Request.Scheme}://{Request.Host}/api/services/oauth/Spotify/callback",
-                            "Save settings",
-                            "Copy your Client ID and Client Secret (click 'Show Client Secret')",
-                            "Paste them in the fields below",
-                            "Click 'Save Configuration'",
-                            "Then click 'Start OAuth Flow' to connect your Spotify account"
-                        },
-                        Links = new List<SetupLink>
-                        {
-                            new SetupLink { Label = "Spotify Developer Dashboard", Url = "https://developer.spotify.com/dashboard" },
-                            new SetupLink { Label = "Spotify API Documentation", Url = "https://developer.spotify.com/documentation/web-api" }
-                        },
-                        Fields = new List<SetupField>
-                        {
-                            new SetupField
-                            {
-                                Key = "clientId",
-                                Label = "Client ID",
-                                HelpText = "From your Spotify Developer Dashboard",
-                                InputType = "text"
-                            },
-                            new SetupField
-                            {
-                                Key = "clientSecret",
-                                Label = "Client Secret",
-                                HelpText = "Click 'Show Client Secret' in the dashboard",
-                                InputType = "password"
-                            }
-                        },
-                        OAuthButtonText = "Start OAuth Flow"
-                    };
-                    break;
-
-                case ServiceType.GoogleCalendar:
-                    guide = new ServiceSetupGuide
-                    {
-                        SetupType = "OAuth",
-                        Title = "Connect Google Calendar",
-                        Description = "Google Calendar uses OAuth 2.0. Create a Google Cloud Project and paste your credentials below.",
-                        Steps = new List<string>
-                        {
-                            "Go to https://console.cloud.google.com/ and log in",
-                            "Create a new project (or select existing)",
-                            "Enable the Google Calendar API: Navigate to 'APIs & Services' -> 'Library' -> Search 'Google Calendar API' -> Enable",
-                            "Configure OAuth consent screen: 'APIs & Services' -> 'OAuth consent screen'",
-                            "Choose 'External' user type (unless using Workspace)",
-                            "Fill in App name: 'FocusDeck', User support email, Developer contact",
-                            "Add scopes: Click 'Add or Remove Scopes' -> Select '.../auth/calendar.readonly'",
-                            "Add test users (your Google account email) if in testing mode",
-                            "Create OAuth 2.0 credentials: 'APIs & Services' -> 'Credentials' -> 'Create Credentials' -> 'OAuth client ID'",
-                            "Application type: 'Web application'",
-                            $"Add Authorized redirect URI: {Request.Scheme}://{Request.Host}/api/services/oauth/GoogleCalendar/callback",
-                            "Copy your Client ID and Client Secret",
-                            "Paste them in the fields below",
-                            "Click 'Save Configuration'",
-                            "Then click 'Start OAuth Flow' to connect your Google account"
-                        },
-                        Links = new List<SetupLink>
-                        {
-                            new SetupLink { Label = "Google Cloud Console", Url = "https://console.cloud.google.com/" },
-                            new SetupLink { Label = "Enable Calendar API", Url = "https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" },
-                            new SetupLink { Label = "OAuth Credentials", Url = "https://console.cloud.google.com/apis/credentials" }
-                        },
-                        Fields = new List<SetupField>
-                        {
-                            new SetupField
-                            {
-                                Key = "clientId",
-                                Label = "Client ID",
-                                HelpText = "From Google Cloud Console (ends with .apps.googleusercontent.com)",
-                                InputType = "text"
-                            },
-                            new SetupField
-                            {
-                                Key = "clientSecret",
-                                Label = "Client Secret",
-                                HelpText = "From OAuth 2.0 credentials page",
-                                InputType = "password"
-                            }
-                        },
-                        OAuthButtonText = "Start OAuth Flow"
-                    };
-                    break;
-
-                case ServiceType.GoogleDrive:
-                    guide = new ServiceSetupGuide
-                    {
-                        SetupType = "OAuth",
-                        Title = "Connect Google Drive",
-                        Description = "Google Drive uses OAuth 2.0. Create a Google Cloud Project and paste your credentials below.",
-                        Steps = new List<string>
-                        {
-                            "Go to https://console.cloud.google.com/ and log in",
-                            "Create a new project (or select existing)",
-                            "Enable the Google Drive API: Navigate to 'APIs & Services' -> 'Library' -> Search 'Google Drive API' -> Enable",
-                            "Configure OAuth consent screen: 'APIs & Services' -> 'OAuth consent screen'",
-                            "Choose 'External' user type (unless using Workspace)",
-                            "Fill in App name: 'FocusDeck', User support email, Developer contact",
-                            "Add scopes: Click 'Add or Remove Scopes' -> Select '.../auth/drive.readonly'",
-                            "Add test users (your Google account email) if in testing mode",
-                            "Create OAuth 2.0 credentials: 'APIs & Services' -> 'Credentials' -> 'Create Credentials' -> 'OAuth client ID'",
-                            "Application type: 'Web application'",
-                            $"Add Authorized redirect URI: {Request.Scheme}://{Request.Host}/api/services/oauth/GoogleDrive/callback",
-                            "Copy your Client ID and Client Secret",
-                            "Paste them in the fields below",
-                            "Click 'Save Configuration'",
-                            "Then click 'Start OAuth Flow' to connect your Google account"
-                        },
-                        Links = new List<SetupLink>
-                        {
-                            new SetupLink { Label = "Google Cloud Console", Url = "https://console.cloud.google.com/" },
-                            new SetupLink { Label = "Enable Drive API", Url = "https://console.cloud.google.com/apis/library/drive.googleapis.com" },
-                            new SetupLink { Label = "OAuth Credentials", Url = "https://console.cloud.google.com/apis/credentials" }
-                        },
-                        Fields = new List<SetupField>
-                        {
-                            new SetupField
-                            {
-                                Key = "clientId",
-                                Label = "Client ID",
-                                HelpText = "From Google Cloud Console (ends with .apps.googleusercontent.com)",
-                                InputType = "text"
-                            },
-                            new SetupField
-                            {
-                                Key = "clientSecret",
-                                Label = "Client Secret",
-                                HelpText = "From OAuth 2.0 credentials page",
-                                InputType = "password"
-                            }
-                        },
-                        OAuthButtonText = "Start OAuth Flow"
-                    };
-                    break;
-                    
-                case ServiceType.Notion:
-                    guide = new ServiceSetupGuide
-                    {
-                        SetupType = "OAuth",
-                        Title = "Connect Notion",
-                        Description = "Notion uses OAuth 2.0. Create a Notion Integration and paste your credentials below.",
-                        Steps = new List<string>
-                        {
-                            "Go to https://www.notion.so/my-integrations and log in",
-                            "Click '+ New integration'",
-                            "Name: 'FocusDeck' | Associated workspace: Select your workspace",
-                            "Set Capabilities: Read content, Update content, Insert content",
-                            "Click 'Submit' to create the integration",
-                            "Copy the 'Internal Integration Token' (starts with 'secret_')",
-                            "Paste it in the API Key field below",
-                            "Share your Notion pages with the FocusDeck integration",
-                            "Click 'Save Configuration'",
-                            "The integration will now have access to shared pages"
-                        },
-                        Links = new List<SetupLink>
-                        {
-                            new SetupLink { Label = "Notion Integrations", Url = "https://www.notion.so/my-integrations" },
-                            new SetupLink { Label = "Notion API Documentation", Url = "https://developers.notion.com/" }
-                        },
-                        Fields = new List<SetupField>
-                        {
-                            new SetupField
-                            {
-                                Key = "apiKey",
-                                Label = "Internal Integration Token",
-                                HelpText = "The secret token from your Notion integration (starts with 'secret_')",
-                                InputType = "password"
-                            }
-                        },
-                        OAuthButtonText = "Save Configuration"
-                    };
-                    break;
-
-                case ServiceType.Todoist:
-                    guide = new ServiceSetupGuide
-                    {
-                        SetupType = "Simple",
-                        Title = "Connect Todoist",
-                        Description = "Connect your Todoist account to sync tasks and manage your productivity.",
-                        Steps = new List<string>
-                        {
-                            "Log in to Todoist at https://todoist.com",
-                            "Click on your profile picture (top right)",
-                            "Select 'Integrations'",
-                            "Scroll to 'API token' section",
-                            "Copy your API token",
-                            "Paste it in the field below",
-                            "Click 'Connect' to authorize FocusDeck"
-                        },
-                        Links = new List<SetupLink>
-                        {
-                            new SetupLink { Label = "Todoist Settings", Url = "https://todoist.com/app/settings/integrations" },
-                            new SetupLink { Label = "Todoist API Documentation", Url = "https://developer.todoist.com/rest/v2/" }
-                        },
-                        Fields = new List<SetupField>
-                        {
-                            new SetupField
-                            {
-                                Key = "access_token",
-                                Label = "API Token",
-                                HelpText = "Your Todoist API token from Settings > Integrations",
-                                InputType = "password"
-                            }
-                        }
-                    };
-                    break;
-
-                case ServiceType.Slack:
-                    guide = new ServiceSetupGuide
-                    {
-                        SetupType = "OAuth",
-                        Title = "Connect Slack",
-                        Description = "Connect Slack to send notifications and automate workspace interactions.",
-                        Steps = new List<string>
-                        {
-                            "Go to https://api.slack.com/apps and sign in",
-                            "Click 'Create New App' > 'From scratch'",
-                            "Name: 'FocusDeck' | Pick a workspace",
-                            "Go to 'OAuth & Permissions' in the left sidebar",
-                            "Under 'Scopes' > 'Bot Token Scopes', add: chat:write, chat:write.public",
-                            "Scroll up to 'OAuth Tokens' section",
-                            "Click 'Install to Workspace'",
-                            "Authorize the app",
-                            "Copy the 'Bot User OAuth Token' (starts with 'xoxb-')",
-                            "Paste it in the Token field below",
-                            "Optional: Add incoming webhook URL for channel-specific notifications"
-                        },
-                        Links = new List<SetupLink>
-                        {
-                            new SetupLink { Label = "Slack API Apps", Url = "https://api.slack.com/apps" },
-                            new SetupLink { Label = "Slack API Documentation", Url = "https://api.slack.com/docs" }
-                        },
-                        Fields = new List<SetupField>
-                        {
-                            new SetupField
-                            {
-                                Key = "access_token",
-                                Label = "Bot User OAuth Token",
-                                HelpText = "The bot token from OAuth & Permissions (starts with 'xoxb-')",
-                                InputType = "password"
-                            },
-                            new SetupField
-                            {
-                                Key = "webhookUrl",
-                                Label = "Incoming Webhook URL (Optional)",
-                                HelpText = "For channel-specific notifications",
-                                InputType = "text"
-                            }
-                        }
-                    };
-                    break;
-
-                case ServiceType.Discord:
-                    guide = new ServiceSetupGuide
-                    {
-                        SetupType = "Simple",
-                        Title = "Connect Discord",
-                        Description = "Connect Discord to send notifications and updates to your server.",
-                        Steps = new List<string>
-                        {
-                            "Open Discord and go to the server you want to connect",
-                            "Click on the server name > 'Server Settings' > 'Integrations'",
-                            "Click 'Create Webhook' (or use existing one)",
-                            "Name it 'FocusDeck'",
-                            "Select the channel where notifications should appear",
-                            "Click 'Copy Webhook URL'",
-                            "Paste it in the field below",
-                            "Click 'Connect' to authorize"
-                        },
-                        Links = new List<SetupLink>
-                        {
-                            new SetupLink { Label = "Discord Webhooks Guide", Url = "https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks" },
-                            new SetupLink { Label = "Discord Developer Portal", Url = "https://discord.com/developers/applications" }
-                        },
-                        Fields = new List<SetupField>
-                        {
-                            new SetupField
-                            {
-                                Key = "webhookUrl",
-                                Label = "Webhook URL",
-                                HelpText = "The webhook URL from your Discord server settings",
-                                InputType = "password"
-                            }
-                        }
-                    };
-                    break;
-
-                case ServiceType.GoogleGenerativeAI:
-                    guide = new ServiceSetupGuide
-                    {
-                        SetupType = "Simple",
-                        Title = "Connect Google Generative AI (Gemini)",
-                        Description = "Connect Google's Gemini AI for intelligent study assistance and automation.",
-                        Steps = new List<string>
-                        {
-                            "Go to https://aistudio.google.com/app/apikey",
-                            "Sign in with your Google account",
-                            "Click 'Create API Key'",
-                            "Select or create a Google Cloud project",
-                            "Copy the generated API key",
-                            "Paste it in the field below",
-                            "Click 'Connect' to authorize",
-                            "You can now use Gemini for AI-powered features"
-                        },
-                        Links = new List<SetupLink>
-                        {
-                            new SetupLink { Label = "Google AI Studio", Url = "https://aistudio.google.com/app/apikey" },
-                            new SetupLink { Label = "Gemini API Documentation", Url = "https://ai.google.dev/docs" }
-                        },
-                        Fields = new List<SetupField>
-                        {
-                            new SetupField
-                            {
-                                Key = "apiKey",
-                                Label = "API Key",
-                                HelpText = "Your Gemini API key from Google AI Studio",
-                                InputType = "password"
-                            }
-                        }
-                    };
-                    break;
-
-                case ServiceType.IFTTT:
-                    guide = new ServiceSetupGuide
-                    {
-                        SetupType = "Simple",
-                        Title = "Connect IFTTT",
-                        Description = "Connect IFTTT to create powerful automation chains with thousands of services.",
-                        Steps = new List<string>
-                        {
-                            "Go to https://ifttt.com/maker_webhooks",
-                            "Click 'Connect' to enable Webhooks",
-                            "Click 'Documentation' to view your webhook key",
-                            "Copy your unique webhook key",
-                            "Paste it in the field below",
-                            "Create applets on IFTTT using the Webhooks service",
-                            "Use FocusDeck events as triggers"
-                        },
-                        Links = new List<SetupLink>
-                        {
-                            new SetupLink { Label = "IFTTT Webhooks", Url = "https://ifttt.com/maker_webhooks" },
-                            new SetupLink { Label = "IFTTT Platform", Url = "https://platform.ifttt.com/" }
-                        },
-                        Fields = new List<SetupField>
-                        {
-                            new SetupField
-                            {
-                                Key = "webhookKey",
-                                Label = "Webhook Key",
-                                HelpText = "Your unique IFTTT webhook key",
-                                InputType = "password"
-                            }
-                        }
-                    };
-                    break;
-
-                case ServiceType.Zapier:
-                    guide = new ServiceSetupGuide
-                    {
-                        SetupType = "Simple",
-                        Title = "Connect Zapier",
-                        Description = "Connect Zapier to automate workflows across 5,000+ apps.",
-                        Steps = new List<string>
-                        {
-                            "Log in to your Zapier account at https://zapier.com",
-                            "Go to https://zapier.com/app/webhooks",
-                            "Create a new Zap with 'Webhooks by Zapier' as the trigger",
-                            "Choose 'Catch Hook'",
-                            "Copy the webhook URL provided",
-                            "Paste it in the field below",
-                            "Click 'Connect' and Zapier will start receiving FocusDeck events"
-                        },
-                        Links = new List<SetupLink>
-                        {
-                            new SetupLink { Label = "Zapier Webhooks", Url = "https://zapier.com/app/webhooks" },
-                            new SetupLink { Label = "Zapier Platform", Url = "https://zapier.com" }
-                        },
-                        Fields = new List<SetupField>
-                        {
-                            new SetupField
-                            {
-                                Key = "webhookUrl",
-                                Label = "Webhook URL",
-                                HelpText = "Your Zapier webhook URL for catching FocusDeck events",
-                                InputType = "password"
-                            }
-                        }
-                    };
-                    break;
-
-                case ServiceType.PhilipsHue:
-                    guide = new ServiceSetupGuide
-                    {
-                        SetupType = "Simple",
-                        Title = "Connect Philips Hue",
-                        Description = "Control your Philips Hue lights based on study sessions and focus states.",
-                        Steps = new List<string>
-                        {
-                            "Make sure your Hue Bridge is connected to your network",
-                            "Find your Bridge IP address (check your router or Hue app)",
-                            "Press the link button on your Hue Bridge",
-                            "Within 30 seconds, enter your Bridge IP below and click 'Connect'",
-                            "FocusDeck will create a user on your Bridge",
-                            "You can now control your Hue lights through automations"
-                        },
-                        Links = new List<SetupLink>
-                        {
-                            new SetupLink { Label = "Find your Bridge IP", Url = "https://discovery.meethue.com/" },
-                            new SetupLink { Label = "Hue API Documentation", Url = "https://developers.meethue.com/" }
-                        },
-                        Fields = new List<SetupField>
-                        {
-                            new SetupField
-                            {
-                                Key = "bridgeIp",
-                                Label = "Bridge IP Address",
-                                HelpText = "The local IP address of your Philips Hue Bridge (e.g., 192.168.1.100)",
-                                InputType = "text"
-                            }
-                        }
-                    };
-                    break;
-
-                case ServiceType.AppleMusic:
-                    guide = new ServiceSetupGuide
-                    {
-                        SetupType = "OAuth",
-                        Title = "Connect Apple Music",
-                        Description = "Connect Apple Music to control playback during study sessions.",
-                        Steps = new List<string>
-                        {
-                            "Go to https://developer.apple.com/account",
-                            "Sign in with your Apple Developer account (requires membership)",
-                            "Go to 'Certificates, Identifiers & Profiles'",
-                            "Create a new MusicKit identifier",
-                            "Generate a MusicKit private key",
-                            "Note: Apple Music integration requires Apple Developer Program membership ($99/year)",
-                            "For now, this integration is in development",
-                            "Consider using Spotify as an alternative"
-                        },
-                        Links = new List<SetupLink>
-                        {
-                            new SetupLink { Label = "Apple Developer", Url = "https://developer.apple.com/account" },
-                            new SetupLink { Label = "MusicKit Documentation", Url = "https://developer.apple.com/documentation/musickit" }
-                        },
-                        Fields = new List<SetupField>
-                        {
-                            new SetupField
-                            {
-                                Key = "developerToken",
-                                Label = "Developer Token",
-                                HelpText = "Your Apple Music MusicKit developer token",
-                                InputType = "password"
-                            }
-                        }
-                    };
-                    break;
-                    
-                default:
-                    return NotFound(new { message = "Setup guide not available for this service." });
+                return NotFound(new { message = "Setup guide not available for this service." });
             }
-            
+
             return Ok(guide);
         }
 
-        // --- SAVE SERVICE CONFIGURATION (OAuth credentials) ---
         [HttpPost("{service}/config")]
         public async Task<ActionResult> SaveServiceConfig(string service, [FromBody] ServiceConfigDto config)
         {
@@ -624,7 +91,6 @@ namespace FocusDeck.Server.Controllers
 
                 if (existing != null)
                 {
-                    // Update existing
                     existing.ClientId = config.ClientId;
                     existing.ClientSecret = config.ClientSecret;
                     existing.ApiKey = config.ApiKey;
@@ -633,8 +99,7 @@ namespace FocusDeck.Server.Controllers
                 }
                 else
                 {
-                    // Create new
-                    var newConfig = new FocusDeck.Server.Models.ServiceConfiguration
+                    var newConfig = new ServiceConfiguration
                     {
                         Id = Guid.NewGuid(),
                         ServiceName = service,
@@ -659,6 +124,65 @@ namespace FocusDeck.Server.Controllers
         }
 
         // --- GET SERVICE CONFIGURATION ---
+        private static JsonObject? TryParseMetadata(string? metadataJson)
+        {
+            if (string.IsNullOrWhiteSpace(metadataJson))
+            {
+                return null;
+            }
+
+            try
+            {
+                return JsonNode.Parse(metadataJson) as JsonObject;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static void RemoveSensitiveMetadata(JsonObject metadata)
+        {
+            var keysToRemove = metadata
+                .Where(kv => IsSensitiveKey(kv.Key))
+                .Select(kv => kv.Key)
+                .ToArray();
+
+            foreach (var key in keysToRemove)
+            {
+                metadata.Remove(key);
+            }
+        }
+
+        private static string? BuildMetadataJson(IDictionary<string, string> values)
+        {
+            if (values.Count == 0)
+            {
+                return null;
+            }
+
+            var metadata = new JsonObject();
+
+            foreach (var (key, value) in values)
+            {
+                if (IsSensitiveKey(key) || string.IsNullOrWhiteSpace(value))
+                {
+                    continue;
+                }
+
+                metadata[key] = value;
+            }
+
+            return metadata.Count > 0 ? metadata.ToJsonString() : null;
+        }
+
+        private static bool IsSensitiveKey(string key) =>
+            SensitiveMetadataIndicators.Any(indicator =>
+                key.IndexOf(indicator, StringComparison.OrdinalIgnoreCase) >= 0);
+
+        private static bool DetermineIsConfigured(string? accessToken, string? metadataJson) =>
+            !string.IsNullOrWhiteSpace(accessToken) || !string.IsNullOrWhiteSpace(metadataJson);
+
         [HttpGet("{service}/config")]
         public async Task<ActionResult> GetServiceConfig(string service)
         {
@@ -706,47 +230,58 @@ namespace FocusDeck.Server.Controllers
         }
 
         [HttpPost("connect/{service}")]
-        public async Task<ActionResult> Connect(ServiceType service, [FromBody] Dictionary<string, string> credentials)
+        public async Task<ActionResult> Connect(ServiceType service, [FromBody] Dictionary<string, string>? credentials)
         {
-            // This endpoint is now used by your "Simple" setup
+            credentials = credentials != null
+                ? new Dictionary<string, string>(credentials, StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            var accessToken = credentials.GetValueOrDefault("access_token");
+            var refreshToken = credentials.GetValueOrDefault("refresh_token");
+            var metadataJson = BuildMetadataJson(credentials);
+
+            var existing = await _context.ConnectedServices
+                .FirstOrDefaultAsync(s => s.UserId == DefaultUserId && s.Service == service);
+
+            if (existing != null)
+            {
+                existing.AccessToken = accessToken ?? existing.AccessToken;
+                existing.RefreshToken = refreshToken ?? existing.RefreshToken;
+                existing.MetadataJson = metadataJson ?? existing.MetadataJson;
+                existing.ConnectedAt = DateTime.UtcNow;
+                existing.ExpiresAt = null;
+                existing.IsConfigured = DetermineIsConfigured(existing.AccessToken, existing.MetadataJson);
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Updated connection for service {Service} ({ServiceId})",
+                    service,
+                    existing.Id);
+
+                return Ok(new { message = $"{service} connection updated.", serviceId = existing.Id });
+            }
+
             var connectedService = new ConnectedService
             {
                 Id = Guid.NewGuid(),
-                UserId = "default_user", // Replace with actual user system
+                UserId = DefaultUserId,
                 Service = service,
-                AccessToken = credentials.GetValueOrDefault("access_token", string.Empty),
-                RefreshToken = credentials.GetValueOrDefault("refresh_token", string.Empty),
-                ExpiresAt = null, // OAuth should set this
+                AccessToken = accessToken ?? string.Empty,
+                RefreshToken = refreshToken ?? string.Empty,
+                ExpiresAt = null,
                 ConnectedAt = DateTime.UtcNow,
-                IsConfigured = false
+                MetadataJson = metadataJson,
+                IsConfigured = DetermineIsConfigured(accessToken, metadataJson)
             };
-
-            // Capture non-sensitive metadata (e.g., base URLs)
-            try
-            {
-                if (credentials?.Count > 0)
-                {
-                    var meta = new JsonObject();
-                    foreach (var kv in credentials)
-                    {
-                        // This logic correctly saves haBaseUrl or canvasBaseUrl
-                        if (kv.Key.Contains("token", StringComparison.OrdinalIgnoreCase) ||
-                            kv.Key.Contains("secret", StringComparison.OrdinalIgnoreCase) ||
-                            kv.Key.Contains("password", StringComparison.OrdinalIgnoreCase))
-                            continue;
-                        meta[kv.Key] = kv.Value;
-                    }
-                    connectedService.MetadataJson = meta.ToJsonString();
-                }
-            }
-            catch { /* ignore meta errors */ }
-
-            connectedService.IsConfigured = !string.IsNullOrEmpty(connectedService.AccessToken) || !string.IsNullOrEmpty(connectedService.MetadataJson);
 
             _context.ConnectedServices.Add(connectedService);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Successfully connected service {Service} for user {UserId}", service, connectedService.UserId);
+            _logger.LogInformation(
+                "Created connection for service {Service} ({ServiceId})",
+                service,
+                connectedService.Id);
 
             return Ok(new { message = $"{service} connected successfully", serviceId = connectedService.Id });
         }
@@ -820,7 +355,7 @@ namespace FocusDeck.Server.Controllers
                 var connected = new ConnectedService
                 {
                     Id = Guid.NewGuid(),
-                    UserId = "default_user", // Replace with actual user ID
+                    UserId = DefaultUserId,
                     Service = service,
                     AccessToken = accessToken,
                     RefreshToken = refreshToken ?? string.Empty,
@@ -902,9 +437,6 @@ namespace FocusDeck.Server.Controllers
             return (accessToken, refreshToken, expiresAt);
         }
 
-        // ... (rest of your controller methods: UpdateMetadata, CheckServiceHealth, etc.) ...
-        // ... (They are unchanged and should remain) ...
-
         [HttpPost("{id}/metadata")]
         public async Task<ActionResult> UpdateMetadata(Guid id, [FromBody] JsonObject metadata)
         {
@@ -913,16 +445,9 @@ namespace FocusDeck.Server.Controllers
 
             try
             {
-                // Sanitize
-                var keysToRemove = metadata.Where(kv =>
-                    kv.Key.Contains("token", StringComparison.OrdinalIgnoreCase) ||
-                    kv.Key.Contains("secret", StringComparison.OrdinalIgnoreCase) ||
-                    kv.Key.Contains("password", StringComparison.OrdinalIgnoreCase)
-                ).Select(kv => kv.Key).ToList();
-                foreach (var k in keysToRemove) metadata.Remove(k);
-
+                RemoveSensitiveMetadata(metadata);
                 svc.MetadataJson = metadata.ToJsonString();
-                svc.IsConfigured = svc.IsConfigured || !string.IsNullOrEmpty(svc.MetadataJson) || !string.IsNullOrEmpty(svc.AccessToken);
+                svc.IsConfigured = DetermineIsConfigured(svc.AccessToken, svc.MetadataJson);
                 await _context.SaveChangesAsync();
             }
             catch (Exception ex)
@@ -961,7 +486,7 @@ namespace FocusDeck.Server.Controllers
                     return await CheckHomeAssistantHealth(service);
                 
                 case ServiceType.GoogleCalendar:
-                case ServiceType.GoogleDrive: // Added
+                case ServiceType.GoogleDrive:
                 case ServiceType.Spotify:
                     // OAuth services: check if token is expired
                     var isExpired = service.ExpiresAt.HasValue && service.ExpiresAt.Value < DateTime.UtcNow;
@@ -997,14 +522,8 @@ namespace FocusDeck.Server.Controllers
         {
             try
             {
-                // Parse metadata for base URL
-                JsonObject? meta = null;
-                if (!string.IsNullOrWhiteSpace(service.MetadataJson))
-                {
-                    meta = JsonNode.Parse(service.MetadataJson) as JsonObject;
-                }
-
-                var baseUrl = meta?["haBaseUrl"]?.ToString();
+                var metadata = TryParseMetadata(service.MetadataJson);
+                var baseUrl = metadata?["haBaseUrl"]?.ToString();
                 if (string.IsNullOrEmpty(baseUrl) || string.IsNullOrEmpty(service.AccessToken))
                 {
                     return new { healthy = false, status = "not_configured", message = "Missing base URL or token" };
@@ -1051,98 +570,6 @@ namespace FocusDeck.Server.Controllers
             }
         }
     }
-
-    // --- NEW HELPER CLASSES FOR THE SETUP GUIDE ---
-
-    /// <summary>
-    /// Defines the UI and instructions needed to connect a service.
-    /// </summary>
-    public class ServiceSetupGuide
-    {
-        /// <summary>
-        /// "Simple" (token/URL) or "OAuth" (button click).
-        /// </summary>
-        public string SetupType { get; set; } = null!;
-        
-        /// <summary>
-        /// e.g., "Connect Home Assistant"
-        /// </summary>
-        public string Title { get; set; } = null!;
-        
-        /// <summary>
-        /// Main description of the setup process.
-        /// </summary>
-        public string Description { get; set; } = null!;
-
-        /// <summary>
-        /// Step-by-step instructions for setting up the service.
-        /// </summary>
-        public List<string>? Steps { get; set; }
-
-        /// <summary>
-        /// Helpful documentation links.
-        /// </summary>
-        public List<SetupLink>? Links { get; set; }
-
-        /// <summary>
-        /// Required server-side configuration (appsettings.json).
-        /// </summary>
-        public List<string>? RequiredServerConfig { get; set; }
-
-        /// <summary>
-        /// A list of fields the user must fill out (for "Simple" setup).
-        /// </summary>
-        public List<SetupField>? Fields { get; set; }
-        
-        /// <summary>
-        /// The text for the connect button (for "OAuth" setup).
-        /// </summary>
-        public string? OAuthButtonText { get; set; }
-    }
-
-    /// <summary>
-    /// Represents a documentation link.
-    /// </summary>
-    public class SetupLink
-    {
-        public string Label { get; set; } = null!;
-        public string Url { get; set; } = null!;
-    }
-
-    /// <summary>
-    /// DTO for saving service configuration from the UI
-    /// </summary>
-    public class ServiceConfigDto
-    {
-        public string? ClientId { get; set; }
-        public string? ClientSecret { get; set; }
-        public string? ApiKey { get; set; }
-        public string? AdditionalConfig { get; set; }
-    }
-
-    /// <summary>
-    /// Represents a single field in a "Simple" setup form.
-    /// </summary>
-    public class SetupField
-    {
-        /// <summary>
-        /// The key to use when sending data to the 'connect' endpoint (e.g., "haBaseUrl", "access_token").
-        /// </summary>
-        public string Key { get; set; } = null!; 
-        
-        /// <summary>
-        /// The user-friendly label for the input (e.g., "Home Assistant URL").
-        /// </summary>
-        public string Label { get; set; } = null!;
-        
-        /// <summary>
-        /// Instructions on how to find this value.
-        /// </summary>
-        public string HelpText { get; set; } = null!;
-        
-        /// <summary>
-        /// "text" or "password"
-        /// </summary>
-        public string InputType { get; set; } = "text"; 
-    }
 }
+
+

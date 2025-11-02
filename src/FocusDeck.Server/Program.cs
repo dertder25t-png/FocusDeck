@@ -26,6 +26,9 @@ builder.Services.AddScoped<ISyncService, SyncService>();
 // Add Action Executor
 builder.Services.AddSingleton<ActionExecutor>();
 
+// Add server update service
+builder.Services.AddSingleton<IServerUpdateService, ServerUpdateService>();
+
 // Add background services
 builder.Services.AddHostedService<AutomationEngine>();
 
