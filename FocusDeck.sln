@@ -31,6 +31,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FocusDeck.Persistence", "sr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FocusDeck.Contracts", "src\FocusDeck.Contracts\FocusDeck.Contracts.csproj", "{E9BAE0B6-4A2E-4E39-967B-26C5DCA72D2A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FocusDeck.Desktop", "src\FocusDeck.Desktop\FocusDeck.Desktop.csproj", "{BECA4FC2-C760-4E07-B8CC-D45394AD68DB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -197,6 +199,18 @@ Global
 		{E9BAE0B6-4A2E-4E39-967B-26C5DCA72D2A}.Release|x64.Build.0 = Release|Any CPU
 		{E9BAE0B6-4A2E-4E39-967B-26C5DCA72D2A}.Release|x86.ActiveCfg = Release|Any CPU
 		{E9BAE0B6-4A2E-4E39-967B-26C5DCA72D2A}.Release|x86.Build.0 = Release|Any CPU
+		{BECA4FC2-C760-4E07-B8CC-D45394AD68DB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BECA4FC2-C760-4E07-B8CC-D45394AD68DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BECA4FC2-C760-4E07-B8CC-D45394AD68DB}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BECA4FC2-C760-4E07-B8CC-D45394AD68DB}.Debug|x64.Build.0 = Debug|Any CPU
+		{BECA4FC2-C760-4E07-B8CC-D45394AD68DB}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BECA4FC2-C760-4E07-B8CC-D45394AD68DB}.Debug|x86.Build.0 = Debug|Any CPU
+		{BECA4FC2-C760-4E07-B8CC-D45394AD68DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BECA4FC2-C760-4E07-B8CC-D45394AD68DB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BECA4FC2-C760-4E07-B8CC-D45394AD68DB}.Release|x64.ActiveCfg = Release|Any CPU
+		{BECA4FC2-C760-4E07-B8CC-D45394AD68DB}.Release|x64.Build.0 = Release|Any CPU
+		{BECA4FC2-C760-4E07-B8CC-D45394AD68DB}.Release|x86.ActiveCfg = Release|Any CPU
+		{BECA4FC2-C760-4E07-B8CC-D45394AD68DB}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -215,6 +229,7 @@ Global
 		{0AE4CE1B-4FCA-49FC-A4E7-FA6BDD7ECDE5} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{8FD9BADE-A0F1-4911-98FD-ACEDFDF576FB} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{E9BAE0B6-4A2E-4E39-967B-26C5DCA72D2A} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{BECA4FC2-C760-4E07-B8CC-D45394AD68DB} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {D0A57DBA-91D1-4171-A627-1ADE8A8ACB04}
