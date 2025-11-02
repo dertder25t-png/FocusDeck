@@ -54,12 +54,59 @@ try
                 .AddSource("FocusDeck.Server")
                 .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("FocusDeck.Server"))
                 .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddEntityFrameworkCoreInstrumentation(options =>
+                {
+                    options.SetDbStatementForText = true;
+                    options.SetDbStatementForStoredProcedure = true;
+                })
                 .AddConsoleExporter();
         });
 
     // Add services to the container.
     builder.Services.AddControllers();
-    builder.Services.AddOpenApi();
+    
+    // Add Swagger/OpenAPI
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen(options =>
+    {
+        options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+        {
+            Title = "FocusDeck API",
+            Version = "v1",
+            Description = "FocusDeck REST API for productivity management with notes, study sessions, and automations",
+            Contact = new Microsoft.OpenApi.Models.OpenApiContact
+            {
+                Name = "FocusDeck",
+                Url = new Uri("https://github.com/dertder25t-png/FocusDeck")
+            }
+        });
+
+        // Add JWT authentication to Swagger
+        options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+        {
+            Description = "JWT Authorization header using the ****** scheme. Enter 'Bearer' [space] and then your token in the text input below.",
+            Name = "Authorization",
+            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+            Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+            Scheme = "Bearer"
+        });
+
+        options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+        {
+            {
+                new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                {
+                    Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                    {
+                        Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    }
+                },
+                Array.Empty<string>()
+            }
+        });
+    });
 
     // Add API Versioning
     builder.Services.AddApiVersioning(options =>
@@ -381,6 +428,16 @@ try
 
     // Enable CORS (must be after UseRouting if you have it)
     app.UseCors("FocusDeckCors");
+
+    // Enable Swagger UI
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "FocusDeck API v1");
+        options.RoutePrefix = "swagger"; // Access at /swagger
+        options.DocumentTitle = "FocusDeck API Documentation";
+        options.DisplayRequestDuration();
+    });
 
     // Only redirect to HTTPS in development (not behind Cloudflare proxy)
     // Cloudflare handles HTTPS termination, sends HTTP to our server

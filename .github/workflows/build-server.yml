@@ -1,0 +1,82 @@
+name: Build and Analyze Server
+
+on:
+  push:
+    branches: [ main, develop, copilot/** ]
+    paths:
+      - 'src/FocusDeck.Server/**'
+      - 'src/FocusDeck.Domain/**'
+      - 'src/FocusDeck.Persistence/**'
+      - 'src/FocusDeck.Contracts/**'
+      - 'src/FocusDeck.SharedKernel/**'
+      - '.github/workflows/build-server.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'src/FocusDeck.Server/**'
+      - 'src/FocusDeck.Domain/**'
+      - 'src/FocusDeck.Persistence/**'
+      - 'src/FocusDeck.Contracts/**'
+      - 'src/FocusDeck.SharedKernel/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET 9.0
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+    
+    - name: Restore dependencies
+      run: |
+        dotnet restore src/FocusDeck.SharedKernel/FocusDeck.SharedKernel.csproj
+        dotnet restore src/FocusDeck.Domain/FocusDeck.Domain.csproj
+        dotnet restore src/FocusDeck.Persistence/FocusDeck.Persistence.csproj
+        dotnet restore src/FocusDeck.Contracts/FocusDeck.Contracts.csproj
+        dotnet restore src/FocusDeck.Server/FocusDeck.Server.csproj
+    
+    - name: Build SharedKernel
+      run: dotnet build src/FocusDeck.SharedKernel/FocusDeck.SharedKernel.csproj --configuration Release --no-restore
+    
+    - name: Build Domain
+      run: dotnet build src/FocusDeck.Domain/FocusDeck.Domain.csproj --configuration Release --no-restore
+    
+    - name: Build Persistence
+      run: dotnet build src/FocusDeck.Persistence/FocusDeck.Persistence.csproj --configuration Release --no-restore
+    
+    - name: Build Contracts
+      run: dotnet build src/FocusDeck.Contracts/FocusDeck.Contracts.csproj --configuration Release --no-restore
+    
+    - name: Build Server
+      run: dotnet build src/FocusDeck.Server/FocusDeck.Server.csproj --configuration Release --no-restore
+    
+    - name: Run analyzers
+      run: |
+        echo "Running code analyzers on server projects..."
+        dotnet build src/FocusDeck.SharedKernel/FocusDeck.SharedKernel.csproj --configuration Release --no-restore /p:RunAnalyzers=true /p:EnforceCodeStyleInBuild=true
+        dotnet build src/FocusDeck.Domain/FocusDeck.Domain.csproj --configuration Release --no-restore /p:RunAnalyzers=true /p:EnforceCodeStyleInBuild=true
+        dotnet build src/FocusDeck.Persistence/FocusDeck.Persistence.csproj --configuration Release --no-restore /p:RunAnalyzers=true /p:EnforceCodeStyleInBuild=true
+        dotnet build src/FocusDeck.Contracts/FocusDeck.Contracts.csproj --configuration Release --no-restore /p:RunAnalyzers=true /p:EnforceCodeStyleInBuild=true
+        dotnet build src/FocusDeck.Server/FocusDeck.Server.csproj --configuration Release --no-restore /p:RunAnalyzers=true /p:EnforceCodeStyleInBuild=true
+    
+    - name: Verify warnings as errors
+      run: |
+        echo "Verifying TreatWarningsAsErrors is enabled..."
+        grep -q "<TreatWarningsAsErrors>true</TreatWarningsAsErrors>" src/FocusDeck.Server/FocusDeck.Server.csproj || exit 1
+        grep -q "<TreatWarningsAsErrors>true</TreatWarningsAsErrors>" src/FocusDeck.Domain/FocusDeck.Domain.csproj || exit 1
+        grep -q "<TreatWarningsAsErrors>true</TreatWarningsAsErrors>" src/FocusDeck.Persistence/FocusDeck.Persistence.csproj || exit 1
+        grep -q "<TreatWarningsAsErrors>true</TreatWarningsAsErrors>" src/FocusDeck.Contracts/FocusDeck.Contracts.csproj || exit 1
+        echo "✓ All projects have TreatWarningsAsErrors enabled"
+    
+    - name: Verify nullable references enabled
+      run: |
+        echo "Verifying nullable reference types are enabled..."
+        grep -q "<Nullable>enable</Nullable>" src/FocusDeck.Server/FocusDeck.Server.csproj || exit 1
+        grep -q "<Nullable>enable</Nullable>" src/FocusDeck.Domain/FocusDeck.Domain.csproj || exit 1
+        grep -q "<Nullable>enable</Nullable>" src/FocusDeck.Persistence/FocusDeck.Persistence.csproj || exit 1
+        grep -q "<Nullable>enable</Nullable>" src/FocusDeck.Contracts/FocusDeck.Contracts.csproj || exit 1
+        echo "✓ All projects have nullable reference types enabled"
