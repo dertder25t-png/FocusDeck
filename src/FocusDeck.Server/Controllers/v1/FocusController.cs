@@ -38,7 +38,7 @@ public class FocusController : ControllerBase
     }
 
     /// <summary>
-    /// Get current user ID from claims with fallback for testing
+    /// Get current user ID from claims with fallback for testing (development only)
     /// </summary>
     private string GetUserId()
     {
@@ -46,7 +46,9 @@ public class FocusController : ControllerBase
 
         if (string.IsNullOrEmpty(userId))
         {
-            _logger.LogWarning("No authenticated user found. Using test user.");
+            // TODO: Remove this fallback in production - should require proper authentication
+            // This is only for development/testing purposes
+            _logger.LogWarning("No authenticated user found. Using test user (development only).");
             return "test-user";
         }
 
@@ -172,12 +174,13 @@ public class FocusController : ControllerBase
         // Check for distractions if strict mode is enabled
         if (session.Policy.Strict)
         {
-            var distraction = await CheckForDistraction(session, signal);
+            var distraction = CheckForDistraction(session, signal);
             if (distraction != null)
             {
                 session.DistractionsCount++;
 
                 // Send distraction notification
+                // Note: Clients must join the user group via NotificationsHub.JoinUserGroup(userId)
                 await _hubContext.Clients.Group($"user:{userId}")
                     .FocusDistraction(distraction.Reason, distraction.At);
 
@@ -234,7 +237,7 @@ public class FocusController : ControllerBase
     /// <summary>
     /// Check if the signal indicates a distraction
     /// </summary>
-    private async Task<FocusDistractionDto?> CheckForDistraction(FocusSession session, FocusSignal signal)
+    private FocusDistractionDto? CheckForDistraction(FocusSession session, FocusSignal signal)
     {
         var now = signal.Timestamp;
         var windowStart = now.AddSeconds(-DistractionWindowSeconds);
@@ -267,7 +270,7 @@ public class FocusController : ControllerBase
             };
         }
 
-        return await Task.FromResult<FocusDistractionDto?>(null);
+        return null;
     }
 
     /// <summary>
@@ -299,6 +302,7 @@ public class FocusController : ControllerBase
         if (recentDistractionCount >= RecoverySuggestionThreshold)
         {
             // Send recovery suggestion
+            // Note: Clients must join the user group via NotificationsHub.JoinUserGroup(userId)
             var suggestion = session.Policy.Strict 
                 ? "Enable Lock Mode" 
                 : "Take 2-min break";
