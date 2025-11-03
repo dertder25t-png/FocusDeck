@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="FocusDeck.Mobile.Pages.CommandDeckPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Command Deck"
+    BackgroundColor="#F5F5F5">
+
+    <ScrollView>
+        <Grid
+            RowDefinitions="Auto, Auto, Auto, Auto, Auto"
+            Padding="20"
+            RowSpacing="20">
+
+            <!-- Connection Status -->
+            <Frame
+                Grid.Row="0"
+                BackgroundColor="White"
+                BorderColor="#E0E0E0"
+                CornerRadius="12"
+                HasShadow="False"
+                Padding="16">
+                <Grid ColumnDefinitions="Auto, *, Auto" ColumnSpacing="12">
+                    <Label
+                        Grid.Column="0"
+                        FontSize="20"
+                        Text="📡"
+                        VerticalOptions="Center" />
+                    <StackLayout Grid.Column="1" VerticalOptions="Center">
+                        <Label
+                            FontAttributes="Bold"
+                            FontSize="14"
+                            Text="Desktop Connection"
+                            TextColor="#333333" />
+                        <Label
+                            FontSize="12"
+                            Text="{Binding ConnectionStatus}"
+                            TextColor="#666666" />
+                    </StackLayout>
+                    <Label
+                        Grid.Column="2"
+                        FontSize="24"
+                        Text="{Binding ConnectionIndicator}"
+                        VerticalOptions="Center" />
+                </Grid>
+            </Frame>
+
+            <!-- Progress Ring -->
+            <Frame
+                Grid.Row="1"
+                BackgroundColor="White"
+                BorderColor="#E0E0E0"
+                CornerRadius="12"
+                HasShadow="False"
+                Padding="20">
+                <StackLayout Spacing="12">
+                    <Label
+                        FontAttributes="Bold"
+                        FontSize="16"
+                        Text="Focus Progress"
+                        TextColor="#333333"
+                        HorizontalOptions="Center" />
+                    <ProgressBar
+                        Progress="{Binding ProgressPercent}"
+                        ProgressColor="#7C5CFF"
+                        HeightRequest="8" />
+                    <Label
+                        FontSize="24"
+                        FontAttributes="Bold"
+                        Text="{Binding ProgressText}"
+                        TextColor="#7C5CFF"
+                        HorizontalOptions="Center" />
+                    <Label
+                        FontSize="12"
+                        Text="{Binding FocusState}"
+                        TextColor="#666666"
+                        HorizontalOptions="Center" />
+                </StackLayout>
+            </Frame>
+
+            <!-- Action Tiles -->
+            <StackLayout Grid.Row="2" Spacing="12">
+                <!-- Open Note -->
+                <Frame
+                    BackgroundColor="White"
+                    BorderColor="#E0E0E0"
+                    CornerRadius="12"
+                    HasShadow="False"
+                    Padding="16">
+                    <Grid ColumnDefinitions="Auto, *, Auto" ColumnSpacing="12">
+                        <Label
+                            Grid.Column="0"
+                            FontSize="24"
+                            Text="📝"
+                            VerticalOptions="Center" />
+                        <StackLayout Grid.Column="1" VerticalOptions="Center">
+                            <Label
+                                FontAttributes="Bold"
+                                FontSize="14"
+                                Text="Open Note"
+                                TextColor="#333333" />
+                            <Label
+                                FontSize="12"
+                                Text="Search or select recent"
+                                TextColor="#666666" />
+                        </StackLayout>
+                        <Button
+                            Grid.Column="2"
+                            Text="Open"
+                            Command="{Binding OpenNoteCommand}"
+                            BackgroundColor="#7C5CFF"
+                            TextColor="White"
+                            CornerRadius="8"
+                            Padding="16,8" />
+                    </Grid>
+                </Frame>
+
+                <!-- Rearrange Layout -->
+                <Frame
+                    BackgroundColor="White"
+                    BorderColor="#E0E0E0"
+                    CornerRadius="12"
+                    HasShadow="False"
+                    Padding="16">
+                    <Grid ColumnDefinitions="Auto, *, Auto" ColumnSpacing="12">
+                        <Label
+                            Grid.Column="0"
+                            FontSize="24"
+                            Text="📐"
+                            VerticalOptions="Center" />
+                        <StackLayout Grid.Column="1" VerticalOptions="Center">
+                            <Label
+                                FontAttributes="Bold"
+                                FontSize="14"
+                                Text="Rearrange Layout"
+                                TextColor="#333333" />
+                            <Picker
+                                Title="Select layout"
+                                SelectedItem="{Binding SelectedLayout}"
+                                ItemsSource="{Binding AvailableLayouts}"
+                                FontSize="12"
+                                TextColor="#666666" />
+                        </StackLayout>
+                        <Button
+                            Grid.Column="2"
+                            Text="Apply"
+                            Command="{Binding RearrangeLayoutCommand}"
+                            BackgroundColor="#7C5CFF"
+                            TextColor="White"
+                            CornerRadius="8"
+                            Padding="16,8" />
+                    </Grid>
+                </Frame>
+
+                <!-- Focus Control -->
+                <Frame
+                    BackgroundColor="White"
+                    BorderColor="#E0E0E0"
+                    CornerRadius="12"
+                    HasShadow="False"
+                    Padding="16">
+                    <Grid ColumnDefinitions="Auto, *, Auto" ColumnSpacing="12">
+                        <Label
+                            Grid.Column="0"
+                            FontSize="24"
+                            Text="⏱️"
+                            VerticalOptions="Center" />
+                        <StackLayout Grid.Column="1" VerticalOptions="Center">
+                            <Label
+                                FontAttributes="Bold"
+                                FontSize="14"
+                                Text="Focus Session"
+                                TextColor="#333333" />
+                            <Label
+                                FontSize="12"
+                                Text="{Binding FocusButtonText}"
+                                TextColor="#666666" />
+                        </StackLayout>
+                        <Button
+                            Grid.Column="2"
+                            Text="{Binding FocusButtonLabel}"
+                            Command="{Binding ToggleFocusCommand}"
+                            BackgroundColor="{Binding FocusButtonColor}"
+                            TextColor="White"
+                            CornerRadius="8"
+                            Padding="16,8" />
+                    </Grid>
+                </Frame>
+            </StackLayout>
+
+            <!-- Recent Notes -->
+            <Frame
+                Grid.Row="3"
+                BackgroundColor="White"
+                BorderColor="#E0E0E0"
+                CornerRadius="12"
+                HasShadow="False"
+                Padding="16">
+                <StackLayout Spacing="8">
+                    <Label
+                        FontAttributes="Bold"
+                        FontSize="14"
+                        Text="Recent Notes"
+                        TextColor="#333333" />
+                    <CollectionView
+                        ItemsSource="{Binding RecentNotes}"
+                        SelectionMode="Single"
+                        SelectionChangedCommand="{Binding OpenRecentNoteCommand}"
+                        SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="Auto, *" ColumnSpacing="8" Padding="0,4">
+                                    <Label
+                                        Grid.Column="0"
+                                        FontSize="16"
+                                        Text="📄"
+                                        VerticalOptions="Center" />
+                                    <Label
+                                        Grid.Column="1"
+                                        FontSize="12"
+                                        Text="{Binding Title}"
+                                        TextColor="#333333"
+                                        VerticalOptions="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </StackLayout>
+            </Frame>
+
+            <!-- Activity Log -->
+            <Frame
+                Grid.Row="4"
+                BackgroundColor="White"
+                BorderColor="#E0E0E0"
+                CornerRadius="12"
+                HasShadow="False"
+                Padding="16">
+                <StackLayout Spacing="8">
+                    <Label
+                        FontAttributes="Bold"
+                        FontSize="14"
+                        Text="Activity Log"
+                        TextColor="#333333" />
+                    <CollectionView
+                        ItemsSource="{Binding ActivityLog}"
+                        HeightRequest="150">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="Auto, *" ColumnSpacing="8" Padding="0,4">
+                                    <Label
+                                        Grid.Column="0"
+                                        FontSize="10"
+                                        Text="{Binding Timestamp}"
+                                        TextColor="#999999"
+                                        VerticalOptions="Center" />
+                                    <Label
+                                        Grid.Column="1"
+                                        FontSize="11"
+                                        Text="{Binding Message}"
+                                        TextColor="#666666"
+                                        VerticalOptions="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </StackLayout>
+            </Frame>
+        </Grid>
+    </ScrollView>
+</ContentPage>
