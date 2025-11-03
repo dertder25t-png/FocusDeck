@@ -19,6 +19,15 @@ public class ReviewPlanIntegrationTests : IClassFixture<WebApplicationFactory<Pr
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
+            builder.UseEnvironment("Development");
+            builder.ConfigureAppConfiguration((context, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Cors:AllowedOrigins:0"] = "http://localhost:5173"
+                });
+            });
+
             builder.ConfigureServices(services =>
             {
                 // Replace database with in-memory version for testing
@@ -217,6 +226,15 @@ public class GenerateLectureNoteJobTests : IClassFixture<WebApplicationFactory<P
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
+            builder.UseEnvironment("Development");
+            builder.ConfigureAppConfiguration((context, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Cors:AllowedOrigins:0"] = "http://localhost:5173"
+                });
+            });
+
             builder.ConfigureServices(services =>
             {
                 var descriptor = services.SingleOrDefault(

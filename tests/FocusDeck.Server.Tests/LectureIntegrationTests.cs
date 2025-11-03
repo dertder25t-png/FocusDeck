@@ -15,8 +15,18 @@ public class LectureIntegrationTests : IClassFixture<WebApplicationFactory<Progr
 
     public LectureIntegrationTests(WebApplicationFactory<Program> factory)
     {
-        _factory = factory;
-        _client = factory.CreateClient();
+        _factory = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Development");
+            builder.ConfigureAppConfiguration((context, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Cors:AllowedOrigins:0"] = "http://localhost:5173"
+                });
+            });
+        });
+        _client = _factory.CreateClient();
     }
 
     [Fact]

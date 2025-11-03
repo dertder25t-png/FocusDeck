@@ -31,9 +31,13 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
                     ["ConnectionStrings:DefaultConnection"] = "Data Source=:memory:",
                     ["Jwt:Key"] = "test-key-for-testing-purposes-min-32-chars-long",
                     ["Jwt:Issuer"] = "test-issuer",
-                    ["Jwt:Audience"] = "test-audience"
+                    ["Jwt:Audience"] = "test-audience",
+                    ["Cors:AllowedOrigins:0"] = "http://localhost:5173"
                 });
             });
+
+            // Ensure tests run in Development environment
+            builder.UseEnvironment("Development");
         });
     }
 

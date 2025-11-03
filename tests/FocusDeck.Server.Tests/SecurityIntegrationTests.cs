@@ -36,6 +36,9 @@ public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Prog
                     ["Storage:Root"] = Path.GetTempPath()
                 });
             });
+
+            // Ensure tests run in Development environment
+            builder.UseEnvironment("Development");
         });
 
         _client = _factory.CreateClient();
