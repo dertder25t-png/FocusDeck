@@ -1,6 +1,7 @@
 using FocusDeck.Domain.Entities;
 using FocusDeck.Domain.Entities.Automations;
 using FocusDeck.Domain.Entities.Sync;
+using FocusDeck.Domain.Entities.Remote;
 using Microsoft.EntityFrameworkCore;
 
 namespace FocusDeck.Persistence;
@@ -30,6 +31,10 @@ public class AutomationDbContext : DbContext
     public DbSet<SyncTransaction> SyncTransactions { get; set; }
     public DbSet<SyncChange> SyncChanges { get; set; }
     public DbSet<SyncMetadata> SyncMetadata { get; set; }
+
+    // Remote control tables
+    public DbSet<DeviceLink> DeviceLinks { get; set; }
+    public DbSet<RemoteAction> RemoteActions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

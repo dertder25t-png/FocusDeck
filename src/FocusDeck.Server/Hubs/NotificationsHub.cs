@@ -117,4 +117,14 @@ public interface INotificationClient
     /// Notify client when lecture notes are ready
     /// </summary>
     Task LectureNoteReady(string lectureId, string noteId, string message);
+    
+    /// <summary>
+    /// Notify desktop client when a remote action is created
+    /// </summary>
+    Task RemoteActionCreated(string actionId, string kind, object payload);
+    
+    /// <summary>
+    /// Notify phone client with telemetry updates
+    /// </summary>
+    Task RemoteTelemetry(int progressPercent, string focusState, string? activeNoteId);
 }
