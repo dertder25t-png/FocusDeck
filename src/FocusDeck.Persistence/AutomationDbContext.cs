@@ -36,6 +36,9 @@ public class AutomationDbContext : DbContext
     public DbSet<DeviceLink> DeviceLinks { get; set; }
     public DbSet<RemoteAction> RemoteActions { get; set; }
 
+    // Focus session tables
+    public DbSet<FocusSession> FocusSessions { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
