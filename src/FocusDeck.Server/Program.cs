@@ -216,6 +216,33 @@ try
             "focusdeck-mobile://app"          // Mobile app
         };
 
+    // Validate CORS configuration
+    if (allowedOrigins.Length == 0)
+    {
+        throw new InvalidOperationException(
+            "CORS configuration error: Cors:AllowedOrigins array cannot be empty. " +
+            "Configure at least one allowed origin in appsettings.json.");
+    }
+
+    foreach (var origin in allowedOrigins)
+    {
+        if (string.IsNullOrWhiteSpace(origin))
+        {
+            throw new InvalidOperationException(
+                "CORS configuration error: Allowed origins cannot contain null or empty values.");
+        }
+
+        // Validate that custom schemes or URIs are properly formatted
+        if (!origin.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            !origin.StartsWith("https://", StringComparison.OrdinalIgnoreCase) &&
+            !origin.Contains("://"))
+        {
+            throw new InvalidOperationException(
+                $"CORS configuration error: Invalid origin '{origin}'. " +
+                "Origins must be absolute URIs (e.g., 'https://example.com' or 'app://scheme').");
+        }
+    }
+
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("StrictCors", policy =>
@@ -233,6 +260,23 @@ try
     var jwtKey = jwtSection.GetValue<string>("Key") ?? "super_dev_secret_key_change_me_please_32chars";
     var jwtIssuer = jwtSection.GetValue<string>("Issuer") ?? "https://focusdeck.909436.xyz";
     var jwtAudience = jwtSection.GetValue<string>("Audience") ?? "focusdeck-clients";
+
+    // Validate JWT key configuration in production
+    if (!builder.Environment.IsDevelopment())
+    {
+        if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
+        {
+            throw new InvalidOperationException(
+                "JWT:Key must be configured with at least 32 characters in production. " +
+                "Use environment variable JWT__Key or secure configuration provider.");
+        }
+
+        if (jwtKey.Contains("super_dev_secret") || jwtKey.Contains("change_me") || jwtKey.Contains("your-"))
+        {
+            throw new InvalidOperationException(
+                "JWT:Key appears to be a placeholder. Configure a real secret key using environment variables or secure vault.");
+        }
+    }
 
     builder.Services.AddAuthentication(options =>
     {

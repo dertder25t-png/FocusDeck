@@ -4,7 +4,7 @@ namespace FocusDeck.Server.Middleware;
 
 /// <summary>
 /// Authorization filter for Hangfire dashboard
-/// Requires authenticated users to access the dashboard
+/// Requires authenticated users with Admin role to access the dashboard
 /// </summary>
 public class HangfireAuthorizationFilter : IDashboardAuthorizationFilter
 {
@@ -12,7 +12,18 @@ public class HangfireAuthorizationFilter : IDashboardAuthorizationFilter
     {
         var httpContext = context.GetHttpContext();
 
-        // Require authentication for Hangfire dashboard
-        return httpContext.User?.Identity?.IsAuthenticated ?? false;
+        // Require authentication AND Admin role for Hangfire dashboard
+        var isAuthenticated = httpContext.User?.Identity?.IsAuthenticated ?? false;
+        if (!isAuthenticated || httpContext.User == null)
+        {
+            return false;
+        }
+
+        // Check for Admin role or admin claim
+        var isAdmin = httpContext.User.IsInRole("Admin") || 
+                     httpContext.User.HasClaim("role", "admin") ||
+                     httpContext.User.HasClaim("admin", "true");
+
+        return isAdmin;
     }
 }

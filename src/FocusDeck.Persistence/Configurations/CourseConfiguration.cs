@@ -4,6 +4,21 @@ using FocusDeck.Domain.Entities;
 
 namespace FocusDeck.Persistence.Configurations;
 
+/// <summary>
+/// EF Core configuration for the Course entity.
+/// 
+/// CASCADE DELETE BEHAVIOR:
+/// - Course → Lectures: CASCADE
+///   When a Course is deleted, all associated Lectures are automatically deleted.
+///   This ensures referential integrity and prevents orphaned lecture records.
+///   
+/// IMPACT: Deleting a course will cascade to:
+/// 1. All Lectures in the course (via Lectures collection)
+/// 2. All Assets referenced by those Lectures (via Lecture → Asset relationship, see LectureConfiguration)
+/// 
+/// CAUTION: Course deletion is a destructive operation that will remove all child data.
+/// Consider soft-delete or archive patterns for production use.
+/// </summary>
 public class CourseConfiguration : IEntityTypeConfiguration<Course>
 {
     public void Configure(EntityTypeBuilder<Course> builder)
@@ -30,6 +45,8 @@ public class CourseConfiguration : IEntityTypeConfiguration<Course>
         builder.HasIndex(c => c.CreatedAt);
         builder.HasIndex(c => c.Code);
         
+        // CASCADE DELETE: Course → Lectures
+        // When a Course is deleted, all Lectures in that course are automatically deleted
         builder.HasMany(c => c.Lectures)
             .WithOne(l => l.Course)
             .HasForeignKey(l => l.CourseId)

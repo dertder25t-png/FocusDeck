@@ -24,7 +24,11 @@ public class AssetsController : ControllerBase
     private readonly ILogger<AssetsController> _logger;
     private const long MaxFileSizeBytes = 5 * 1024 * 1024; // 5MB
 
-    // Content-type whitelist with extension mapping
+    /// <summary>
+    /// Content-Type to file extension whitelist.
+    /// Maps MIME types to their allowed file extensions.
+    /// Used for upload validation to ensure Content-Type matches file extension.
+    /// </summary>
     private static readonly Dictionary<string, string[]> AllowedContentTypes = new()
     {
         // Audio files
@@ -34,7 +38,7 @@ public class AssetsController : ControllerBase
         ["audio/mpeg"] = new[] { ".mp3" },
         ["audio/mp3"] = new[] { ".mp3" },
         ["audio/mp4"] = new[] { ".m4a", ".mp4" },
-        ["audio/x-m4a"] = new[] { ".m4a" },
+        ["audio/x-m4a"] = new[] { ".m4a" },  // Explicit mapping for M4A files
         
         // Image files
         ["image/jpeg"] = new[] { ".jpg", ".jpeg" },
@@ -48,6 +52,20 @@ public class AssetsController : ControllerBase
         ["text/markdown"] = new[] { ".md" },
         ["application/json"] = new[] { ".json" }
     };
+
+    /// <summary>
+    /// Reverse mapping: File extension to preferred Content-Type.
+    /// Used for setting Content-Type headers when serving files.
+    /// Built from AllowedContentTypes dictionary.
+    /// </summary>
+    private static readonly Dictionary<string, string> ExtensionToContentType = AllowedContentTypes
+        .SelectMany(kvp => kvp.Value.Select(ext => new { Extension = ext, ContentType = kvp.Key }))
+        .GroupBy(x => x.Extension)
+        .ToDictionary(
+            g => g.Key,
+            g => g.First().ContentType, // Use first matching content-type for each extension
+            StringComparer.OrdinalIgnoreCase
+        );
 
     public AssetsController(
         AutomationDbContext context,
