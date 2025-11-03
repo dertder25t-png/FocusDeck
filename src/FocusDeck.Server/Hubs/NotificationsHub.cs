@@ -155,4 +155,14 @@ public interface INotificationClient
     /// Notify phone client with telemetry updates
     /// </summary>
     Task RemoteTelemetry(int progressPercent, string focusState, string? activeNoteId);
+    
+    /// <summary>
+    /// Notify client when a distraction is detected
+    /// </summary>
+    Task FocusDistraction(string reason, DateTime at);
+    
+    /// <summary>
+    /// Notify client with a focus recovery suggestion
+    /// </summary>
+    Task FocusRecoverySuggested(string suggestion);
 }
