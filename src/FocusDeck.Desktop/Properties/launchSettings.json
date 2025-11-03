@@ -1,0 +1,16 @@
+{
+  "profiles": {
+    "FocusDeck.Desktop": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "USE_FAKE_SERVER": "false"
+      }
+    },
+    "FakeServer": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "USE_FAKE_SERVER": "true"
+      }
+    }
+  }
+}

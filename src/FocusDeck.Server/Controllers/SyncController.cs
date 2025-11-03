@@ -1,5 +1,5 @@
 using FocusDeck.Server.Services;
-using FocusDeck.Shared.Models.Sync;
+using FocusDeck.Domain.Entities.Sync;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;

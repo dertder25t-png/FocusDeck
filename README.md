@@ -145,9 +145,15 @@ Access the web admin panel at `https://your-cloudflare-domain.com`
 
 ### Server (ASP.NET Core)
 - **.NET 9.0** - Latest performance improvements
-- **Minimal API** - Lightweight endpoints
-- **CORS Enabled** - Web UI support
-- **Static Files** - Serving web admin interface
+- **Layered Architecture** - Domain, Persistence, Contracts, SharedKernel
+- **JWT Authentication** - Access & refresh tokens
+- **Serilog** - Structured logging with correlation IDs
+- **OpenTelemetry** - Distributed tracing (HTTP, EF Core, SignalR)
+- **Hangfire** - Background job processing with PostgreSQL
+- **SignalR** - Real-time notifications hub
+- **API Versioning** - /v1/* endpoints with Swagger documentation
+- **Health Checks** - Database and file system monitoring
+- **PostgreSQL/SQLite** - Dual database support
 
 ### Web UI
 - **Vanilla JavaScript** - Zero framework dependencies
@@ -178,6 +184,69 @@ Access the web admin panel at `https://your-cloudflare-domain.com`
 - [PROJECT_STATUS.md](PROJECT_STATUS.md) - Current progress
 - [VISION_ROADMAP.md](VISION_ROADMAP.md) - Future plans
 - [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) - All docs
+
+---
+
+## ⚙️ Server Configuration
+
+### Required Configuration Keys
+
+Create an `appsettings.json` file in the server directory with these keys:
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Data Source=focusdeck.db",
+    "HangfireConnection": "Host=localhost;Database=hangfire;Username=postgres;Password=yourpassword"
+  },
+  "Jwt": {
+    "Secret": "your-secret-key-min-32-characters-long",
+    "Issuer": "FocusDeck.Server",
+    "Audience": "FocusDeck.Client",
+    "AccessTokenExpirationMinutes": 60,
+    "RefreshTokenExpirationDays": 7
+  },
+  "Serilog": {
+    "MinimumLevel": {
+      "Default": "Information",
+      "Override": {
+        "Microsoft.AspNetCore": "Warning"
+      }
+    }
+  }
+}
+```
+
+### Key Configuration Options
+
+| Key | Description | Default | Required |
+|-----|-------------|---------|----------|
+| `ConnectionStrings:DefaultConnection` | Main database (SQLite or PostgreSQL) | `Data Source=focusdeck.db` | Yes |
+| `ConnectionStrings:HangfireConnection` | Hangfire jobs database (PostgreSQL only) | Falls back to DefaultConnection | No |
+| `Jwt:Secret` | JWT signing key (min 32 chars) | - | Yes |
+| `Jwt:Issuer` | Token issuer identifier | `FocusDeck.Server` | Yes |
+| `Jwt:Audience` | Token audience identifier | `FocusDeck.Client` | Yes |
+| `Jwt:AccessTokenExpirationMinutes` | Access token lifetime | `60` | No |
+| `Jwt:RefreshTokenExpirationDays` | Refresh token lifetime | `7` | No |
+
+### Environment Variables
+
+You can also use environment variables (overrides appsettings.json):
+
+```bash
+export ConnectionStrings__DefaultConnection="Host=localhost;Database=focusdeck;Username=postgres;Password=yourpassword"
+export Jwt__Secret="your-production-secret-key-32-chars"
+export ASPNETCORE_ENVIRONMENT="Production"
+```
+
+### API Endpoints
+
+- **Swagger UI**: `https://your-domain.com/swagger`
+- **Health Check**: `https://your-domain.com/v1/system/health`
+- **Hangfire Dashboard**: `https://your-domain.com/hangfire` (requires auth)
+- **SignalR Hub**: `wss://your-domain.com/hubs/notifications`
+
+For complete API documentation, see [API_README.md](src/FocusDeck.Server/API_README.md)
 
 ---
 

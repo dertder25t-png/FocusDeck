@@ -26,7 +26,7 @@ curl -sSL https://raw.githubusercontent.com/dertder25t-png/FocusDeck/master/easy
 Before running the script, you'll need:
 
 1. **A Linux server** (Ubuntu 20.04+ or similar)
-2. **Your Cloudflare domain** (e.g., `focusdeck.909436.xyz`)
+2. **Your Cloudflare domain** 
 3. **Cloudflare Tunnel** already set up pointing to your server
 
 ---

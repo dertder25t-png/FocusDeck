@@ -1,5 +1,5 @@
-using FocusDeck.Shared.Models.Automations;
-using FocusDeck.Server.Data;
+using FocusDeck.Domain.Entities.Automations;
+using FocusDeck.Persistence;
 using FocusDeck.Server.Services.ActionHandlers;
 
 namespace FocusDeck.Server.Services
@@ -142,7 +142,7 @@ namespace FocusDeck.Server.Services
             }
         }
 
-        private async Task<ActionResult> ShowNotification(AutomationAction action)
+        private Task<ActionResult> ShowNotification(AutomationAction action)
         {
             var title = action.Settings.GetValueOrDefault("title", "FocusDeck");
             var message = action.Settings.GetValueOrDefault("message", "Automation triggered");
@@ -150,10 +150,10 @@ namespace FocusDeck.Server.Services
             _logger.LogInformation("Notification: {Title} - {Message}", title, message);
             
             // This will be broadcasted to connected clients via SignalR/WebSockets in the future
-            return new ActionResult { Success = true, Message = "Notification queued", Data = new { title, message } };
+            return Task.FromResult(new ActionResult { Success = true, Message = "Notification queued", Data = new { title, message } });
         }
 
-        private async Task<ActionResult> StartTimer(AutomationAction action)
+        private Task<ActionResult> StartTimer(AutomationAction action)
         {
             var duration = int.Parse(action.Settings.GetValueOrDefault("duration", "25"));
             var timerType = action.Settings.GetValueOrDefault("timerType", "focus");
@@ -161,16 +161,16 @@ namespace FocusDeck.Server.Services
             _logger.LogInformation("Starting {Type} timer for {Duration} minutes", timerType, duration);
             
             // TODO: Integrate with timer service when it's implemented
-            return new ActionResult { Success = true, Message = $"Timer started: {duration} minutes", Data = new { duration, timerType } };
+            return Task.FromResult(new ActionResult { Success = true, Message = $"Timer started: {duration} minutes", Data = new { duration, timerType } });
         }
 
-        private async Task<ActionResult> StopTimer(AutomationAction action)
+        private Task<ActionResult> StopTimer(AutomationAction action)
         {
             _logger.LogInformation("Stopping timer");
-            return new ActionResult { Success = true, Message = "Timer stopped" };
+            return Task.FromResult(new ActionResult { Success = true, Message = "Timer stopped" });
         }
 
-        private async Task<ActionResult> CreateTask(AutomationAction action, AutomationDbContext db)
+        private Task<ActionResult> CreateTask(AutomationAction action, AutomationDbContext db)
         {
             var title = action.Settings.GetValueOrDefault("title", "New Task");
             var description = action.Settings.GetValueOrDefault("description", "");
@@ -180,17 +180,17 @@ namespace FocusDeck.Server.Services
             _logger.LogInformation("Creating task: {Title} (Priority: {Priority})", title, priority);
 
             // TODO: Integrate with actual task service/database
-            return new ActionResult { Success = true, Message = "Task created", Data = new { title, description, priority, dueDate } };
+            return Task.FromResult(new ActionResult { Success = true, Message = "Task created", Data = new { title, description, priority, dueDate } });
         }
 
-        private async Task<ActionResult> CompleteTask(AutomationAction action, AutomationDbContext db)
+        private Task<ActionResult> CompleteTask(AutomationAction action, AutomationDbContext db)
         {
             var taskId = action.Settings.GetValueOrDefault("taskId", "");
             
             _logger.LogInformation("Completing task: {TaskId}", taskId);
             
             // TODO: Integrate with actual task service/database
-            return new ActionResult { Success = true, Message = "Task completed", Data = new { taskId } };
+            return Task.FromResult(new ActionResult { Success = true, Message = "Task completed", Data = new { taskId } });
         }
 
         private async Task<ActionResult> WaitAction(AutomationAction action)
@@ -201,7 +201,7 @@ namespace FocusDeck.Server.Services
             return new ActionResult { Success = true, Message = $"Waited {seconds} seconds" };
         }
 
-        private async Task<ActionResult> LogEvent(AutomationAction action)
+        private Task<ActionResult> LogEvent(AutomationAction action)
         {
             var message = action.Settings.GetValueOrDefault("message", "");
             var level = action.Settings.GetValueOrDefault("level", "info");
@@ -219,16 +219,16 @@ namespace FocusDeck.Server.Services
                     break;
             }
 
-            return new ActionResult { Success = true, Message = "Event logged" };
+            return Task.FromResult(new ActionResult { Success = true, Message = "Event logged" });
         }
 
-        private async Task<ActionResult> PlaySound(AutomationAction action)
+        private Task<ActionResult> PlaySound(AutomationAction action)
         {
             var soundName = action.Settings.GetValueOrDefault("sound", "notification");
             _logger.LogInformation("Playing sound: {Sound}", soundName);
             
             // This will be sent to connected clients
-            return new ActionResult { Success = true, Message = "Sound queued", Data = new { soundName } };
+            return Task.FromResult(new ActionResult { Success = true, Message = "Sound queued", Data = new { soundName } });
         }
 
         private async Task<ActionResult> MakeHttpRequest(AutomationAction action)
@@ -278,13 +278,13 @@ namespace FocusDeck.Server.Services
             }
         }
 
-        private async Task<ActionResult> OpenUrl(AutomationAction action)
+        private Task<ActionResult> OpenUrl(AutomationAction action)
         {
             var url = action.Settings.GetValueOrDefault("url", "");
             _logger.LogInformation("Opening URL: {Url}", url);
             
             // This will be sent to connected clients to open in browser
-            return new ActionResult { Success = true, Message = "URL open command queued", Data = new { url } };
+            return Task.FromResult(new ActionResult { Success = true, Message = "URL open command queued", Data = new { url } });
         }
 
         private async Task<ActionResult> WriteToFile(AutomationAction action)
@@ -315,18 +315,18 @@ namespace FocusDeck.Server.Services
             }
         }
 
-        private async Task<ActionResult> QueueWindowsAction(AutomationAction action, AutomationDbContext db)
+        private Task<ActionResult> QueueWindowsAction(AutomationAction action, AutomationDbContext db)
         {
             _logger.LogInformation("Queuing Windows action: {ActionType}", action.ActionType);
 
             // TODO: Store in a queue table for Windows app to poll/consume
             // For now, just log it
-            return new ActionResult 
+            return Task.FromResult(new ActionResult 
             { 
                 Success = true, 
                 Message = "Windows action queued for desktop app",
                 Data = new { action = action.ActionType, settings = action.Settings }
-            };
+            });
         }
     }
 }

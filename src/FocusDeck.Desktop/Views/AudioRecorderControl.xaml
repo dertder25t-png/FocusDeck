@@ -1,0 +1,94 @@
+<UserControl x:Class="FocusDeck.Desktop.Views.AudioRecorderControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d" 
+             d:DesignHeight="200" d:DesignWidth="400">
+    <Border Background="{DynamicResource SurfaceBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1"
+            CornerRadius="{DynamicResource CornerRadiusMedium}"
+            Padding="{DynamicResource SpacingMedium}">
+        <StackPanel>
+            <!-- Device Selector -->
+            <Grid Margin="{DynamicResource MarginBottomMedium}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Audio Device:" 
+                           VerticalAlignment="Center"
+                           Margin="{DynamicResource MarginRightSmall}"/>
+                <ComboBox x:Name="DeviceComboBox"
+                          Grid.Column="1"
+                          DisplayMemberPath="FriendlyName"
+                          SelectionChanged="DeviceComboBox_SelectionChanged"/>
+            </Grid>
+
+            <!-- Audio Level Meter -->
+            <Grid Margin="{DynamicResource MarginBottomMedium}" Height="30">
+                <Border Background="{DynamicResource BackgroundBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4">
+                    <Grid>
+                        <Rectangle x:Name="LevelMeter"
+                                   Fill="{DynamicResource PrimaryBrush}"
+                                   HorizontalAlignment="Left"
+                                   Width="0"/>
+                        <TextBlock x:Name="LevelText"
+                                   Text="Level: 0%"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="{DynamicResource FontSizeSmall}"/>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Recording Duration -->
+            <TextBlock x:Name="DurationText"
+                       Text="00:00:00"
+                       FontSize="{DynamicResource FontSizeLarge}"
+                       FontWeight="Bold"
+                       HorizontalAlignment="Center"
+                       Margin="{DynamicResource MarginBottomMedium}"/>
+
+            <!-- Control Buttons -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button x:Name="StartButton"
+                        Content="▶ Start"
+                        Click="StartButton_Click"
+                        Margin="{DynamicResource MarginRightSmall}"
+                        Padding="12,6"
+                        Background="{DynamicResource SuccessBrush}"
+                        Foreground="White"
+                        BorderThickness="0"/>
+                
+                <Button x:Name="PauseButton"
+                        Content="⏸ Pause"
+                        Click="PauseButton_Click"
+                        Margin="{DynamicResource MarginRightSmall}"
+                        Padding="12,6"
+                        IsEnabled="False"/>
+                
+                <Button x:Name="StopButton"
+                        Content="⏹ Stop"
+                        Click="StopButton_Click"
+                        Padding="12,6"
+                        Background="{DynamicResource DangerBrush}"
+                        Foreground="White"
+                        BorderThickness="0"
+                        IsEnabled="False"/>
+            </StackPanel>
+
+            <!-- Status Text -->
+            <TextBlock x:Name="StatusText"
+                       Text="Ready to record"
+                       HorizontalAlignment="Center"
+                       Margin="{DynamicResource MarginTopSmall}"
+                       FontSize="{DynamicResource FontSizeSmall}"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+        </StackPanel>
+    </Border>
+</UserControl>
