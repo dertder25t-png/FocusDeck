@@ -58,7 +58,7 @@ fn_prompt_cloudflare() {
     echo "to this server's IP at http://<this_server_ip>:5000. Be aware this less-secure method"
     echo "may break client fingerprinting."
     echo ""
-    read -p "Do you want to install 'cloudflared' on this server? [Y/n]: " response
+    read -r -p "Do you want to install 'cloudflared' on this server? [Y/n]: " response
     case "$response" in
         [nN][oO]|[nN])
             CLOUDFLARED_INSTALLED=false
@@ -142,7 +142,7 @@ fn_clone_repo() {
     fn_print "Cloning repository to $APP_DIR..."
     if [ -d "$APP_DIR" ]; then
         fn_print "Directory $APP_DIR exists, pulling latest changes..."
-        cd $APP_DIR
+        cd "$APP_DIR" || fn_error "Failed to change to directory $APP_DIR"
         git reset --hard HEAD
         git pull origin master
     else
