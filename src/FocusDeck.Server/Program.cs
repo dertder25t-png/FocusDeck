@@ -202,7 +202,7 @@ try
     // Add Health Checks
     builder.Services.AddHealthChecks()
         .AddDbContextCheck<AutomationDbContext>("database", tags: new[] { "db", "sql" })
-        .AddCheck("filesystem", new FileSystemWriteHealthCheck("/data/assets"), tags: new[] { "filesystem" });
+        .AddCheck("filesystem", new FileSystemWriteHealthCheck(builder.Configuration), tags: new[] { "filesystem" });
 
     // Add CORS support with strict allow-list from configuration
     var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() 
