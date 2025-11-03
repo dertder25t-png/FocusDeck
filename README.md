@@ -25,20 +25,21 @@ FocusDeck is a cross-platform productivity suite combining window management, st
 
 ### 🌐 Server (Self-Hosted Sync Backend)
 
-Deploy your own sync server in **one command**:
+Deploy your own sync server in **one command** using our interactive script:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/dertder25t-png/FocusDeck/master/easy-setup.sh | sudo bash
 ```
 
-That's it! The script will:
+This script will guide you through the setup and is the recommended way to install.
+
+The script will:
 - ✅ Install .NET 9.0 and Git automatically
+- ✅ Prompt you to install Cloudflare Tunnel (cloudflared) on the same server (Recommended for security)
 - ✅ Clone and build FocusDeck
 - ✅ Generate secure keys
-- ✅ Configure systemd service
-- ✅ Start the server
-
-Access the web admin panel at `https://your-cloudflare-domain.com`
+- ✅ Configure and start a systemd service for the server
+- ✅ Provide custom instructions on how to complete your Cloudflare setup.
 
 📖 **Quick Setup Guide**: [SIMPLE_SETUP.md](SIMPLE_SETUP.md)  
 📖 **Advanced Configuration**: [docs/CLOUDFLARE_DEPLOYMENT.md](docs/CLOUDFLARE_DEPLOYMENT.md)
