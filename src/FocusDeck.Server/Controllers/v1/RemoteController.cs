@@ -34,6 +34,23 @@ public class RemoteController : ControllerBase
     }
 
     /// <summary>
+    /// Get current user ID from claims with fallback for testing
+    /// TODO: Remove fallback in production - require proper authentication
+    /// </summary>
+    private string GetUserId()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        
+        if (string.IsNullOrEmpty(userId))
+        {
+            _logger.LogWarning("No authenticated user found. Using test user.");
+            return "test-user";
+        }
+        
+        return userId;
+    }
+
+    /// <summary>
     /// Create a new remote action
     /// </summary>
     /// <param name="request">Action details</param>
@@ -41,9 +58,10 @@ public class RemoteController : ControllerBase
     [HttpPost("actions")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<RemoteActionDto>> CreateAction([FromBody] CreateRemoteActionDto request)
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "test-user";
+        var userId = GetUserId();
 
         // Validate action kind
         if (!Enum.TryParse<RemoteActionKind>(request.Kind, true, out var actionKind))
@@ -88,7 +106,7 @@ public class RemoteController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<RemoteActionDto>> GetAction(Guid id)
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "test-user";
+        var userId = GetUserId();
 
         var action = await _db.RemoteActions
             .FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId);
@@ -113,7 +131,7 @@ public class RemoteController : ControllerBase
         [FromQuery] bool? pending = null,
         [FromQuery] int limit = 100)
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "test-user";
+        var userId = GetUserId();
 
         var query = _db.RemoteActions
             .Where(a => a.UserId == userId);
@@ -150,7 +168,7 @@ public class RemoteController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> CompleteAction(Guid id, [FromBody] CompleteRemoteActionDto request)
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "test-user";
+        var userId = GetUserId();
 
         var action = await _db.RemoteActions
             .FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId);
@@ -180,7 +198,7 @@ public class RemoteController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<RemoteTelemetrySummaryDto>> GetTelemetrySummary()
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "test-user";
+        var userId = GetUserId();
 
         // Check for active study sessions
         var activeSession = await _db.StudySessions

@@ -279,8 +279,8 @@ public class RemoteControllerService : IRemoteControllerService, IDisposable
             var focusState = "idle"; // Would get from focus state
             string? activeNoteId = null; // Would get from current view
 
-            // Send via SignalR
-            await _hubConnection.InvokeAsync("RemoteTelemetry", progressPercent, focusState, activeNoteId);
+            // Send via SignalR - use the correct hub method name
+            await _hubConnection.InvokeAsync("SendTelemetry", "test-user", progressPercent, focusState, activeNoteId);
         }
         catch (Exception ex)
         {

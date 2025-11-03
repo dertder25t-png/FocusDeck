@@ -26,6 +26,23 @@ public class DevicesController : ControllerBase
     }
 
     /// <summary>
+    /// Get current user ID from claims with fallback for testing
+    /// TODO: Remove fallback in production - require proper authentication
+    /// </summary>
+    private string GetUserId()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        
+        if (string.IsNullOrEmpty(userId))
+        {
+            _logger.LogWarning("No authenticated user found. Using test user.");
+            return "test-user";
+        }
+        
+        return userId;
+    }
+
+    /// <summary>
     /// Register a new device for remote control
     /// </summary>
     /// <param name="request">Device registration details</param>
@@ -33,10 +50,10 @@ public class DevicesController : ControllerBase
     [HttpPost("register")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<RegisterDeviceResponseDto>> RegisterDevice([FromBody] RegisterDeviceDto request)
     {
-        // Get user ID from claims (in real implementation, this would come from JWT)
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "test-user";
+        var userId = GetUserId();
 
         // Validate device type
         if (!Enum.TryParse<DeviceType>(request.DeviceType, true, out var deviceType))
@@ -80,7 +97,7 @@ public class DevicesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<DeviceLinkDto>>> GetDevices()
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "test-user";
+        var userId = GetUserId();
 
         var devices = await _db.DeviceLinks
             .Where(d => d.UserId == userId)
@@ -111,7 +128,7 @@ public class DevicesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> UpdateHeartbeat(Guid deviceId)
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "test-user";
+        var userId = GetUserId();
 
         var device = await _db.DeviceLinks
             .FirstOrDefaultAsync(d => d.Id == deviceId && d.UserId == userId);

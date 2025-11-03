@@ -55,17 +55,37 @@ public class TelemetryThrottleService : ITelemetryThrottleService
     {
         _lastSent[userId] = DateTime.UtcNow;
         
-        // Clean up old entries periodically (keep last 1000 users)
+        // Clean up old entries when we exceed the limit
         if (_lastSent.Count > 1000)
         {
+            // Remove entries older than 5 minutes
             var oldEntries = _lastSent
                 .Where(kvp => DateTime.UtcNow - kvp.Value > TimeSpan.FromMinutes(5))
                 .Select(kvp => kvp.Key)
+                .Take(100) // Limit cleanup batch size
                 .ToList();
 
             foreach (var key in oldEntries)
             {
                 _lastSent.TryRemove(key, out _);
+            }
+
+            // If still over limit after removing old entries, remove oldest entries
+            if (_lastSent.Count > 1000)
+            {
+                var entriesToRemove = _lastSent
+                    .OrderBy(kvp => kvp.Value)
+                    .Take(_lastSent.Count - 900) // Keep at 900 entries
+                    .Select(kvp => kvp.Key)
+                    .ToList();
+
+                foreach (var key in entriesToRemove)
+                {
+                    _lastSent.TryRemove(key, out _);
+                }
+
+                _logger.LogWarning("Throttle service cleaned up {Count} entries to stay within limits", 
+                    entriesToRemove.Count);
             }
         }
     }
