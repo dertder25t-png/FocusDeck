@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using FocusDeck.Server.Services;
 
 namespace FocusDeck.Server.Hubs;
 
@@ -8,10 +9,14 @@ namespace FocusDeck.Server.Hubs;
 public class NotificationsHub : Hub<INotificationClient>
 {
     private readonly ILogger<NotificationsHub> _logger;
+    private readonly ITelemetryThrottleService _throttleService;
 
-    public NotificationsHub(ILogger<NotificationsHub> logger)
+    public NotificationsHub(
+        ILogger<NotificationsHub> logger,
+        ITelemetryThrottleService throttleService)
     {
         _logger = logger;
+        _throttleService = throttleService;
     }
 
     public override async Task OnConnectedAsync()
@@ -60,6 +65,29 @@ public class NotificationsHub : Hub<INotificationClient>
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"session:{sessionId}");
         _logger.LogInformation("Client {ConnectionId} left session group: {SessionId}", Context.ConnectionId, sessionId);
+    }
+
+    /// <summary>
+    /// Send telemetry update (throttled to max 1 per second per user)
+    /// </summary>
+    public async Task SendTelemetry(string userId, int progressPercent, string focusState, string? activeNoteId)
+    {
+        // Check throttle
+        if (!_throttleService.CanSendTelemetry(userId))
+        {
+            _logger.LogDebug("Telemetry throttled for user {UserId}", userId);
+            return;
+        }
+
+        // Send to user's group
+        await Clients.Group($"user:{userId}")
+            .RemoteTelemetry(progressPercent, focusState, activeNoteId);
+
+        // Record telemetry sent
+        _throttleService.RecordTelemetrySent(userId);
+        
+        _logger.LogDebug("Telemetry sent for user {UserId}: progress={Progress}%, state={State}", 
+            userId, progressPercent, focusState);
     }
 }
 
