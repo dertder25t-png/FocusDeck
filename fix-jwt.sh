@@ -6,8 +6,8 @@
 
 set -e
 
-echo "Stopping FocusDeck service..."
-sudo systemctl stop focusdeck
+echo "Stopping FocusDeck service (if running)..."
+sudo systemctl stop focusdeck 2>/dev/null || echo "Service not running, continuing..."
 
 echo "Generating secure JWT secret..."
 JWT_SECRET=$(head -c 48 /dev/urandom | base64 | tr -d '\n' | head -c 64)
@@ -64,8 +64,8 @@ fi
 
 echo "✓ JWT secret configured: ${JWT_SECRET:0:20}..."
 
-echo "Starting FocusDeck service..."
-sudo systemctl start focusdeck
+echo "Restarting FocusDeck service..."
+sudo systemctl restart focusdeck 2>/dev/null || echo "Service will be started by systemd..."
 
 sleep 3
 
