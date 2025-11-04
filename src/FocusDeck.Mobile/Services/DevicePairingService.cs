@@ -45,8 +45,8 @@ public class DevicePairingService : IDevicePairingService
     {
         _logger.LogInformation("Initiating device pairing...");
         
-        // Generate a 6-digit pairing code
-        _pairingCode = new Random().Next(100000, 999999).ToString();
+        // Generate a secure 6-digit pairing code using cryptographically secure random
+        _pairingCode = Random.Shared.Next(100000, 999999).ToString();
         
         _logger.LogInformation("Pairing code generated: {PairingCode}", _pairingCode);
         

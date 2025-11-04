@@ -18,17 +18,20 @@ public class AuthController : ControllerBase
     private readonly AutomationDbContext _db;
     private readonly ILogger<AuthController> _logger;
     private readonly IConfiguration _configuration;
+    private readonly IHttpClientFactory _httpClientFactory;
 
     public AuthController(
         ITokenService tokenService,
         AutomationDbContext db,
         ILogger<AuthController> logger,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHttpClientFactory httpClientFactory)
     {
         _tokenService = tokenService;
         _db = db;
         _logger = logger;
         _configuration = configuration;
+        _httpClientFactory = httpClientFactory;
     }
 
     [HttpPost("login")]
@@ -245,8 +248,8 @@ public class AuthController : ControllerBase
                 return StatusCode(501, new { code = "NOT_CONFIGURED", message = "Google OAuth is not configured", traceId = HttpContext.TraceIdentifier });
             }
 
-            // Verify the ID token with Google
-            using var httpClient = new HttpClient();
+            // Verify the ID token with Google using HttpClientFactory
+            var httpClient = _httpClientFactory.CreateClient();
             var response = await httpClient.GetAsync($"https://oauth2.googleapis.com/tokeninfo?id_token={request.IdToken}");
             
             if (!response.IsSuccessStatusCode)
@@ -264,8 +267,14 @@ public class AuthController : ControllerBase
                 return Unauthorized(new { code = "INVALID_AUDIENCE", message = "Invalid token audience", traceId = HttpContext.TraceIdentifier });
             }
 
-            // Token is valid, create our JWT tokens
-            var userId = tokenInfo.Sub ?? tokenInfo.Email ?? Guid.NewGuid().ToString();
+            // Token is valid, extract user ID (require Sub or Email)
+            if (string.IsNullOrEmpty(tokenInfo.Sub) && string.IsNullOrEmpty(tokenInfo.Email))
+            {
+                _logger.LogError("Google token missing both Sub and Email claims");
+                return Unauthorized(new { code = "INVALID_TOKEN", message = "Token missing required identity claims", traceId = HttpContext.TraceIdentifier });
+            }
+
+            var userId = tokenInfo.Sub ?? tokenInfo.Email!;
             var roles = new[] { "User" };
 
             var accessToken = _tokenService.GenerateAccessToken(userId, roles);
