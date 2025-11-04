@@ -33,51 +33,110 @@ REPO_URL="https://github.com/dertder25t-png/FocusDeck.git"
 SERVICE_USER="focusdeck"
 SERVICE_FILE="/etc/systemd/system/focusdeck.service"
 CLOUDFLARED_INSTALLED=false
+CF_METHOD=""
+CF_TOKEN=""
 
 # --- Helper Functions ---
-fn_print() {
-    echo -e "${GREEN}[FocusDeck]${NC} $1"
-}
-
-fn_warn() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-fn_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-    exit 1
-}
-
-fn_banner() {
-    echo -e "${PURPLE}"
-    echo "╔═══════════════════════════════════════════════════════╗"
-    echo "║                                                       ║"
-    echo "║       🎯 FocusDeck Server - Complete Setup 🎯        ║"
-    echo "║              Updated November 2024                    ║"
-    echo "║                                                       ║"
-    echo "╚═══════════════════════════════════════════════════════╝"
-    echo -e "${NC}"
-}
-
-# --- Prerequisite Checks ---
-fn_check_root() {
-    if [ "$EUID" -ne 0 ]; then
-        fn_error "This script must be run as root. Please use 'sudo'."
-    fi
-}
-
-fn_check_distro() {
-    if ! command -v apt-get &> /dev/null; then
-        fn_error "This script is designed for Debian-based systems (Ubuntu/Debian) that use 'apt-get'."
-    fi
-}
-
-# --- Cloudflare Setup ---
 fn_prompt_cloudflare() {
     echo ""
     echo -e "${BLUE}╔═══════════════════════════════════════════════════╗${NC}"
     echo -e "${BLUE}║     Cloudflare Tunnel Setup (Recommended)        ║${NC}"
     echo -e "${BLUE}╚═══════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo "Installing Cloudflare Tunnel on this server provides:"
+    echo "  ✓ Secure HTTPS without port forwarding"
+    echo "  ✓ Real client IP addresses (required for auth)"
+    echo "  ✓ DDoS protection"
+    echo "  ✓ Free bandwidth"
+    echo ""
+    echo -e "${YELLOW}If you skip this, you'll need to configure a tunnel manually${NC}"
+    echo -e "${YELLOW}from another machine pointing to this server's IP.${NC}"
+    echo ""
+    read -r -p "Install cloudflared on this server? [Y/n]: " response
+    case "$response" in
+        [nN][oO]|[nN])
+            CLOUDFLARED_INSTALLED=false
+            fn_print "Skipping cloudflared installation."
+            ;;
+        *)
+            CLOUDFLARED_INSTALLED=true
+            # Choose install method
+            echo ""
+            echo "Select Cloudflare setup method:"
+            echo "  1) Paste Cloudflare token (remotely managed tunnel) — recommended"
+            echo "  2) Manual login + create tunnel + YAML config"
+            echo "  3) Skip Cloudflare setup for now"
+            read -r -p "Enter choice [1/2/3]: " cf_choice
+            case "$cf_choice" in
+                3)
+                    CLOUDFLARED_INSTALLED=false
+                    fn_warn "Skipping Cloudflare setup. You can configure later."
+                    ;;
+                2)
+                    CF_METHOD="manual"
+                    fn_install_cloudflared_repo
+                    ;;
+                *)
+                    CF_METHOD="token"
+                    fn_install_cloudflared_repo
+                    echo ""
+                    echo -e "${CYAN}Paste your Cloudflare token (from the dashboard 'service install' button):${NC}"
+                    read -r -p "Token: " CF_TOKEN
+                    if [ -z "$CF_TOKEN" ]; then
+                        fn_warn "No token entered. Falling back to manual method."
+                        CF_METHOD="manual"
+                    else
+                        fn_install_cloudflared_token "$CF_TOKEN"
+                    fi
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+# Install via Cloudflare's apt repository (recommended by Cloudflare)
+fn_install_cloudflared_repo() {
+    fn_print "Installing cloudflared (apt repo)..."
+    mkdir -p /usr/share/keyrings
+    curl -fsSL https://pkg.cloudflare.com/cloudflare-public-v2.gpg | tee /usr/share/keyrings/cloudflare-public-v2.gpg >/dev/null
+    echo 'deb [signed-by=/usr/share/keyrings/cloudflare-public-v2.gpg] https://pkg.cloudflare.com/cloudflared any main' | tee /etc/apt/sources.list.d/cloudflared.list >/dev/null
+    apt-get update -qq
+    apt-get install -y cloudflared > /dev/null 2>&1 || fn_error "Failed to install cloudflared"
+
+    # Verify version meets remotely managed tunnels requirement (>= 2022.03.04)
+    if command -v cloudflared &> /dev/null; then
+        ver=$(cloudflared --version 2>/dev/null | awk '{print $3}')
+        year=$(echo "$ver" | cut -d. -f1)
+        mon=$(echo "$ver" | cut -d. -f2)
+        day=$(echo "$ver" | cut -d. -f3)
+        pass=false
+        if [[ -n "$year" && -n "$mon" ]]; then
+            if (( year > 2022 )); then pass=true; fi
+            if (( year == 2022 )) && (( mon > 3 )); then pass=true; fi
+            if (( year == 2022 )) && (( mon == 3 )) && [[ -n "$day" ]] && (( day >= 4 )); then pass=true; fi
+        fi
+        if [[ "$pass" == true ]]; then
+            fn_print "✓ cloudflared version $ver detected (OK)"
+        else
+            fn_warn "cloudflared version $ver detected. Remotely managed tunnels require >= 2022.03.04. Consider updating."
+        fi
+    fi
+}
+
+# Configure cloudflared using a token (remotely managed tunnel)
+fn_install_cloudflared_token() {
+    local token="$1"
+    fn_print "Installing cloudflared service with token..."
+    cloudflared service install "$token" || fn_error "cloudflared service install failed"
+    systemctl enable cloudflared || true
+    systemctl restart cloudflared || true
+    sleep 2
+    if systemctl is-active --quiet cloudflared; then
+        fn_print "✓ cloudflared service is running"
+    else
+        fn_warn "cloudflared service not active. You can run it manually with: cloudflared tunnel run --token <token>"
+    fi
+}
     echo ""
     echo "Installing Cloudflare Tunnel on this server provides:"
     echo "  ✓ Secure HTTPS without port forwarding"
@@ -399,7 +458,18 @@ fn_print_instructions() {
     echo "  Config:   $APP_DIR/publish/appsettings.json"
     echo ""
     
-    if [ "$CLOUDFLARED_INSTALLED" = true ]; then
+    if [ "$CLOUDFLARED_INSTALLED" = true ] && [ "$CF_METHOD" = "token" ]; then
+        echo -e "${YELLOW}╔═══════════════════════════════════════════════════╗${NC}"
+        echo -e "${YELLOW}║   Cloudflare Tunnel (Token) Configured            ║${NC}"
+        echo -e "${YELLOW}╚═══════════════════════════════════════════════════╝${NC}"
+        echo ""
+        echo "The cloudflared service was installed using your token."
+        echo "If you need to reinstall it later, run:"
+        echo -e "  ${CYAN}sudo cloudflared service install <token>${NC}"
+        echo "To view logs:"
+        echo -e "  ${CYAN}sudo journalctl -u cloudflared -f${NC}"
+        echo ""
+    elif [ "$CLOUDFLARED_INSTALLED" = true ]; then
         echo -e "${YELLOW}╔═══════════════════════════════════════════════════╗${NC}"
         echo -e "${YELLOW}║   Next: Configure Cloudflare Tunnel               ║${NC}"
         echo -e "${YELLOW}╚═══════════════════════════════════════════════════╝${NC}"
