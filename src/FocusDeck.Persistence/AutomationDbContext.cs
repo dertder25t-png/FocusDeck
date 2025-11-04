@@ -50,6 +50,10 @@ public class AutomationDbContext : DbContext
     // Note suggestions
     public DbSet<NoteSuggestion> NoteSuggestions { get; set; }
 
+    // Design projects
+    public DbSet<DesignProject> DesignProjects { get; set; }
+    public DbSet<DesignIdea> DesignIdeas { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
