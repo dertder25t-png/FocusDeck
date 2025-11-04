@@ -165,4 +165,24 @@ public interface INotificationClient
     /// Notify client with a focus recovery suggestion
     /// </summary>
     Task FocusRecoverySuggested(string suggestion);
+    
+    /// <summary>
+    /// Notify client when a focus session starts
+    /// </summary>
+    Task FocusStarted(string sessionId, string mode, int durationMinutes);
+    
+    /// <summary>
+    /// Notify client when a focus session ends
+    /// </summary>
+    Task FocusEnded(string sessionId, int actualMinutes, int distractionCount);
+    
+    /// <summary>
+    /// Notify client when design ideas are added to a project
+    /// </summary>
+    Task DesignIdeasAdded(string projectId, int ideaCount, string message);
+    
+    /// <summary>
+    /// Notify client when a note suggestion is available
+    /// </summary>
+    Task NoteSuggestionReady(string noteId, string suggestionId, string type, string content);
 }

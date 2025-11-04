@@ -62,6 +62,26 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Operations</CardTitle>
+          <CardDescription>Monitor system operations and jobs</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium">Background Jobs</div>
+              <div className="text-sm text-gray-400">Monitor and manage background job processing</div>
+            </div>
+            <Link to="/app/jobs">
+              <Button variant="secondary" size="sm">
+                View Jobs
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Preferences</CardTitle>
           <CardDescription>Customize your experience</CardDescription>
         </CardHeader>

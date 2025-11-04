@@ -8,6 +8,7 @@ import { DesignPage } from './pages/DesignPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { OrganizationsPage } from './pages/OrganizationsPage'
+import { JobsPage } from './pages/JobsPage'
 import { cn } from './lib/utils'
 
 function AppShell() {
@@ -138,6 +139,7 @@ function AppShell() {
                 <Route path="/analytics" element={<AnalyticsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/organizations" element={<OrganizationsPage />} />
+                <Route path="/jobs" element={<JobsPage />} />
               </Routes>
             </div>
           </div>
