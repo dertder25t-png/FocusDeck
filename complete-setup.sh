@@ -37,6 +37,38 @@ CF_METHOD=""
 CF_TOKEN=""
 
 # --- Helper Functions ---
+fn_print() {
+    echo -e "${GREEN}$1${NC}"
+}
+
+fn_warn() {
+    echo -e "${YELLOW}$1${NC}" >&2
+}
+
+fn_error() {
+    echo -e "${RED}$1${NC}" >&2
+    exit 1
+}
+
+fn_banner() {
+    echo ""
+    echo -e "${BLUE}╔═══════════════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║           FocusDeck Server Installer              ║${NC}"
+    echo -e "${BLUE}╚═══════════════════════════════════════════════════╝${NC}"
+}
+
+fn_check_root() {
+    if [ "$EUID" -ne 0 ]; then
+        fn_error "Please run as root (try: sudo bash complete-setup.sh)"
+    fi
+}
+
+fn_check_distro() {
+    if ! command -v apt-get >/dev/null 2>&1; then
+        fn_error "This script supports Debian/Ubuntu (apt-based) systems."
+    fi
+}
+
 fn_prompt_cloudflare() {
     echo ""
     echo -e "${BLUE}╔═══════════════════════════════════════════════════╗${NC}"
@@ -136,28 +168,6 @@ fn_install_cloudflared_token() {
     else
         fn_warn "cloudflared service not active. You can run it manually with: cloudflared tunnel run --token <token>"
     fi
-}
-    echo ""
-    echo "Installing Cloudflare Tunnel on this server provides:"
-    echo "  ✓ Secure HTTPS without port forwarding"
-    echo "  ✓ Real client IP addresses (required for auth)"
-    echo "  ✓ DDoS protection"
-    echo "  ✓ Free bandwidth"
-    echo ""
-    echo -e "${YELLOW}If you skip this, you'll need to configure a tunnel manually${NC}"
-    echo -e "${YELLOW}from another machine pointing to this server's IP.${NC}"
-    echo ""
-    read -r -p "Install cloudflared on this server? [Y/n]: " response
-    case "$response" in
-        [nN][oO]|[nN])
-            CLOUDFLARED_INSTALLED=false
-            fn_print "Skipping cloudflared installation."
-            ;;
-        *)
-            CLOUDFLARED_INSTALLED=true
-            fn_install_cloudflared
-            ;;
-    esac
 }
 
 fn_install_cloudflared() {
