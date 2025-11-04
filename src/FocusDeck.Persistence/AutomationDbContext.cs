@@ -47,6 +47,9 @@ public class AutomationDbContext : DbContext
     public DbSet<OrgUser> OrgUsers { get; set; }
     public DbSet<Invite> Invites { get; set; }
 
+    // Note suggestions
+    public DbSet<NoteSuggestion> NoteSuggestions { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
