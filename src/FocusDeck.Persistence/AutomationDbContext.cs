@@ -31,6 +31,7 @@ public class AutomationDbContext : DbContext
     public DbSet<SyncTransaction> SyncTransactions { get; set; }
     public DbSet<SyncChange> SyncChanges { get; set; }
     public DbSet<SyncMetadata> SyncMetadata { get; set; }
+    public DbSet<SyncVersion> SyncVersions { get; set; }
 
     // Remote control tables
     public DbSet<DeviceLink> DeviceLinks { get; set; }

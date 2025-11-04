@@ -20,18 +20,13 @@ namespace FocusDeck.Server.Controllers
             _logger = logger;
         }
 
-        private string GetUserId()
+        private string? TryGetUserId()
         {
             // Try common claim types
             var sub = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                       ?? User.FindFirst("sub")?.Value
                       ?? User.Identity?.Name;
-            if (string.IsNullOrWhiteSpace(sub))
-            {
-                // Fallback for development (should be removed in production)
-                sub = "default-user";
-            }
-            return sub!;
+            return string.IsNullOrWhiteSpace(sub) ? null : sub;
         }
 
         /// <summary>
@@ -39,11 +34,15 @@ namespace FocusDeck.Server.Controllers
         /// POST /api/sync/register
         /// </summary>
         [HttpPost("register")]
-    public async Task<ActionResult<DeviceRegistration>> RegisterDevice([FromBody] DeviceRegistrationRequest request)
+        public async Task<ActionResult<DeviceRegistration>> RegisterDevice([FromBody] DeviceRegistrationRequest request)
         {
             try
             {
-        var userId = GetUserId();
+                var userId = TryGetUserId();
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { error = "Missing user identity" });
+                }
 
                 var device = await _syncService.RegisterDeviceAsync(
                     request.DeviceId,
@@ -70,7 +69,11 @@ namespace FocusDeck.Server.Controllers
         {
             try
             {
-                var userId = GetUserId();
+                var userId = TryGetUserId();
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { error = "Missing user identity" });
+                }
                 var devices = await _syncService.GetUserDevicesAsync(userId);
                 return Ok(devices);
             }
@@ -90,7 +93,11 @@ namespace FocusDeck.Server.Controllers
         {
             try
             {
-                var userId = GetUserId();
+                var userId = TryGetUserId();
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { error = "Missing user identity" });
+                }
                 var success = await _syncService.UnregisterDeviceAsync(deviceId, userId);
                 if (success)
                 {
@@ -114,7 +121,11 @@ namespace FocusDeck.Server.Controllers
         {
             try
             {
-                var userId = GetUserId();
+                var userId = TryGetUserId();
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { error = "Missing user identity" });
+                }
                 var result = await _syncService.PushChangesAsync(request, userId);
                 
                 if (result.Success)
@@ -148,7 +159,11 @@ namespace FocusDeck.Server.Controllers
         {
             try
             {
-                var userId = GetUserId();
+                var userId = TryGetUserId();
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { error = "Missing user identity" });
+                }
                 var response = await _syncService.PullChangesAsync(deviceId, lastKnownVersion, userId, entityType);
                 return Ok(response);
             }
@@ -168,7 +183,11 @@ namespace FocusDeck.Server.Controllers
         {
             try
             {
-                var userId = GetUserId();
+                var userId = TryGetUserId();
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { error = "Missing user identity" });
+                }
                 var result = await _syncService.SyncAsync(request, userId);
                 
                 if (result.Success)
@@ -199,7 +218,11 @@ namespace FocusDeck.Server.Controllers
         {
             try
             {
-                var userId = GetUserId();
+                var userId = TryGetUserId();
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { error = "Missing user identity" });
+                }
                 var stats = await _syncService.GetSyncStatisticsAsync(userId);
                 return Ok(stats);
             }
@@ -219,7 +242,11 @@ namespace FocusDeck.Server.Controllers
         {
             try
             {
-                var userId = GetUserId();
+                var userId = TryGetUserId();
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { error = "Missing user identity" });
+                }
                 var success = await _syncService.ResolveConflictAsync(request.EntityId, request.Resolution, userId);
                 
                 if (success)

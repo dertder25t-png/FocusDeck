@@ -39,12 +39,33 @@ namespace FocusDeck.Server.Services
     {
         private readonly AutomationDbContext _db;
         private readonly ILogger<SyncService> _logger;
-        private long _currentVersion = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         public SyncService(AutomationDbContext db, ILogger<SyncService> logger)
         {
             _db = db;
             _logger = logger;
+        }
+
+        private async Task<long> GetCurrentVersionAsync()
+        {
+            var max = await _db.Set<SyncVersion>()
+                .OrderByDescending(v => v.Id)
+                .Select(v => v.Id)
+                .FirstOrDefaultAsync();
+            return max;
+        }
+
+        private async Task<List<long>> AllocateVersionsAsync(int count)
+        {
+            if (count <= 0) return new List<long>();
+            var stamps = new List<SyncVersion>(capacity: count);
+            for (int i = 0; i < count; i++)
+            {
+                stamps.Add(new SyncVersion { CreatedAt = DateTime.UtcNow });
+            }
+            _db.Set<SyncVersion>().AddRange(stamps);
+            await _db.SaveChangesAsync();
+            return stamps.Select(s => s.Id).OrderBy(id => id).ToList();
         }
 
         public async Task<DeviceRegistration> RegisterDeviceAsync(string deviceId, string deviceName, DevicePlatform platform, string userId)
@@ -143,6 +164,9 @@ namespace FocusDeck.Server.Services
                     return result;
                 }
 
+                // Begin DB transaction for atomicity
+                var dbtx = await _db.Database.BeginTransactionAsync();
+
                 // Create transaction
                 var transaction = new SyncTransaction
                 {
@@ -153,12 +177,12 @@ namespace FocusDeck.Server.Services
                     Changes = request.Changes
                 };
 
-                // Process each change
+                // Process each change and collect non-conflicting ones
+                var acceptedChanges = new List<SyncChange>();
                 foreach (var change in request.Changes)
                 {
                     change.Id = Guid.NewGuid();
                     change.TransactionId = transaction.Id;
-                    change.ChangeVersion = ++_currentVersion;
 
                     // Check for conflicts
                     var existingChange = await _db.Set<SyncChange>()
@@ -180,8 +204,15 @@ namespace FocusDeck.Server.Services
                         continue;
                     }
 
-                    // Apply change
-                    _db.Set<SyncChange>().Add(change);
+                    acceptedChanges.Add(change);
+                }
+
+                // Allocate durable version numbers for accepted changes
+                List<long> allocatedVersions = await AllocateVersionsAsync(acceptedChanges.Count);
+                for (int i = 0; i < acceptedChanges.Count; i++)
+                {
+                    acceptedChanges[i].ChangeVersion = allocatedVersions[i];
+                    _db.Set<SyncChange>().Add(acceptedChanges[i]);
                     result.ChangesPushed++;
                 }
 
@@ -191,13 +222,16 @@ namespace FocusDeck.Server.Services
                 // Update device sync metadata
                 device.LastSyncAt = DateTime.UtcNow;
                 var metadata = await GetOrCreateMetadata(request.DeviceId);
-                metadata.LastSyncVersion = _currentVersion;
+                var lastAllocated = allocatedVersions.Count > 0 ? allocatedVersions[^1] : await GetCurrentVersionAsync();
+                metadata.LastSyncVersion = lastAllocated;
                 metadata.LastSyncTime = DateTime.UtcNow;
 
                 await _db.SaveChangesAsync();
+                await dbtx.CommitAsync();
 
+                var currentVersion = await GetCurrentVersionAsync();
                 result.Success = !result.Conflicts.Any();
-                result.NewVersion = _currentVersion;
+                result.NewVersion = currentVersion;
 
                 _logger.LogInformation("Pushed {Count} changes from device {DeviceId}", result.ChangesPushed, request.DeviceId);
                 return result;
@@ -221,7 +255,7 @@ namespace FocusDeck.Server.Services
 
                 if (device == null)
                 {
-                    return new SyncPullResponse { CurrentVersion = _currentVersion, Changes = new List<SyncChange>() };
+                    return new SyncPullResponse { CurrentVersion = await GetCurrentVersionAsync(), Changes = new List<SyncChange>() };
                 }
 
                 // Get changes since last known version (excluding changes from this device)
@@ -250,7 +284,7 @@ namespace FocusDeck.Server.Services
 
                 return new SyncPullResponse
                 {
-                    CurrentVersion = _currentVersion,
+                    CurrentVersion = await GetCurrentVersionAsync(),
                     Changes = changes,
                     HasMoreChanges = changes.Count == 100
                 };
@@ -258,7 +292,7 @@ namespace FocusDeck.Server.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to pull changes for device {DeviceId}", deviceId);
-                return new SyncPullResponse { CurrentVersion = _currentVersion, Changes = new List<SyncChange>() };
+                return new SyncPullResponse { CurrentVersion = await GetCurrentVersionAsync(), Changes = new List<SyncChange>() };
             }
         }
 
@@ -337,9 +371,10 @@ namespace FocusDeck.Server.Services
                         break;
 
                     case ConflictResolution.UseLocal:
-                        // Revert to the older local version
+                        // Revert to the older local version and assign a new global version
                         var localChange = changes[1];
-                        localChange.ChangeVersion = ++_currentVersion;
+                        var newVersion = (await AllocateVersionsAsync(1)).First();
+                        localChange.ChangeVersion = newVersion;
                         break;
 
                     case ConflictResolution.Merge:

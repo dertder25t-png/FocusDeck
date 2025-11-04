@@ -420,6 +420,11 @@ try
                     LastSyncTime TEXT NOT NULL,
                     EntityVersions TEXT
                 );",
+                // SyncVersions (global version stamps)
+                @"CREATE TABLE IF NOT EXISTS SyncVersions (
+                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    CreatedAt TEXT NOT NULL
+                );",
                 // Notes
                 @"CREATE TABLE IF NOT EXISTS Notes (
                     Id TEXT PRIMARY KEY,
