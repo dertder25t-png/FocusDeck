@@ -64,6 +64,14 @@ echo "✓ Web UI deployed"
 echo "Configuring JWT secret..."
 JWT_SECRET=$(head -c 48 /dev/urandom | base64 | tr -d '\n' | head -c 64)
 
+# Persist environment variables so systemd can load them
+ENV_FILE="/etc/focusdeck.env"
+tee "$ENV_FILE" > /dev/null << EOF
+JWT__Key=${JWT_SECRET}
+ASPNETCORE_ENVIRONMENT=Production
+EOF
+chmod 600 "$ENV_FILE"
+
 tee "$PUBLISH_DIR/appsettings.json" > /dev/null << EOF
 {
   "ConnectionStrings": {
@@ -133,6 +141,7 @@ SyslogIdentifier=focusdeck
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
 Environment=ASPNETCORE_URLS=http://0.0.0.0:5000
+EnvironmentFile=/etc/focusdeck.env
 
 # Security settings
 NoNewPrivileges=true

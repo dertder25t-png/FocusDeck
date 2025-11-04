@@ -329,6 +329,14 @@ EOF_CONFIG
     
     chown $SERVICE_USER:$SERVICE_USER "$config_path"
     chmod 600 "$config_path"
+
+    # Persist environment variables for systemd
+    ENV_FILE="/etc/focusdeck.env"
+    cat > "$ENV_FILE" << EOF
+JWT__Key=${JWT_SECRET}
+ASPNETCORE_ENVIRONMENT=Production
+EOF
+    chmod 600 "$ENV_FILE"
     
     # Verify the JWT key was actually written
     if grep -q "super_dev_secret\|change_me\|your-\|PLACEHOLDER" "$config_path"; then
@@ -371,6 +379,7 @@ SyslogIdentifier=focusdeck
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
 Environment=ASPNETCORE_URLS=http://0.0.0.0:5000
+EnvironmentFile=/etc/focusdeck.env
 
 # Security settings
 NoNewPrivileges=true
