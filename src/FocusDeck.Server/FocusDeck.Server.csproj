@@ -43,4 +43,13 @@
     <ProjectReference Include="..\FocusDeck.Contracts\FocusDeck.Contracts.csproj" />
   </ItemGroup>
 
+  <!-- Build SPA and copy to wwwroot/app -->
+  <Target Name="BuildSpa" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <Exec Command="cd $(ProjectDir)../FocusDeck.WebApp &amp;&amp; npm install &amp;&amp; npm run build" />
+    <ItemGroup>
+      <SpaFiles Include="$(ProjectDir)../FocusDeck.WebApp/dist/**/*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SpaFiles)" DestinationFolder="$(ProjectDir)wwwroot/app/%(RecursiveDir)" />
+  </Target>
+
 </Project>

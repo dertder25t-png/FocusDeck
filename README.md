@@ -23,7 +23,30 @@ FocusDeck is a cross-platform productivity suite combining window management, st
 3. Install APK
 4. **Requirements**: Android 8.0+, 50MB storage
 
-### 🌐 Server (Self-Hosted Sync Backend)
+### 🌐 Web Application (Browser-Based SaaS)
+
+Access FocusDeck through your web browser - no installation required!
+
+```
+https://your-focusdeck-domain.com/app
+```
+
+**Features:**
+- 🎓 **Lecture Companion** - Upload, transcribe, and process lectures
+- ⚡ **Focus Sessions** - Start and track focus sessions with real-time updates
+- 📝 **AI-Verified Notes** - Verify and enhance your study notes
+- 🎨 **Design Assist** - Generate design ideas and concepts
+- 📊 **Analytics** - View your productivity insights
+
+**Technology:**
+- React + TypeScript + Tailwind CSS
+- Real-time updates via SignalR WebSockets
+- Responsive design for desktop and tablet
+- Dark mode by default
+
+See [src/FocusDeck.WebApp/README.md](src/FocusDeck.WebApp/README.md) for development instructions.
+
+### 🖥️ Server (Self-Hosted Sync Backend)
 
 Deploy your own sync server in **one command** using our interactive script:
 

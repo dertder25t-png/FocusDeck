@@ -560,6 +560,41 @@ try
         }
     }).AllowAnonymous();
 
+    // SPA Fallback - serve React app for /app/* routes
+    app.MapFallbackToFile("/app/{**path}", "/app/index.html").AllowAnonymous();
+
+    // Add security headers for SPA
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path.StartsWithSegments("/app"))
+        {
+            // Content Security Policy
+            context.Response.Headers["Content-Security-Policy"] = 
+                "default-src 'self'; " +
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+                "style-src 'self' 'unsafe-inline'; " +
+                "img-src 'self' data: https:; " +
+                "font-src 'self' data:; " +
+                "connect-src 'self' ws: wss:; " +
+                "frame-ancestors 'none';";
+            
+            // Other security headers
+            context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            context.Response.Headers["X-Frame-Options"] = "DENY";
+            context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+            
+            // Cache control for HTML files
+            if (context.Request.Path.Value?.EndsWith("index.html") == true)
+            {
+                context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+                context.Response.Headers["Pragma"] = "no-cache";
+                context.Response.Headers["Expires"] = "0";
+            }
+        }
+        
+        await next();
+    });
+
     // Custom endpoint to serve the root index.html with version injection
     app.MapGet("/", async (HttpContext context, VersionService versionService, IWebHostEnvironment env) =>
     {
