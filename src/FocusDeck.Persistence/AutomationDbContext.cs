@@ -39,6 +39,7 @@ public class AutomationDbContext : DbContext
 
     // Focus session tables
     public DbSet<FocusSession> FocusSessions { get; set; }
+    public DbSet<FocusPolicyTemplate> FocusPolicyTemplates { get; set; }
 
     // Multi-tenancy tables
     public DbSet<Organization> Organizations { get; set; }
