@@ -198,6 +198,12 @@ try
             options.ServerName = $"FocusDeck-{Environment.MachineName}";
         });
     }
+    else
+    {
+        // For SQLite/development: register a no-op IBackgroundJobClient
+        builder.Services.AddSingleton<Hangfire.IBackgroundJobClient>(sp => 
+            new FocusDeck.Server.Middleware.StubBackgroundJobClient());
+    }
 
     // Add Health Checks
     builder.Services.AddHealthChecks()

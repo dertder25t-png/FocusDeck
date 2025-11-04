@@ -15,6 +15,7 @@ class FocusDeckApp {
         this.studySummary = null;
         this.automations = [];
         this.connectedServices = [];
+        this.token = this.loadToken();
         this.timerState = {
             isRunning: false,
             isPaused: false,
@@ -25,6 +26,80 @@ class FocusDeckApp {
         this.settings = this.loadSettings();
         
         this.init();
+    }
+
+    loadToken() {
+        try {
+            const stored = localStorage.getItem('focusdeck-token');
+            if (stored) {
+                const token = JSON.parse(stored);
+                // Check if token is still valid (not expired)
+                if (token.expiresAt && new Date(token.expiresAt) > new Date()) {
+                    return token.token;
+                }
+            }
+        } catch (e) {
+            // Continue without token, will generate new one
+        }
+        return null;
+    }
+
+    saveToken(token, expiresAt) {
+        try {
+            localStorage.setItem('focusdeck-token', JSON.stringify({ token, expiresAt }));
+            this.token = token;
+        } catch (e) {
+            console.error('Failed to save token:', e);
+        }
+    }
+
+    async ensureToken() {
+        // If we have a valid token, use it
+        if (this.token) {
+            return this.token;
+        }
+
+        // Generate a new token
+        try {
+            const response = await fetch('/api/auth/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: 'web-user' })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                this.saveToken(result.token, result.expiresAt);
+                return result.token;
+            }
+        } catch (error) {
+            console.warn('Failed to auto-generate token:', error);
+        }
+        return null;
+    }
+
+    getAuthHeaders() {
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.token) {
+            headers['Authorization'] = `Bearer ${this.token}`;
+        }
+        return headers;
+    }
+
+    async apiFetch(url, options = {}) {
+        // Ensure we have a token
+        const token = await this.ensureToken();
+        
+        // Merge auth headers with provided options
+        const finalOptions = {
+            ...options,
+            headers: {
+                ...this.getAuthHeaders(),
+                ...(options.headers || {})
+            }
+        };
+
+        return fetch(url, finalOptions);
     }
 
     init() {
@@ -821,7 +896,11 @@ class FocusDeckApp {
                 saveButton.innerText = 'Saving...';
             }
 
-            const response = await fetch(url, requestOptions);
+            const response = await this.apiFetch(url, {
+                method: this.activeNoteId ? 'PUT' : 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
             if (!response.ok) {
                 const message = await response.text();
                 throw new Error(message || 'Failed to save note');
@@ -859,7 +938,7 @@ class FocusDeckApp {
         }
 
         try {
-            const response = await fetch(`/api/notes/${noteId}`, { method: 'DELETE' });
+            const response = await this.apiFetch(`/api/notes/${noteId}`, { method: 'DELETE' });
             if (!response.ok) {
                 const message = await response.text();
                 throw new Error(message || 'Failed to delete note');
@@ -892,7 +971,7 @@ class FocusDeckApp {
         const updated = { ...note, isPinned: !note.isPinned };
 
         try {
-            const response = await fetch(`/api/notes/${noteId}`, {
+            const response = await this.apiFetch(`/api/notes/${noteId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updated)
@@ -1258,7 +1337,7 @@ class FocusDeckApp {
 
         try {
             // Try to save to API
-            const response = await fetch('/api/decks', {
+            const response = await this.apiFetch('/api/decks', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(deck)
@@ -1387,7 +1466,7 @@ class FocusDeckApp {
 
     async loadAutomations() {
         try {
-            const response = await fetch('/api/automations');
+            const response = await this.apiFetch('/api/automations');
             if (response.ok) {
                 this.automations = await response.json();
                 this.renderAutomations();
@@ -1405,7 +1484,7 @@ class FocusDeckApp {
 
     async loadConnectedServices() {
         try {
-            const response = await fetch('/api/services');
+            const response = await this.apiFetch('/api/services');
             if (response.ok) {
                 this.connectedServices = await response.json();
                 this.renderConnectedServices();
@@ -1420,7 +1499,7 @@ class FocusDeckApp {
 
     async loadAutomationStats() {
         try {
-            const response = await fetch('/api/automations/stats');
+            const response = await this.apiFetch('/api/automations/stats');
             if (response.ok) {
                 const stats = await response.json();
                 
@@ -1661,7 +1740,7 @@ class FocusDeckApp {
 
     async checkServiceHealth(serviceId) {
         try {
-            const response = await fetch(`/api/services/${serviceId}/health`, {
+            const response = await this.apiFetch(`/api/services/${serviceId}/health`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
             });
@@ -2063,7 +2142,7 @@ class FocusDeckApp {
 
         try {
             // Fetch guide from server
-            const response = await fetch(`/api/services/${service}/setup`);
+            const response = await this.apiFetch(`/api/services/${service}/setup`);
             if (!response.ok) {
                 throw new Error(`Server returned ${response.status}`);
             }
@@ -2191,7 +2270,7 @@ class FocusDeckApp {
                         apiKey: payload.apiKey || null
                     };
                     
-                    const saveResp = await fetch(`/api/services/${service}/config`, {
+                    const saveResp = await this.apiFetch(`/api/services/${service}/config`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(configPayload)
@@ -2205,7 +2284,7 @@ class FocusDeckApp {
                 }
 
                 // Now try to get OAuth URL from the server
-                const resp = await fetch(`/api/services/oauth/${service}/url`);
+                const resp = await this.apiFetch(`/api/services/oauth/${service}/url`);
                 if (!resp.ok) {
                     const error = await resp.json();
                     if (error.needsConfig) {
@@ -2237,7 +2316,7 @@ class FocusDeckApp {
                 }
             }
 
-            const response = await fetch(`/api/services/connect/${service}`, {
+            const response = await this.apiFetch(`/api/services/connect/${service}`, {
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
                 body: JSON.stringify(connectPayload)
@@ -2452,7 +2531,7 @@ class FocusDeckApp {
         };
 
         try {
-            const response = await fetch('/api/automations', {
+            const response = await this.apiFetch('/api/automations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(automation)
@@ -2481,7 +2560,7 @@ class FocusDeckApp {
 
     async toggleAutomation(id) {
         try {
-            await fetch(`/api/automations/${id}/toggle`, { method: 'POST' });
+            await this.apiFetch(`/api/automations/${id}/toggle`, { method: 'POST' });
             this.loadAutomations();
         } catch (error) {
             console.error('Error toggling automation:', error);
@@ -2490,7 +2569,7 @@ class FocusDeckApp {
 
     async runAutomation(id) {
         try {
-            await fetch(`/api/automations/${id}/run`, { method: 'POST' });
+            await this.apiFetch(`/api/automations/${id}/run`, { method: 'POST' });
             this.showToast('Automation triggered!', 'success');
             this.loadAutomations();
         } catch (error) {
@@ -2503,7 +2582,7 @@ class FocusDeckApp {
         if (!confirm('Delete this automation?')) return;
 
         try {
-            await fetch(`/api/automations/${id}`, { method: 'DELETE' });
+            await this.apiFetch(`/api/automations/${id}`, { method: 'DELETE' });
             this.showToast('Automation deleted', 'success');
             this.loadAutomations();
         } catch (error) {
@@ -2522,7 +2601,7 @@ class FocusDeckApp {
 
         try {
             // Fetch history from API
-            const response = await fetch(`/api/automations/${id}/history?limit=50`);
+            const response = await this.apiFetch(`/api/automations/${id}/history?limit=50`);
             const history = await response.json();
 
             if (response.ok && history.length > 0) {
@@ -2593,7 +2672,7 @@ class FocusDeckApp {
 
     async connectService(service) {
         try {
-            const response = await fetch(`/api/services/connect/${service}`, {
+            const response = await this.apiFetch(`/api/services/connect/${service}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({}) // Empty body for demo
@@ -2620,7 +2699,7 @@ class FocusDeckApp {
         if (!confirm('Disconnect this service?')) return;
 
         try {
-            await fetch(`/api/services/${id}`, { method: 'DELETE' });
+            await this.apiFetch(`/api/services/${id}`, { method: 'DELETE' });
             this.showToast('Service disconnected', 'success');
             this.loadConnectedServices();
         } catch (error) {
@@ -2752,7 +2831,7 @@ class FocusDeckApp {
         
         try {
             // Use the server's check-updates endpoint which properly compares versions
-            const response = await fetch('/api/server/check-updates');
+            const response = await this.apiFetch('/api/server/check-updates');
             const data = await response.json();
             
             if (data.updateAvailable) {
@@ -2781,7 +2860,7 @@ class FocusDeckApp {
         this.showToast('Starting server update...', 'info');
         
         try {
-            const response = await fetch('/api/server/update', {
+            const response = await this.apiFetch('/api/server/update', {
                 method: 'POST'
             });
             
@@ -2894,7 +2973,7 @@ sudo systemctl restart focusdeck`;
 
     async fetchDecks() {
         try {
-            const response = await fetch('/api/decks');
+            const response = await this.apiFetch('/api/decks');
             if (!response.ok) return;
 
             const apiDecks = await response.json();
@@ -2909,7 +2988,7 @@ sudo systemctl restart focusdeck`;
 
     async fetchNotes() {
         try {
-            const response = await fetch('/api/notes');
+            const response = await this.apiFetch('/api/notes');
             if (response.ok) {
                 const apiNotes = await response.json();
                 if (Array.isArray(apiNotes)) {
@@ -2926,7 +3005,7 @@ sudo systemctl restart focusdeck`;
 
     async fetchNoteStats() {
         try {
-            const response = await fetch('/api/notes/stats');
+            const response = await this.apiFetch('/api/notes/stats');
             if (!response.ok) {
                 this.noteStats = this.computeNoteStats();
                 this.renderNoteStats();
@@ -2961,7 +3040,7 @@ sudo systemctl restart focusdeck`;
             if (range?.from) params.append('from', range.from);
             if (range?.to) params.append('to', range.to);
 
-            const response = await fetch(`/api/study-sessions/summary${params.toString() ? `?${params}` : ''}`);
+            const response = await this.apiFetch(`/api/study-sessions/summary${params.toString() ? `?${params}` : ''}`);
             if (!response.ok) return;
 
             this.studySummary = await response.json();
@@ -2984,7 +3063,7 @@ sudo systemctl restart focusdeck`;
             if (to) params.append('to', to);
             if (status !== undefined) params.append('status', status);
 
-            const response = await fetch(`/api/study-sessions${params.toString() ? `?${params}` : ''}`);
+            const response = await this.apiFetch(`/api/study-sessions${params.toString() ? `?${params}` : ''}`);
             if (!response.ok) return;
 
             const sessions = await response.json();
@@ -3056,7 +3135,7 @@ sudo systemctl restart focusdeck`;
         };
 
         try {
-            const response = await fetch('/api/study-sessions', {
+            const response = await this.apiFetch('/api/study-sessions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(session)
@@ -3302,7 +3381,7 @@ sudo systemctl restart focusdeck`;
         try {
             this.showToast('Starting server update. This may take up to a minute.', 'info');
 
-            const response = await fetch('/api/update/trigger', { method: 'POST' });
+            const response = await this.apiFetch('/api/update/trigger', { method: 'POST' });
             const result = await response.json();
 
             if (!response.ok) {
@@ -3322,7 +3401,7 @@ sudo systemctl restart focusdeck`;
                 }
 
                 try {
-                    const healthCheck = await fetch('/api/server/health', { cache: 'no-cache' });
+                    const healthCheck = await this.apiFetch('/api/server/health', { cache: 'no-cache' });
                     if (healthCheck.ok) {
                         clearInterval(interval);
                         if (statusTitle) statusTitle.textContent = 'Update complete';
@@ -3370,7 +3449,7 @@ sudo systemctl restart focusdeck`;
         }
     }    async checkUpdateStatus() {
         try {
-            const response = await fetch('/api/server/update-status');
+            const response = await this.apiFetch('/api/server/update-status');
             if (response.ok) {
                 const result = await response.json();
                 return result;
@@ -3405,7 +3484,7 @@ sudo systemctl restart focusdeck`;
         }
 
         try {
-            const response = await fetch('/api/auth/token', {
+            const response = await this.apiFetch('/api/auth/token', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -3458,7 +3537,7 @@ sudo systemctl restart focusdeck`;
         }
 
         try {
-            const response = await fetch('/api/update/check-config');
+            const response = await this.apiFetch('/api/update/check-config');
             const result = await response.json();
 
             // Update platform info
