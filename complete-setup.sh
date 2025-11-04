@@ -316,20 +316,23 @@ fn_create_config() {
         CORS_ORIGINS='      "https://'"${DOMAIN}"'"'
     fi
     
+    # Ensure publish directory exists
+    mkdir -p "$APP_DIR/publish"
+    
     # Create configuration file
-    cat > "$config_path" << EOF
+    cat > "$config_path" << 'EOF_CONFIG'
 {
   "ConnectionStrings": {
     "DefaultConnection": "Data Source=focusdeck.db"
   },
   "Jwt": {
-    "Key": "${JWT_SECRET}",
-    "Issuer": "${JWT_ISSUER}",
+    "Key": "JWT_SECRET_PLACEHOLDER",
+    "Issuer": "JWT_ISSUER_PLACEHOLDER",
     "Audience": "focusdeck-clients"
   },
   "Cors": {
     "AllowedOrigins": [
-${CORS_ORIGINS}
+CORS_ORIGINS_PLACEHOLDER
     ]
   },
   "Storage": {
@@ -352,10 +355,20 @@ ${CORS_ORIGINS}
   },
   "AllowedHosts": "*"
 }
-EOF
+EOF_CONFIG
+    
+    # Replace placeholders with actual values using sed
+    sed -i "s|JWT_SECRET_PLACEHOLDER|${JWT_SECRET}|g" "$config_path"
+    sed -i "s|JWT_ISSUER_PLACEHOLDER|${JWT_ISSUER}|g" "$config_path"
+    sed -i "s|CORS_ORIGINS_PLACEHOLDER|${CORS_ORIGINS}|g" "$config_path"
     
     chown $SERVICE_USER:$SERVICE_USER "$config_path"
     chmod 600 "$config_path"
+    
+    # Verify the JWT key was actually written
+    if grep -q "super_dev_secret\|change_me\|your-\|PLACEHOLDER" "$config_path"; then
+        fn_error "Failed to configure JWT secret properly. Config may be corrupted."
+    fi
     
     fn_print "✓ Configuration created with secure JWT key"
 }
