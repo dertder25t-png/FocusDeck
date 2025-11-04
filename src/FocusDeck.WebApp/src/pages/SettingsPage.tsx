@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/Card'
 import { Input } from '../components/Input'
 import { Button } from '../components/Button'
+import { Link } from 'react-router-dom'
 
 export function SettingsPage() {
   return (
@@ -27,6 +28,35 @@ export function SettingsPage() {
             <Input type="email" placeholder="your@email.com" />
           </div>
           <Button>Save Changes</Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Organization</CardTitle>
+          <CardDescription>Manage your organization settings</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium">My Organizations</div>
+              <div className="text-sm text-gray-400">View and manage your organizations</div>
+            </div>
+            <Link to="/app/organizations">
+              <Button variant="secondary" size="sm">
+                Manage
+              </Button>
+            </Link>
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium">Team Members</div>
+              <div className="text-sm text-gray-400">Invite and manage team members</div>
+            </div>
+            <Button variant="secondary" size="sm" disabled>
+              View Members
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

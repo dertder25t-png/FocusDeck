@@ -40,6 +40,12 @@ public class AutomationDbContext : DbContext
     // Focus session tables
     public DbSet<FocusSession> FocusSessions { get; set; }
 
+    // Multi-tenancy tables
+    public DbSet<Organization> Organizations { get; set; }
+    public DbSet<User> Users { get; set; }
+    public DbSet<OrgUser> OrgUsers { get; set; }
+    public DbSet<Invite> Invites { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
