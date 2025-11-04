@@ -221,8 +221,110 @@ public class AuthController : ControllerBase
 
         return Ok(new { message = "Token revoked successfully" });
     }
+
+    /// <summary>
+    /// Authenticate with Google OAuth
+    /// </summary>
+    [HttpPost("google")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
+    {
+        if (string.IsNullOrEmpty(request.IdToken))
+        {
+            return BadRequest(new { code = "INVALID_INPUT", message = "ID token is required", traceId = HttpContext.TraceIdentifier });
+        }
+
+        try
+        {
+            // Get Google OAuth configuration
+            var googleClientId = _configuration["Authentication:Google:ClientId"];
+            
+            if (string.IsNullOrEmpty(googleClientId))
+            {
+                _logger.LogError("Google OAuth is not configured. Missing Authentication:Google:ClientId");
+                return StatusCode(501, new { code = "NOT_CONFIGURED", message = "Google OAuth is not configured", traceId = HttpContext.TraceIdentifier });
+            }
+
+            // Verify the ID token with Google
+            using var httpClient = new HttpClient();
+            var response = await httpClient.GetAsync($"https://oauth2.googleapis.com/tokeninfo?id_token={request.IdToken}");
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Google token verification failed with status {StatusCode}", response.StatusCode);
+                return Unauthorized(new { code = "INVALID_TOKEN", message = "Invalid Google ID token", traceId = HttpContext.TraceIdentifier });
+            }
+
+            var tokenInfo = await response.Content.ReadFromJsonAsync<GoogleTokenInfo>();
+            
+            if (tokenInfo == null || tokenInfo.Aud != googleClientId)
+            {
+                _logger.LogWarning("Google token audience mismatch. Expected: {Expected}, Got: {Got}", 
+                    googleClientId, tokenInfo?.Aud);
+                return Unauthorized(new { code = "INVALID_AUDIENCE", message = "Invalid token audience", traceId = HttpContext.TraceIdentifier });
+            }
+
+            // Token is valid, create our JWT tokens
+            var userId = tokenInfo.Sub ?? tokenInfo.Email ?? Guid.NewGuid().ToString();
+            var roles = new[] { "User" };
+
+            var accessToken = _tokenService.GenerateAccessToken(userId, roles);
+            var refreshToken = _tokenService.GenerateRefreshToken();
+            
+            // Compute client fingerprint
+            var clientId = request.ClientId ?? HttpContext.Connection.RemoteIpAddress?.ToString();
+            var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
+            var clientFingerprint = _tokenService.ComputeClientFingerprint(clientId, userAgent);
+
+            // Store refresh token
+            var refreshTokenEntity = new RefreshToken
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                TokenHash = _tokenService.ComputeTokenHash(refreshToken),
+                ClientFingerprint = clientFingerprint,
+                IssuedUtc = DateTime.UtcNow,
+                ExpiresUtc = DateTime.UtcNow.AddDays(_configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7))
+            };
+
+            _db.RefreshTokens.Add(refreshTokenEntity);
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation("User {UserId} authenticated via Google OAuth", userId);
+
+            return Ok(new
+            {
+                accessToken,
+                refreshToken,
+                expiresIn = _configuration.GetValue<int>("Jwt:AccessTokenExpirationMinutes", 60) * 60,
+                user = new
+                {
+                    id = userId,
+                    email = tokenInfo.Email,
+                    name = tokenInfo.Name,
+                    picture = tokenInfo.Picture
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during Google OAuth authentication");
+            return StatusCode(500, new { code = "INTERNAL_ERROR", message = "Authentication failed", traceId = HttpContext.TraceIdentifier });
+        }
+    }
 }
 
 public record LoginRequest(string Username, string Password, string? ClientId = null);
 public record RefreshRequest(string? AccessToken, string RefreshToken, string? ClientId = null);
 public record RevokeRequest(string RefreshToken);
+public record GoogleLoginRequest(string IdToken, string? ClientId = null);
+
+internal class GoogleTokenInfo
+{
+    public string? Sub { get; set; }
+    public string? Email { get; set; }
+    public string? Name { get; set; }
+    public string? Picture { get; set; }
+    public string? Aud { get; set; }
+    public long? Exp { get; set; }
+}
