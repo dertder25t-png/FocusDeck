@@ -28,6 +28,9 @@ public static class MobileServiceConfiguration
         // Register device identification service
         services.AddSingleton<IDeviceIdService, DeviceIdService>();
         
+        // Register device pairing service
+        services.AddSingleton<IDevicePairingService, DevicePairingService>();
+        
         // Register WebSocket client service
         services.AddSingleton<IWebSocketClientService, WebSocketClientService>();
         
