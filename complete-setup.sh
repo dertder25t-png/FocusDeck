@@ -170,41 +170,6 @@ fn_install_cloudflared_token() {
     fi
 }
 
-fn_install_cloudflared() {
-    fn_print "Installing cloudflared..."
-    
-    # Install wget if needed
-    if ! command -v wget &> /dev/null; then
-        apt-get install -y wget > /dev/null 2>&1
-    fi
-    
-    # Download and install
-    wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -O /tmp/cloudflared.deb
-    dpkg -i /tmp/cloudflared.deb || apt-get install -f -y
-    rm /tmp/cloudflared.deb
-    
-    # Verify version meets remotely managed tunnels requirement (>= 2022.03.04)
-    if command -v cloudflared &> /dev/null; then
-        ver=$(cloudflared --version 2>/dev/null | awk '{print $3}')
-        year=$(echo "$ver" | cut -d. -f1)
-        mon=$(echo "$ver" | cut -d. -f2)
-        day=$(echo "$ver" | cut -d. -f3)
-        pass=false
-        if [[ -n "$year" && -n "$mon" ]]; then
-            if (( year > 2022 )); then pass=true; fi
-            if (( year == 2022 )) && (( mon > 3 )); then pass=true; fi
-            if (( year == 2022 )) && (( mon == 3 )) && [[ -n "$day" ]] && (( day >= 4 )); then pass=true; fi
-        fi
-        if [[ "$pass" == true ]]; then
-            fn_print "✓ cloudflared version $ver detected (OK)"
-        else
-            fn_warn "cloudflared version $ver detected. Remotely managed tunnels require >= 2022.03.04. Consider updating."
-        fi
-    fi
-    
-    fn_print "✓ cloudflared installed successfully"
-}
-
 # --- System Dependencies ---
 fn_install_dependencies() {
     fn_print "Installing system dependencies..."
