@@ -2,7 +2,7 @@
 
 **Smart productivity suite with cloud synchronization for desktop, mobile, and web**
 
-> Last Updated: January 2025
+> Last Updated: noveber 2025
 
 FocusDeck is a cross-platform productivity suite combining window management, study timers, session tracking, and cloud synchronization. Focus on what matters while we handle the rest.
 
