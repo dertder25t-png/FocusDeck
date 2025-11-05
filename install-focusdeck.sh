@@ -102,21 +102,38 @@ mkdir -p "${FOCUSDECK_HOME}/data"
 chown ${FOCUSDECK_USER}:${FOCUSDECK_USER} "${FOCUSDECK_HOME}/data"
 print_success "Data directory ready"
 
-print_step "Cleaning build artifacts (Linux compatibility fix)..."
+print_step "Applying Linux SDK 9.0 compatibility workaround..."
 cd "${FOCUSDECK_HOME}"
-rm -rf src/*/bin src/*/obj .nuget
-dotnet clean || true
-print_success "Build artifacts cleaned"
+# This fixes the GenerateTargetFrameworkMonikerAttribute error on Linux
+export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+rm -rf src/*/bin src/*/obj tests/*/bin tests/*/obj .nuget/NuGet/cache
+dotnet clean -c Release 2>/dev/null || true
+print_success "Build environment cleaned"
 
-print_step "Restoring dependencies..."
+print_step "Restoring dependencies (with workaround flags)..."
 cd "${FOCUSDECK_HOME}"
-dotnet restore --force --disable-parallel || print_error "Failed to restore dependencies"
+export DOTNET_TRY_OPEN_TELEMETRY=false
+export DOTNET_SKIP_FIRST_TIME_EXPERIENCE=true
+dotnet restore --force --disable-parallel --no-cache 2>&1 | grep -E "(error|warning:|Restored)" || true
+if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    print_error "Dependency restore failed"
+fi
 print_success "Dependencies restored"
 
-print_step "Building server..."
+print_step "Building server (Release mode)..."
 cd "${FOCUSDECK_HOME}"
-dotnet build src/FocusDeck.Server/FocusDeck.Server.csproj -c Release --no-restore || print_error "Build failed - check logs above"
-dotnet publish src/FocusDeck.Server/FocusDeck.Server.csproj -c Release -o "${FOCUSDECK_HOME}/publish" --no-build || print_error "Publish failed - check logs above"
+# Sequential build to avoid race conditions
+dotnet build src/FocusDeck.Domain/FocusDeck.Domain.csproj -c Release --no-restore --no-dependencies -p:GenerateTargetFrameworkMonikerAttribute=false || print_error "Domain build failed"
+dotnet build src/FocusDeck.SharedKernel/FocusDeck.SharedKernel.csproj -c Release --no-restore --no-dependencies -p:GenerateTargetFrameworkMonikerAttribute=false || print_error "SharedKernel build failed"
+dotnet build src/FocusDeck.Shared/FocusDeck.Shared.csproj -c Release --no-restore --no-dependencies -p:GenerateTargetFrameworkMonikerAttribute=false || print_error "Shared build failed"
+dotnet build src/FocusDeck.Contracts/FocusDeck.Contracts.csproj -c Release --no-restore --no-dependencies -p:GenerateTargetFrameworkMonikerAttribute=false || print_error "Contracts build failed"
+dotnet build src/FocusDeck.Persistence/FocusDeck.Persistence.csproj -c Release --no-restore -p:GenerateTargetFrameworkMonikerAttribute=false || print_error "Persistence build failed"
+dotnet build src/FocusDeck.Server/FocusDeck.Server.csproj -c Release --no-restore -p:GenerateTargetFrameworkMonikerAttribute=false || print_error "Server build failed"
+print_success "Build completed successfully"
+
+print_step "Publishing server..."
+cd "${FOCUSDECK_HOME}"
+dotnet publish src/FocusDeck.Server/FocusDeck.Server.csproj -c Release -o "${FOCUSDECK_HOME}/publish" --no-build -p:GenerateTargetFrameworkMonikerAttribute=false || print_error "Publish failed"
 chown -R ${FOCUSDECK_USER}:${FOCUSDECK_USER} "${FOCUSDECK_HOME}/publish"
 print_success "Build and publish complete"
 

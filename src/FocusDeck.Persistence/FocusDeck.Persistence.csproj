@@ -5,6 +5,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <GenerateTargetFrameworkMonikerAttribute>false</GenerateTargetFrameworkMonikerAttribute>
   </PropertyGroup>
 
   <ItemGroup>

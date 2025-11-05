@@ -6,6 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <InternalsVisibleTo>FocusDeck.Server.Tests</InternalsVisibleTo>
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <GenerateTargetFrameworkMonikerAttribute>false</GenerateTargetFrameworkMonikerAttribute>
   </PropertyGroup>
 
   <ItemGroup>
