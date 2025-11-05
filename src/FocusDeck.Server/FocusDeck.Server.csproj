@@ -15,6 +15,7 @@
     <PackageReference Include="Hangfire.PostgreSql" Version="1.20.9" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="9.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.10">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -41,5 +42,14 @@
     <ProjectReference Include="..\FocusDeck.Persistence\FocusDeck.Persistence.csproj" />
     <ProjectReference Include="..\FocusDeck.Contracts\FocusDeck.Contracts.csproj" />
   </ItemGroup>
+
+  <!-- Build SPA and copy to wwwroot/app -->
+  <Target Name="BuildSpa" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <Exec Command="cd $(ProjectDir)../FocusDeck.WebApp &amp;&amp; npm install &amp;&amp; npm run build" />
+    <ItemGroup>
+      <SpaFiles Include="$(ProjectDir)../FocusDeck.WebApp/dist/**/*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SpaFiles)" DestinationFolder="$(ProjectDir)wwwroot/app/%(RecursiveDir)" />
+  </Target>
 
 </Project>

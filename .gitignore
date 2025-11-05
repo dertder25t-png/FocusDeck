@@ -40,3 +40,14 @@ publish/
 *.db-shm
 *.db-wal
 
+
+# Node.js / npm
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist/
+build/
+
+# SPA build output in wwwroot
+src/FocusDeck.Server/wwwroot/app/

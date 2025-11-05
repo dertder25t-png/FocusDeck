@@ -39,6 +39,20 @@ public class AutomationDbContext : DbContext
 
     // Focus session tables
     public DbSet<FocusSession> FocusSessions { get; set; }
+    public DbSet<FocusPolicyTemplate> FocusPolicyTemplates { get; set; }
+
+    // Multi-tenancy tables
+    public DbSet<Organization> Organizations { get; set; }
+    public DbSet<User> Users { get; set; }
+    public DbSet<OrgUser> OrgUsers { get; set; }
+    public DbSet<Invite> Invites { get; set; }
+
+    // Note suggestions
+    public DbSet<NoteSuggestion> NoteSuggestions { get; set; }
+
+    // Design projects
+    public DbSet<DesignProject> DesignProjects { get; set; }
+    public DbSet<DesignIdea> DesignIdeas { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

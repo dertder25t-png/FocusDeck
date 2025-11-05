@@ -110,6 +110,11 @@ public class FocusSessionTests : IDisposable
             RecoverySuggestionCount++;
             return Task.CompletedTask;
         }
+        
+        public Task FocusStarted(string sessionId, string mode, int durationMinutes) => Task.CompletedTask;
+        public Task FocusEnded(string sessionId, int actualMinutes, int distractionCount) => Task.CompletedTask;
+        public Task DesignIdeasAdded(string projectId, int ideaCount, string message) => Task.CompletedTask;
+        public Task NoteSuggestionReady(string noteId, string suggestionId, string type, string content) => Task.CompletedTask;
     }
 
     [Fact]

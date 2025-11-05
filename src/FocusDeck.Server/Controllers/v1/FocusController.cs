@@ -88,6 +88,24 @@ public class FocusController : ControllerBase
     }
 
     /// <summary>
+    /// Get all focus sessions for the current user
+    /// </summary>
+    [HttpGet("sessions")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<FocusSessionDto>>> GetSessions([FromQuery] int? limit = 20)
+    {
+        var userId = GetUserId();
+
+        var sessions = await _db.FocusSessions
+            .Where(s => s.UserId == userId)
+            .OrderByDescending(s => s.StartTime)
+            .Take(limit ?? 20)
+            .ToListAsync();
+
+        return Ok(sessions.Select(MapToDto).ToList());
+    }
+
+    /// <summary>
     /// Get a focus session by ID
     /// </summary>
     [HttpGet("sessions/{id}")]
