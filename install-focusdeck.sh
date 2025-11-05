@@ -108,45 +108,53 @@ cd "${FOCUSDECK_HOME}"
 export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 export DOTNET_TRY_OPEN_TELEMETRY=false
 export DOTNET_SKIP_FIRST_TIME_EXPERIENCE=true
-rm -rf src/*/bin src/*/obj tests/*/bin tests/*/obj
+rm -rf src/*/bin src/*/obj tests/*/bin tests/*/obj FocusDeck.sln.DotSettings
 dotnet clean -c Release 2>/dev/null || true
 print_success "Build environment cleaned"
 
 print_step "Restoring dependencies (this may take a moment)..."
 cd "${FOCUSDECK_HOME}"
-# Restore solution - this creates project.assets.json files
-dotnet restore --force 2>&1 | tail -5
-if [ $? -ne 0 ]; then
-    print_error "Dependency restore failed"
-fi
+# Restore solution - this creates project.assets.json files in each project
+dotnet restore --force || print_error "Failed to restore dependencies"
 print_success "Dependencies restored"
 
 print_step "Building server (Release mode - sequential to avoid race conditions)..."
 cd "${FOCUSDECK_HOME}"
-# Build each project sequentially with the workaround flag
-dotnet build src/FocusDeck.Domain/FocusDeck.Domain.csproj -c Release --no-restore -p:GenerateTargetFrameworkMonikerAttribute=false 2>&1 | grep -E "(error|Build (SUCCEEDED|FAILED))" || echo "Domain built"
-if [ $? -ne 0 ]; then print_error "Domain build failed"; fi
 
-dotnet build src/FocusDeck.SharedKernel/FocusDeck.SharedKernel.csproj -c Release --no-restore -p:GenerateTargetFrameworkMonikerAttribute=false 2>&1 | grep -E "(error|Build (SUCCEEDED|FAILED))" || echo "SharedKernel built"
-if [ $? -ne 0 ]; then print_error "SharedKernel build failed"; fi
+# Helper function to build a project
+build_project() {
+    local project=$1
+    local name=$2
+    echo -n "  Building ${name}..."
+    if dotnet build "${project}" -c Release --no-restore -p:GenerateTargetFrameworkMonikerAttribute=false > /tmp/build.log 2>&1; then
+        echo " ✓"
+    else
+        echo " FAILED"
+        cat /tmp/build.log
+        print_error "${name} build failed"
+    fi
+}
 
-dotnet build src/FocusDeck.Shared/FocusDeck.Shared.csproj -c Release --no-restore -p:GenerateTargetFrameworkMonikerAttribute=false 2>&1 | grep -E "(error|Build (SUCCEEDED|FAILED))" || echo "Shared built"
-if [ $? -ne 0 ]; then print_error "Shared build failed"; fi
-
-dotnet build src/FocusDeck.Contracts/FocusDeck.Contracts.csproj -c Release --no-restore -p:GenerateTargetFrameworkMonikerAttribute=false 2>&1 | grep -E "(error|Build (SUCCEEDED|FAILED))" || echo "Contracts built"
-if [ $? -ne 0 ]; then print_error "Contracts build failed"; fi
-
-dotnet build src/FocusDeck.Persistence/FocusDeck.Persistence.csproj -c Release --no-restore -p:GenerateTargetFrameworkMonikerAttribute=false 2>&1 | grep -E "(error|Build (SUCCEEDED|FAILED))" || echo "Persistence built"
-if [ $? -ne 0 ]; then print_error "Persistence build failed"; fi
-
-dotnet build src/FocusDeck.Server/FocusDeck.Server.csproj -c Release --no-restore -p:GenerateTargetFrameworkMonikerAttribute=false 2>&1 | grep -E "(error|Build (SUCCEEDED|FAILED))" || echo "Server built"
-if [ $? -ne 0 ]; then print_error "Server build failed"; fi
+# Build each project sequentially
+build_project "src/FocusDeck.Domain/FocusDeck.Domain.csproj" "Domain"
+build_project "src/FocusDeck.SharedKernel/FocusDeck.SharedKernel.csproj" "SharedKernel"
+build_project "src/FocusDeck.Shared/FocusDeck.Shared.csproj" "Shared"
+build_project "src/FocusDeck.Contracts/FocusDeck.Contracts.csproj" "Contracts"
+build_project "src/FocusDeck.Persistence/FocusDeck.Persistence.csproj" "Persistence"
+build_project "src/FocusDeck.Server/FocusDeck.Server.csproj" "Server"
 
 print_success "All projects built successfully"
 
 print_step "Publishing server..."
 cd "${FOCUSDECK_HOME}"
-dotnet publish src/FocusDeck.Server/FocusDeck.Server.csproj -c Release -o "${FOCUSDECK_HOME}/publish" --no-build -p:GenerateTargetFrameworkMonikerAttribute=false 2>&1 | grep -E "(error|Publish (SUCCEEDED|FAILED))" || echo "Server published"
+echo -n "  Publishing..."
+if dotnet publish src/FocusDeck.Server/FocusDeck.Server.csproj -c Release -o "${FOCUSDECK_HOME}/publish" --no-build -p:GenerateTargetFrameworkMonikerAttribute=false > /tmp/publish.log 2>&1; then
+    echo " ✓"
+else
+    echo " FAILED"
+    cat /tmp/publish.log
+    print_error "Publish failed"
+fi
 chown -R ${FOCUSDECK_USER}:${FOCUSDECK_USER} "${FOCUSDECK_HOME}/publish"
 print_success "Build and publish complete"
 
