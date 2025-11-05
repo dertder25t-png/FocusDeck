@@ -46,7 +46,8 @@
     <ProjectReference Include="..\FocusDeck.Contracts\FocusDeck.Contracts.csproj" />
   </ItemGroup>
 
-  <!-- Build SPA and copy to wwwroot/app -->
+  <!-- Build SPA and copy to wwwroot/app (DISABLED - WebApp not yet implemented) -->
+  <!--
   <Target Name="BuildSpa" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release'">
     <Exec Command="cd $(ProjectDir)../FocusDeck.WebApp &amp;&amp; npm install &amp;&amp; npm run build" />
     <ItemGroup>
@@ -54,5 +55,6 @@
     </ItemGroup>
     <Copy SourceFiles="@(SpaFiles)" DestinationFolder="$(ProjectDir)wwwroot/app/%(RecursiveDir)" />
   </Target>
+  -->
 
 </Project>

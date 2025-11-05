@@ -83,7 +83,7 @@ public class EncryptionService : IEncryptionService
         {
             var plainBytes = Encoding.UTF8.GetBytes(plainText);
 
-            using (var cipher = new AesGcm(_encryptionKey))
+            using (var cipher = new AesGcm(_encryptionKey, TagSizeBytes))
             {
                 // Generate random nonce
                 byte[] nonce = new byte[NonceSizeBytes];
@@ -96,7 +96,7 @@ public class EncryptionService : IEncryptionService
                 byte[] ciphertext = new byte[plainBytes.Length];
                 byte[] tag = new byte[TagSizeBytes];
 
-                cipher.Encrypt(nonce, plainBytes, null, ciphertext, tag);
+                cipher.Encrypt(nonce, plainBytes, ciphertext, tag);
 
                 // Combine nonce + ciphertext + tag
                 byte[] result = new byte[NonceSizeBytes + ciphertext.Length + TagSizeBytes];
@@ -143,10 +143,10 @@ public class EncryptionService : IEncryptionService
             byte[] tag = new byte[TagSizeBytes];
             Buffer.BlockCopy(buffer, NonceSizeBytes + ciphertextLength, tag, 0, TagSizeBytes);
 
-            using (var cipher = new AesGcm(_encryptionKey))
+            using (var cipher = new AesGcm(_encryptionKey, TagSizeBytes))
             {
                 byte[] plaintext = new byte[encryptedData.Length];
-                cipher.Decrypt(nonce, encryptedData, null, tag, plaintext);
+                cipher.Decrypt(nonce, encryptedData, tag, plaintext);
                 return Encoding.UTF8.GetString(plaintext);
             }
         }
@@ -185,7 +185,7 @@ public class EncryptionService : IEncryptionService
                 byte[] derivedKey = pbkdf2.GetBytes(KeySizeBytes);
 
                 // Encrypt the master key with derived key
-                using (var cipher = new AesGcm(derivedKey))
+                using (var cipher = new AesGcm(derivedKey, TagSizeBytes))
                 {
                     byte[] nonce = new byte[NonceSizeBytes];
                     using (var rng = RandomNumberGenerator.Create())
@@ -196,7 +196,7 @@ public class EncryptionService : IEncryptionService
                     byte[] ciphertext = new byte[_encryptionKey.Length];
                     byte[] tag = new byte[TagSizeBytes];
 
-                    cipher.Encrypt(nonce, _encryptionKey, null, ciphertext, tag);
+                    cipher.Encrypt(nonce, _encryptionKey, ciphertext, tag);
 
                     // Combine salt + nonce + ciphertext + tag
                     byte[] result = new byte[SaltSizeBytes + NonceSizeBytes + ciphertext.Length + TagSizeBytes];
@@ -248,10 +248,10 @@ public class EncryptionService : IEncryptionService
             {
                 byte[] derivedKey = pbkdf2.GetBytes(KeySizeBytes);
 
-                using (var cipher = new AesGcm(derivedKey))
+                using (var cipher = new AesGcm(derivedKey, TagSizeBytes))
                 {
                     byte[] plainKey = new byte[ciphertext.Length];
-                    cipher.Decrypt(nonce, ciphertext, null, tag, plainKey);
+                    cipher.Decrypt(nonce, ciphertext, tag, plainKey);
 
                     _encryptionKey = plainKey;
                     SaveKeyToStorage();
