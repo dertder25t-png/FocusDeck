@@ -12,12 +12,12 @@
 set -e
 
 # Colors
-RED='\''033[0;31m'\''
-GREEN='\''033[0;32m'\''
-YELLOW='\''033[1;33m'\''
-BLUE='\''033[0;34m'\''
-CYAN='\''033[0;36m'\''
-NC='\''033[0m'\''
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
 
 # Configuration
 DOTNET_VERSION="9.0"
@@ -90,9 +90,10 @@ print_success "User ready"
 print_step "Cloning repository..."
 if [ -d "${FOCUSDECK_HOME}" ]; then
     cd "${FOCUSDECK_HOME}"
-    sudo -u "${FOCUSDECK_USER}" git pull origin master > /dev/null 2>&1
+    git pull origin master > /dev/null 2>&1 || print_error "Failed to pull repository"
 else
-    sudo -u "${FOCUSDECK_USER}" git clone https://github.com/dertder25t-png/FocusDeck.git "${FOCUSDECK_HOME}"
+    git clone https://github.com/dertder25t-png/FocusDeck.git "${FOCUSDECK_HOME}" || print_error "Failed to clone repository"
+    chown -R ${FOCUSDECK_USER}:${FOCUSDECK_USER} "${FOCUSDECK_HOME}"
 fi
 print_success "Repository ready"
 
@@ -103,8 +104,10 @@ print_success "Data directory ready"
 
 print_step "Building server..."
 cd "${FOCUSDECK_HOME}"
-sudo -u "${FOCUSDECK_USER}" dotnet build src/FocusDeck.Server/FocusDeck.Server.csproj -c Release -q 2>/dev/null
-print_success "Build complete"
+dotnet build src/FocusDeck.Server/FocusDeck.Server.csproj -c Release -q || print_error "Build failed - check logs above"
+dotnet publish src/FocusDeck.Server/FocusDeck.Server.csproj -c Release -o "${FOCUSDECK_HOME}/publish" -q || print_error "Publish failed - check logs above"
+chown -R ${FOCUSDECK_USER}:${FOCUSDECK_USER} "${FOCUSDECK_HOME}/publish"
+print_success "Build and publish complete"
 
 print_step "Configuring systemd service..."
 cat > /etc/systemd/system/${SERVICE_NAME}.service << EOF
@@ -115,10 +118,10 @@ After=network.target
 [Service]
 Type=simple
 User=${FOCUSDECK_USER}
-WorkingDirectory=${FOCUSDECK_HOME}/src/FocusDeck.Server
+WorkingDirectory=${FOCUSDECK_HOME}
 Environment="ASPNETCORE_ENVIRONMENT=Production"
 Environment="ASPNETCORE_URLS=http://0.0.0.0:${SERVICE_PORT}"
-ExecStart=/usr/bin/dotnet run --no-restore --no-build -c Release
+ExecStart=/usr/bin/dotnet ${FOCUSDECK_HOME}/publish/FocusDeck.Server.dll
 Restart=always
 RestartSec=10
 
@@ -128,7 +131,7 @@ EOF
 
 systemctl daemon-reload
 systemctl enable ${SERVICE_NAME}
-systemctl start ${SERVICE_NAME}
+systemctl start ${SERVICE_NAME} || print_error "Failed to start service"
 print_success "Service configured and started"
 
 echo -e ""
