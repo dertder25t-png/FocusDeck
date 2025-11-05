@@ -102,10 +102,21 @@ mkdir -p "${FOCUSDECK_HOME}/data"
 chown ${FOCUSDECK_USER}:${FOCUSDECK_USER} "${FOCUSDECK_HOME}/data"
 print_success "Data directory ready"
 
+print_step "Cleaning build artifacts (Linux compatibility fix)..."
+cd "${FOCUSDECK_HOME}"
+rm -rf src/*/bin src/*/obj .nuget
+dotnet clean || true
+print_success "Build artifacts cleaned"
+
+print_step "Restoring dependencies..."
+cd "${FOCUSDECK_HOME}"
+dotnet restore --force --disable-parallel || print_error "Failed to restore dependencies"
+print_success "Dependencies restored"
+
 print_step "Building server..."
 cd "${FOCUSDECK_HOME}"
-dotnet build src/FocusDeck.Server/FocusDeck.Server.csproj -c Release -q || print_error "Build failed - check logs above"
-dotnet publish src/FocusDeck.Server/FocusDeck.Server.csproj -c Release -o "${FOCUSDECK_HOME}/publish" -q || print_error "Publish failed - check logs above"
+dotnet build src/FocusDeck.Server/FocusDeck.Server.csproj -c Release --no-restore || print_error "Build failed - check logs above"
+dotnet publish src/FocusDeck.Server/FocusDeck.Server.csproj -c Release -o "${FOCUSDECK_HOME}/publish" --no-build || print_error "Publish failed - check logs above"
 chown -R ${FOCUSDECK_USER}:${FOCUSDECK_USER} "${FOCUSDECK_HOME}/publish"
 print_success "Build and publish complete"
 
