@@ -48,26 +48,25 @@ See [src/FocusDeck.WebApp/README.md](src/FocusDeck.WebApp/README.md) for develop
 
 ### 🖥️ Server (Self-Hosted Sync Backend)
 
-Deploy your own sync server in **one command** using our interactive script:
+Deploy your own sync server in **one command**:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/dertder25t-png/FocusDeck/master/easy-setup.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/dertder25t-png/FocusDeck/master/install-focusdeck.sh | sudo bash
 ```
 
-This script will guide you through the setup and is the recommended way to install.
+The script automatically installs and configures:
+- ✅ .NET 9.0 SDK
+- ✅ Git and dependencies
+- ✅ FocusDeck application
+- ✅ Systemd service (auto-start enabled)
+- ✅ SQLite database
 
-The script will:
-- ✅ Install .NET 9.0 and Git automatically
-- ✅ Prompt you to install Cloudflare Tunnel (cloudflared) on the same server (Recommended for security)
-- ✅ Clone and build FocusDeck
-- ✅ Generate secure keys
-- ✅ Configure and start a systemd service for the server
-- ✅ Provide custom instructions on how to complete your Cloudflare setup.
-
-📖 **Quick Setup Guide**: [SIMPLE_SETUP.md](SIMPLE_SETUP.md)  
+📖 **Installation Guide**: [LINUX_INSTALL.md](LINUX_INSTALL.md)  
 📖 **Advanced Configuration**: [docs/CLOUDFLARE_DEPLOYMENT.md](docs/CLOUDFLARE_DEPLOYMENT.md)
 
-**Requirements**: Ubuntu 20.04+/Debian 10+, 512MB RAM, 1GB disk, Cloudflare domain
+**Requirements**: Ubuntu 20.04+ / Debian 11+, 512MB RAM, 1GB disk space
+
+**Time**: ~5 minutes
 
 ---
 

@@ -1,108 +1,147 @@
-#!/bin/bash
+﻿#!/bin/bash
 ###############################################################################
-# FocusDeck Server - One-Line Installer
-# Usage: curl -sSL https://raw.githubusercontent.com/dertder25t-png/FocusDeck/master/install-focusdeck.sh | bash
-# This script downloads and runs the complete FocusDeck setup
+# FocusDeck Server - Official Linux Installation Script
+# 
+# USAGE:
+#   curl -sSL https://raw.githubusercontent.com/dertder25t-png/FocusDeck/master/install-focusdeck.sh | sudo bash
+#
+# SUPPORTED: Ubuntu 20.04+ | Debian 11+
+# TIME: 5-10 minutes
 ###############################################################################
 
 set -e
 
 # Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+RED='\''033[0;31m'\''
+GREEN='\''033[0;32m'\''
+YELLOW='\''033[1;33m'\''
+BLUE='\''033[0;34m'\''
+CYAN='\''033[0;36m'\''
+NC='\''033[0m'\''
 
-echo -e "${BLUE}"
-echo "╔════════════════════════════════════════╗"
-echo "║  FocusDeck Server - One-Line Installer ║"
-echo "╚════════════════════════════════════════╝"
-echo -e "${NC}"
+# Configuration
+DOTNET_VERSION="9.0"
+FOCUSDECK_USER="focusdeck"
+FOCUSDECK_HOME="/home/${FOCUSDECK_USER}/FocusDeck"
+FOCUSDECK_REPO="https://github.com/dertder25t-png/FocusDeck.git"
+SERVICE_NAME="focusdeck"
+SERVICE_PORT="5000"
 
-# Check if running with proper permissions for some operations
-if [ "$EUID" -ne 0 ]; then 
-    echo -e "${YELLOW}Note: Some commands may require sudo password${NC}"
-    SUDO="sudo"
-else 
-    SUDO=""
+# Functions
+print_header() {
+    echo -e "${CYAN}"
+    echo ""
+    echo "  FocusDeck Server Installation                             "
+    echo "  .NET ${DOTNET_VERSION} | Ubuntu/Debian                          "
+    echo ""
+    echo -e "${NC}"
+}
+
+print_step() {
+    echo -e "${BLUE} $1${NC}"
+}
+
+print_success() {
+    echo -e "${GREEN} $1${NC}"
+}
+
+print_error() {
+    echo -e "${RED} $1${NC}"
+    exit 1
+}
+
+# Check permissions
+if [ "$EUID" -ne 0 ]; then
+    echo -e "${RED} Must run with sudo${NC}"
+    exit 1
 fi
 
-FOCUSDECK_HOME="${HOME}/FocusDeck"
+print_header
 
-echo -e "${YELLOW}Starting FocusDeck installation...${NC}"
-echo ""
+# Main steps
+print_step "Updating system..."
+apt-get update -qq
+apt-get upgrade -y -qq > /dev/null 2>&1
+print_success "System updated"
 
-# Step 1: Update system
-echo -e "${BLUE}[1/5] Updating system packages...${NC}"
-$SUDO apt-get update -qq > /dev/null 2>&1
-$SUDO apt-get upgrade -y -qq > /dev/null 2>&1
-echo -e "${GREEN}✓ System updated${NC}"
-
-# Step 2: Install Git
-echo -e "${BLUE}[2/5] Installing Git...${NC}"
+print_step "Installing Git..."
 if ! command -v git &> /dev/null; then
-    $SUDO apt-get install -y git > /dev/null 2>&1
-    echo -e "${GREEN}✓ Git installed${NC}"
-else
-    echo -e "${GREEN}✓ Git already installed${NC}"
+    apt-get install -y -qq git > /dev/null 2>&1
 fi
+print_success "Git ready"
 
-# Step 3: Install .NET SDK
-echo -e "${BLUE}[3/5] Installing .NET 8 SDK...${NC}"
+print_step "Installing .NET SDK..."
 if ! command -v dotnet &> /dev/null; then
     cd /tmp
-    wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh 2>/dev/null
+    wget -q https://dot.net/v1/dotnet-install.sh
     chmod +x dotnet-install.sh
-    ./dotnet-install.sh --channel 8.0 > /dev/null 2>&1
-    rm dotnet-install.sh
-    cd -
-    
-    export PATH=$PATH:$HOME/.dotnet
-    echo 'export PATH=$PATH:$HOME/.dotnet' >> ~/.bashrc
-    source ~/.bashrc
-    echo -e "${GREEN}✓ .NET SDK installed${NC}"
-else
-    echo -e "${GREEN}✓ .NET SDK already installed$(dotnet --version)${NC}"
+    ./dotnet-install.sh --channel ${DOTNET_VERSION} -InstallDir /usr/local/dotnet 2>&1 | grep -v "Downloading" || true
+    rm -f dotnet-install.sh
+    ln -sf /usr/local/dotnet/dotnet /usr/bin/dotnet
 fi
+print_success ".NET $(dotnet --version)"
 
-# Step 4: Clone repository or update
-echo -e "${BLUE}[4/5] Setting up FocusDeck repository...${NC}"
-if [ ! -d "$FOCUSDECK_HOME" ]; then
-    cd ~
-    git clone https://github.com/dertder25t-png/FocusDeck.git > /dev/null 2>&1
-    echo -e "${GREEN}✓ Repository cloned${NC}"
-else
-    cd "$FOCUSDECK_HOME"
-    git pull origin master > /dev/null 2>&1
-    echo -e "${GREEN}✓ Repository updated${NC}"
+print_step "Creating system user..."
+if ! id "${FOCUSDECK_USER}" &>/dev/null; then
+    useradd -m -s /bin/bash "${FOCUSDECK_USER}"
 fi
+print_success "User ready"
 
-cd "$FOCUSDECK_HOME"
+print_step "Cloning repository..."
+if [ -d "${FOCUSDECK_HOME}" ]; then
+    cd "${FOCUSDECK_HOME}"
+    sudo -u "${FOCUSDECK_USER}" git pull origin master > /dev/null 2>&1
+else
+    sudo -u "${FOCUSDECK_USER}" git clone https://github.com/dertder25t-png/FocusDeck.git "${FOCUSDECK_HOME}"
+fi
+print_success "Repository ready"
 
-# Step 5: Make startup script executable and run setup
-echo -e "${BLUE}[5/5] Running FocusDeck setup...${NC}"
-chmod +x start-focusdeck.sh
+print_step "Creating data directory..."
+mkdir -p "${FOCUSDECK_HOME}/data"
+chown ${FOCUSDECK_USER}:${FOCUSDECK_USER} "${FOCUSDECK_HOME}/data"
+print_success "Data directory ready"
 
-# Run the setup through the new unified script
-./start-focusdeck.sh setup
+print_step "Building server..."
+cd "${FOCUSDECK_HOME}"
+sudo -u "${FOCUSDECK_USER}" dotnet build src/FocusDeck.Server/FocusDeck.Server.csproj -c Release -q 2>/dev/null
+print_success "Build complete"
 
-echo ""
-echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║  Installation Complete! ✓              ║${NC}"
-echo -e "${GREEN}╚════════════════════════════════════════╝${NC}"
-echo ""
-echo -e "${YELLOW}Next steps:${NC}"
-echo ""
-echo "  View server status:"
-echo "    ${BLUE}~/FocusDeck/start-focusdeck.sh status${NC}"
-echo ""
-echo "  View server logs:"
-echo "    ${BLUE}~/FocusDeck/start-focusdeck.sh logs${NC}"
-echo ""
-echo "  Access the web UI:"
-echo "    ${BLUE}http://localhost:5239${NC}"
-echo ""
-echo "  For more commands:"
-echo "    ${BLUE}~/FocusDeck/start-focusdeck.sh help${NC}"
-echo ""
+print_step "Configuring systemd service..."
+cat > /etc/systemd/system/${SERVICE_NAME}.service << EOF
+[Unit]
+Description=FocusDeck Server
+After=network.target
+
+[Service]
+Type=simple
+User=${FOCUSDECK_USER}
+WorkingDirectory=${FOCUSDECK_HOME}/src/FocusDeck.Server
+Environment="ASPNETCORE_ENVIRONMENT=Production"
+Environment="ASPNETCORE_URLS=http://0.0.0.0:${SERVICE_PORT}"
+ExecStart=/usr/bin/dotnet run --no-restore --no-build -c Release
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable ${SERVICE_NAME}
+systemctl start ${SERVICE_NAME}
+print_success "Service configured and started"
+
+echo -e ""
+echo -e "${GREEN}${NC}"
+echo -e "${GREEN}  Installation Complete!                                   ${NC}"
+echo -e "${GREEN}${NC}"
+echo -e ""
+echo -e "${CYAN}Quick Commands:${NC}"
+echo -e "  Status:  sudo systemctl status focusdeck"
+echo -e "  Logs:    sudo journalctl -u focusdeck -f"
+echo -e "  Restart: sudo systemctl restart focusdeck"
+echo -e ""
+echo -e "${CYAN}Access:${NC}"
+echo -e "  Local: http://localhost:5000"
+echo -e "  Check: http://localhost:5000/v1/system/health"
+echo -e ""

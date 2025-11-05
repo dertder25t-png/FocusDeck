@@ -21,7 +21,7 @@ The following has been configured:
 
 ### Step 1: Pull Latest Code
 
-SSH into your server and pull the latest changes:
+SSH into your server and pullut  the latest changes:
 
 ```bash
 ssh user@192.168.1.110

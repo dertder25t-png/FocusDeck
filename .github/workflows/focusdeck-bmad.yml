@@ -1,0 +1,241 @@
+name: BMAD Build Pipeline - FocusDeck
+
+on:
+  push:
+    branches: [ master, develop ]
+  pull_request:
+    branches: [ master, develop ]
+
+jobs:
+  build:
+    name: BMAD Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            modules: "Server,Shared,Domain,Persistence,Contracts"
+            build_suffix: "Linux server & shared libraries"
+            
+          - os: windows-latest
+            modules: "Desktop,Mobile,Shared,Domain,Contracts"
+            build_suffix: "Desktop & Mobile clients"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Setup Java (for Mobile/Android)
+        if: runner.os == 'Windows'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Restore NuGet packages
+        run: dotnet restore
+
+      - name: Build FocusDeck (${{ matrix.build_suffix }})
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Run Unit Tests
+        run: dotnet test --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
+        continue-on-error: true
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: '**/TestResults/'
+
+      - name: Code Quality Check (Format)
+        run: dotnet format --verify-no-changes --verbosity diagnostic
+        continue-on-error: true
+
+      - name: Check for vulnerable packages
+        run: dotnet list package --vulnerable
+        continue-on-error: true
+
+  measure:
+    name: BMAD Measure - Health & Performance
+    needs: build
+    runs-on: ubuntu-latest
+    if: success()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore & Build Server
+        run: |
+          dotnet restore
+          dotnet build src/FocusDeck.Server/FocusDeck.Server.csproj -c Release
+
+      - name: Run server for health checks
+        run: |
+          dotnet run --project src/FocusDeck.Server/FocusDeck.Server.csproj --configuration Release &
+          sleep 5
+
+      - name: Health Check - API Endpoint
+        uses: nick-invision/retry@v3
+        with:
+          timeout_minutes: 1
+          max_attempts: 5
+          retry_wait_seconds: 2
+          command: |
+            curl -f http://localhost:5000/healthz || exit 1
+            curl -f http://localhost:5000/api/services || exit 1
+
+      - name: Collect Performance Metrics
+        run: |
+          mkdir -p ./metrics
+          echo "Build timestamp: $(date)" > ./metrics/build-info.txt
+          dotnet --version >> ./metrics/build-info.txt
+          uname -a >> ./metrics/build-info.txt
+
+      - name: Upload Metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-metrics
+          path: ./metrics/
+
+  adapt:
+    name: BMAD Adapt - Code Quality & Analysis
+    needs: build
+    runs-on: ubuntu-latest
+    if: success()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Run Code Format Check
+        run: dotnet format --verify-no-changes
+        continue-on-error: true
+
+      - name: Run Static Analysis
+        run: dotnet build /warnaserror-
+        continue-on-error: true
+
+      - name: Generate Build Report
+        run: |
+          mkdir -p ./reports
+          dotnet build --configuration Release /p:ReportOutputPath=./reports > ./reports/build.log 2>&1 || true
+          cat ./reports/build.log
+
+      - name: Upload Analysis Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-reports
+          path: ./reports/
+
+  deploy:
+    name: BMAD Deploy - Server to Production
+    needs: [ build, measure, adapt ]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Publish Server (Release)
+        run: |
+          dotnet publish src/FocusDeck.Server/FocusDeck.Server.csproj \
+            -c Release \
+            -o ./publish/server \
+            --self-contained
+
+      - name: Create Deployment Artifact
+        run: |
+          cd ./publish/server
+          tar -czf ../../focusdeck-server.tar.gz .
+          cd -
+
+      - name: Upload Deployment Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-release-build
+          path: focusdeck-server.tar.gz
+
+      - name: Deploy to Server (SSH)
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          
+          # Deploy
+          scp -i ~/.ssh/deploy_key focusdeck-server.tar.gz ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/
+          ssh -i ~/.ssh/deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+            cd /home/focusdeck/FocusDeck
+            sudo systemctl stop focusdeck || true
+            sudo tar -xzf /tmp/focusdeck-server.tar.gz -C ./src/FocusDeck.Server/bin/Release/net9.0/
+            sudo systemctl start focusdeck
+            sleep 3
+            sudo systemctl status focusdeck
+          EOF
+          
+          # Cleanup
+          rm -f ~/.ssh/deploy_key
+
+      - name: Verify Deployment
+        run: |
+          sleep 5
+          curl -f https://focusdeck.909436.xyz/healthz || exit 1
+          echo "✅ Deployment successful!"
+
+      - name: Rollback on Failure
+        if: failure()
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          echo "⚠️ Deployment failed. Initiating rollback..."
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+            sudo systemctl restart focusdeck
+            sleep 3
+            sudo systemctl status focusdeck
+          EOF
+
+      - name: Notify Success
+        if: success()
+        run: |
+          echo "✅ FocusDeck Server deployed successfully!"
+          echo "URL: https://focusdeck.909436.xyz"
+
+      - name: Notify Failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed. Check logs above."

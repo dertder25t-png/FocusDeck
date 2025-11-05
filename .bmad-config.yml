@@ -1,0 +1,273 @@
+# BMAD-METHOD Build Configuration for FocusDeck
+# Build → Measure → Adapt → Deploy Cycle
+# Last Updated: November 4, 2025
+
+project_name: FocusDeck
+version: 6b.2
+description: Cross-platform productivity suite with remote control, OAuth, and cloud sync
+
+# Language & runtime
+language: dotnet
+runtime:
+  sdk: "9.0"
+  frameworks:
+    - net9.0           # Server
+    - net9.0-windows   # Desktop
+    - net8.0-android   # Mobile
+
+# === BUILD PHASE ===
+build:
+  # Global build command
+  command: dotnet build
+  configuration: Debug
+  
+  # Platform-specific modules
+  modules:
+    - name: Server
+      path: src/FocusDeck.Server
+      project: src/FocusDeck.Server/FocusDeck.Server.csproj
+      build: dotnet build src/FocusDeck.Server/FocusDeck.Server.csproj -c Debug
+      publish: dotnet publish src/FocusDeck.Server/FocusDeck.Server.csproj -c Release -o ./publish/server
+      description: "Linux server with REST API, SignalR, OAuth integration"
+      dependencies:
+        - Shared
+        - Domain
+        - Persistence
+        - Contracts
+      
+    - name: Shared
+      path: src/FocusDeck.Shared
+      project: src/FocusDeck.Shared/FocusDeck.Shared.csproj
+      build: dotnet build src/FocusDeck.Shared/FocusDeck.Shared.csproj -c Debug
+      description: "Cross-platform DTOs and shared models"
+      
+    - name: Domain
+      path: src/FocusDeck.Domain
+      project: src/FocusDeck.Domain/FocusDeck.Domain.csproj
+      build: dotnet build src/FocusDeck.Domain/FocusDeck.Domain.csproj -c Debug
+      description: "Domain entities (StudySession, RemoteAction, FocusSession, etc.)"
+      
+    - name: Persistence
+      path: src/FocusDeck.Persistence
+      project: src/FocusDeck.Persistence/FocusDeck.Persistence.csproj
+      build: dotnet build src/FocusDeck.Persistence/FocusDeck.Persistence.csproj -c Debug
+      description: "EF Core DbContext, migrations, entity configurations"
+      
+    - name: Contracts
+      path: src/FocusDeck.Contracts
+      project: src/FocusDeck.Contracts/FocusDeck.Contracts.csproj
+      build: dotnet build src/FocusDeck.Contracts/FocusDeck.Contracts.csproj -c Debug
+      description: "API contracts, DTOs, validators"
+      
+    - name: Desktop
+      path: src/FocusDeck.Desktop
+      project: src/FocusDeck.Desktop/FocusDeck.Desktop.csproj
+      build: dotnet build src/FocusDeck.Desktop/FocusDeck.Desktop.csproj -c Debug -f net9.0-windows
+      platforms: [windows]
+      description: "Windows WPF desktop application"
+      
+    - name: Mobile
+      path: src/FocusDeck.Mobile
+      project: src/FocusDeck.Mobile/FocusDeck.Mobile.csproj
+      build: dotnet build src/FocusDeck.Mobile/FocusDeck.Mobile.csproj -c Debug -f net8.0-android
+      platforms: [android]
+      description: "Android mobile application (MAUI)"
+      
+    - name: Legacy-App
+      path: src/FocusDock.App
+      project: src/FocusDock.App/FocusDock.App.csproj
+      build: dotnet build src/FocusDock.App/FocusDock.App.csproj -c Debug
+      platforms: [windows]
+      description: "Legacy FocusDock WPF application (phase 1-5)"
+
+# === MEASURE PHASE ===
+measure:
+  # Health checks
+  health_checks:
+    - name: server_health
+      url: http://localhost:5000/healthz
+      timeout: 5s
+      expected_status: 200
+      run_after: deploy_server
+      
+    - name: server_api
+      url: http://localhost:5000/api/services
+      timeout: 10s
+      expected_status: 200
+      
+  # Test coverage
+  tests:
+    - name: unit_tests
+      command: dotnet test tests/ -c Debug
+      min_coverage: 70
+      report_format: opencover
+      
+    - name: integration_tests
+      command: dotnet test tests/ -c Debug --filter "Category=Integration"
+      timeout: 120s
+      
+  # Logging & telemetry
+  telemetry_sources:
+    - type: serilog
+      path: logs/*.json
+      min_level: Information
+      
+    - type: aspnetcore_logs
+      path: logs/aspnetcore/*.log
+      
+  # Performance metrics
+  performance:
+    - name: api_response_time
+      target_p95: 500ms
+      critical_p99: 1000ms
+      
+    - name: build_time
+      target: 60s
+      critical: 120s
+
+# === ADAPT PHASE ===
+adapt:
+  # Code formatting
+  formatting:
+    - run: dotnet format src/
+      on_failure: warn
+      
+  # Code analysis
+  analysis:
+    - run: dotnet build src/ /warnaserror-
+      on_failure: log
+      
+  # Security scanning
+  security:
+    - run: dotnet list package --vulnerable
+      on_failure: error
+      
+  # Dependency updates (optional)
+  dependencies:
+    - check_outdated: true
+      auto_update: false  # Manual review only
+      report: ./bmad/dependency-report.txt
+
+# === DEPLOY PHASE ===
+deploy:
+  # Deployment targets
+  targets:
+    - name: linux_server
+      type: Linux
+      host: 192.168.1.110
+      port: 5000
+      protocol: http
+      user: focusdeck
+      publish_path: /home/focusdeck/FocusDeck/src/FocusDeck.Server/bin/Release/net9.0
+      systemd_service: focusdeck
+      pre_deploy:
+        - echo "Stopping systemd service..."
+        - sudo systemctl stop focusdeck || true
+      deploy:
+        - dotnet publish src/FocusDeck.Server/FocusDeck.Server.csproj -c Release -o ./publish/server
+        - echo "Deploying server to Linux..."
+        - scp -r ./publish/server/* focusdeck@192.168.1.110:/home/focusdeck/FocusDeck/src/FocusDeck.Server/bin/Release/net9.0/
+      post_deploy:
+        - echo "Starting systemd service..."
+        - sudo systemctl restart focusdeck
+        - sleep 3
+        - sudo systemctl status focusdeck
+        
+    - name: cloudflare_tunnel
+      type: Proxy
+      url: https://focusdeck.909436.xyz
+      requires: linux_server
+      health_check: /healthz
+      
+  # Rollback strategy
+  rollback:
+    enabled: true
+    keep_versions: 5
+    strategy: systemd_service_restart
+    
+  # Notifications
+  notifications:
+    - type: console
+      on: [success, failure]
+    - type: email
+      to: owner@focusdeck.dev
+      on: [failure]
+      
+# === PATHS & ARTIFACTS ===
+paths:
+  source_root: ./src
+  build_output: ./bin
+  publish_output: ./publish
+  test_output: ./test-results
+  logs: ./logs
+  bmad_logs: ./.bmad
+
+# === CI/CD INTEGRATION ===
+ci_cd:
+  provider: github
+  workflows:
+    - name: focusdeck_bmad
+      file: .github/workflows/focusdeck-bmad.yml
+      triggers:
+        - push: [ master, develop ]
+        - pull_request: [ master, develop ]
+    
+    - name: deploy_server
+      file: .github/workflows/deploy-server.yml
+      triggers:
+        - push: [ master ]
+        
+  # Matrix strategy for parallel builds
+  matrix:
+    os: [ ubuntu-latest, windows-latest ]
+    include:
+      - os: ubuntu-latest
+        modules: [ Server, Shared, Domain, Persistence, Contracts ]
+      - os: windows-latest
+        modules: [ Desktop, Mobile, Shared, Domain, Contracts ]
+
+# === DEVELOPER WORKFLOW ===
+workflow:
+  # Local development cycle
+  local_cycle:
+    1_create_branch: git checkout -b feature/my-feature
+    2_edit_code: "Code changes in src/"
+    3_build: ./tools/BMAD-METHOD/bmad build
+    4_test: ./tools/BMAD-METHOD/bmad test
+    5_measure: ./tools/BMAD-METHOD/bmad measure
+    6_adapt: ./tools/BMAD-METHOD/bmad adapt
+    7_commit: git commit -m "Add my feature"
+    8_push: git push origin feature/my-feature
+    
+  # Integration workflow
+  integration_cycle:
+    1_create_pr: "Create GitHub PR"
+    2_ci_builds: "GitHub Actions runs BMAD build, measure, adapt"
+    3_code_review: "Team reviews code"
+    4_merge: "Merge to master"
+    5_auto_deploy: "GitHub Actions runs BMAD deploy"
+
+# === TIMEOUTS & RETRIES ===
+timeouts:
+  build: 300s
+  test: 600s
+  deploy: 300s
+  health_check: 60s
+
+retries:
+  network_failures: 3
+  transient_errors: 2
+  deploy_failure: 1
+
+# === ENVIRONMENT VARIABLES ===
+environment:
+  development:
+    ASPNETCORE_ENVIRONMENT: Development
+    DATABASE_URL: Data Source=focusdeck.db
+    
+  production:
+    ASPNETCORE_ENVIRONMENT: Production
+    DATABASE_URL: postgresql://user:pass@postgres:5432/focusdeck
+    JWT_KEY: ${PRODUCTION_JWT_KEY}
+    JWT_ISSUER: https://focusdeck.909436.xyz
+    JWT_AUDIENCE: focusdeck-clients
