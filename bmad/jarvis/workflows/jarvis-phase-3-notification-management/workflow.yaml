@@ -1,0 +1,16 @@
+﻿name: jarvis-phase-3-notification-management
+description: Build intelligent notification filtering engine. Priority scoring, whitelist/blacklist, do-not-disturb during focus, and batch notifications.
+author: BMad Builder
+config_source: '{project-root}/bmad/jarvis/config.yaml'
+output_folder: '{config_source}:output_folder'
+user_name: '{config_source}:user_name'
+communication_language: '{config_source}:communication_language'
+date: system-generated
+installed_path: '{project-root}/bmad/jarvis/workflows/jarvis-phase-3-notification-management'
+instructions: '{installed_path}/instructions.md'
+validation: '{installed_path}/checklist.md'
+standalone: true
+template: false
+phase: 3
+duration_weeks: 4
+default_output_file: '{output_folder}/JARVIS_PHASE3_BUILD_LOG.md'

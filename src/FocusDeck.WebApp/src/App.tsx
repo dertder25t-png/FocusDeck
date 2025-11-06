@@ -16,12 +16,12 @@ function AppShell() {
   const isOnline = true
 
   const navigation = [
-    { name: 'Dashboard', path: '/app', icon: '📊', exact: true },
-    { name: 'Lectures', path: '/app/lectures', icon: '🎓' },
-    { name: 'Focus', path: '/app/focus', icon: '⚡' },
-    { name: 'Notes', path: '/app/notes', icon: '📝' },
-    { name: 'Design', path: '/app/design', icon: '🎨' },
-    { name: 'Analytics', path: '/app/analytics', icon: '📈' },
+    { name: 'Dashboard', path: '/', icon: '📊', exact: true },
+    { name: 'Lectures', path: '/lectures', icon: '🎓' },
+    { name: 'Focus', path: '/focus', icon: '⚡' },
+    { name: 'Notes', path: '/notes', icon: '📝' },
+    { name: 'Design', path: '/design', icon: '🎨' },
+    { name: 'Analytics', path: '/analytics', icon: '📈' },
   ]
 
   const isActive = (path: string, exact?: boolean) => {

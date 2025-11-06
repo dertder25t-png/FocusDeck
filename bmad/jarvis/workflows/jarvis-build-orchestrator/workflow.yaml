@@ -1,0 +1,38 @@
+﻿# JARVIS Build Orchestrator - Master Workflow
+# Coordinates all 6 phases of JARVIS development
+# Created: November 5, 2025
+
+name: jarvis-build-orchestrator
+description: Master orchestrator workflow that coordinates the complete 6-phase JARVIS development cycle. Can run all phases sequentially or individual phases independently.
+author: BMad Builder
+
+# Critical variables from config
+config_source: '{project-root}/bmad/jarvis/config.yaml'
+output_folder: '{config_source}:output_folder'
+user_name: '{config_source}:user_name'
+communication_language: '{config_source}:communication_language'
+date: system-generated
+
+# Paths
+installed_path: '{project-root}/bmad/jarvis/workflows/jarvis-build-orchestrator'
+instructions: '{installed_path}/instructions.md'
+validation: '{installed_path}/checklist.md'
+
+# Orchestrator settings
+standalone: true
+template: false
+
+# Phase workflow references
+phase_1_workflow: '{project-root}/bmad/jarvis/workflows/jarvis-phase-1-activity-detection/workflow.yaml'
+phase_2_workflow: '{project-root}/bmad/jarvis/workflows/jarvis-phase-2-burnout-detection/workflow.yaml'
+phase_3_workflow: '{project-root}/bmad/jarvis/workflows/jarvis-phase-3-notification-management/workflow.yaml'
+phase_4_workflow: '{project-root}/bmad/jarvis/workflows/jarvis-phase-4-content-generation/workflow.yaml'
+phase_5_workflow: '{project-root}/bmad/jarvis/workflows/jarvis-phase-5-workspace-automation/workflow.yaml'
+phase_6_workflow: '{project-root}/bmad/jarvis/workflows/jarvis-phase-6-metrics-personalization/workflow.yaml'
+
+# Documentation references
+jarvis_roadmap: '{project-root}/docs/JARVIS_IMPLEMENTATION_ROADMAP.md'
+jarvis_integration: '{project-root}/docs/JARVIS_INTEGRATION_WITH_FOCUSDECK.md'
+
+# Output
+default_output_file: '{output_folder}/JARVIS_BUILD_PROGRESS.md'

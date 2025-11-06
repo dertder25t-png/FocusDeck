@@ -5,6 +5,7 @@ import { Badge } from '../components/Badge'
 import { EmptyState } from '../components/States'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/Dialog'
 import { Input } from '../components/Input'
+import { apiFetch } from '../lib/utils'
 
 interface FocusSession {
   id: string
@@ -85,7 +86,7 @@ export function FocusPage() {
 
   const fetchActiveSession = async () => {
     try {
-      const response = await fetch('/v1/focus/sessions/active')
+      const response = await apiFetch('/v1/focus/sessions/active')
       if (response.ok) {
         const data = await response.json()
         setActiveSession(data)
@@ -97,7 +98,7 @@ export function FocusPage() {
 
   const fetchSessions = async () => {
     try {
-      const response = await fetch('/v1/focus/sessions?limit=10')
+      const response = await apiFetch('/v1/focus/sessions?limit=10')
       if (response.ok) {
         const data = await response.json()
         setSessions(data)
@@ -137,7 +138,7 @@ export function FocusPage() {
 
   const fetchPolicies = async () => {
     try {
-      const response = await fetch('/v1/focus/policies')
+      const response = await apiFetch('/v1/focus/policies')
       if (response.ok) {
         const data = await response.json()
         setPolicies(data)
@@ -149,7 +150,7 @@ export function FocusPage() {
 
   const startSession = async () => {
     try {
-      const response = await fetch('/v1/focus/sessions', {
+      const response = await apiFetch('/v1/focus/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -177,7 +178,7 @@ export function FocusPage() {
     if (!activeSession) return
     
     try {
-      const response = await fetch(`/v1/focus/sessions/${activeSession.id}/end`, {
+      const response = await apiFetch(`/v1/focus/sessions/${activeSession.id}/end`, {
         method: 'POST'
       })
       
@@ -193,7 +194,7 @@ export function FocusPage() {
 
   const createPolicy = async () => {
     try {
-      const response = await fetch('/v1/focus/policies', {
+      const response = await apiFetch('/v1/focus/policies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

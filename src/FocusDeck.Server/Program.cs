@@ -11,6 +11,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.AspNetCore.StaticFiles;
 using Serilog;
 using Serilog.Events;
 using OpenTelemetry.Resources;
@@ -476,6 +478,52 @@ try
         app.MapOpenApi();
     }
 
+    // SPA Fallback middleware - MUST RUN BEFORE StaticFiles so rewrites are served
+    // For directory requests or routes without extensions, serve index.html to enable client-side routing
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path.StartsWithSegments("/app"))
+        {
+            var path = context.Request.Path.Value ?? "/app";
+            var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+            
+            // Check if this is a real file that should exist
+            var filePath = Path.Combine(
+                Directory.GetCurrentDirectory(),
+                "wwwroot",
+                path.TrimStart('/'));
+            
+            logger.LogDebug("SPA Fallback: Checking path={Path}, filePath={FilePath}", path, filePath);
+            
+            // If path has an extension (like .css, .js, .svg), don't rewrite
+            if (Path.HasExtension(path))
+            {
+                logger.LogDebug("SPA Fallback: Path has extension, passing through");
+                await next();
+                return;
+            }
+            
+            // If it's a directory, append index.html
+            if (Directory.Exists(filePath))
+            {
+                filePath = Path.Combine(filePath, "index.html");
+                logger.LogDebug("SPA Fallback: Is directory, checking for index.html at {FilePath}", filePath);
+            }
+            
+            // Check if the file exists
+            if (System.IO.File.Exists(filePath))
+            {
+                logger.LogDebug("SPA Fallback: File exists at {FilePath}, serving index.html", filePath);
+                context.Request.Path = "/app/index.html";
+            }
+            else
+            {
+                logger.LogDebug("SPA Fallback: File not found at {FilePath}, also 404", filePath);
+            }
+        }
+        await next();
+    });
+
     // Serve static files (Web UI)
     app.UseStaticFiles(new StaticFileOptions
     {
@@ -489,6 +537,34 @@ try
             }
         }
     });
+
+    // Serve static files from wwwroot/app (Vite build output)
+    var appAssetsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "app");
+    if (Directory.Exists(appAssetsPath))
+    {
+        var provider = new FileExtensionContentTypeProvider();
+        // Ensure CSS and JS have correct MIME types
+        provider.Mappings[".css"] = "text/css";
+        provider.Mappings[".js"] = "application/javascript";
+        provider.Mappings[".mjs"] = "application/javascript";
+        provider.Mappings[".json"] = "application/json";
+        provider.Mappings[".svg"] = "image/svg+xml";
+        
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new PhysicalFileProvider(appAssetsPath),
+            RequestPath = "/app",
+            ContentTypeProvider = provider,
+            OnPrepareResponse = ctx =>
+            {
+                // Cache static assets (JS, CSS, images) - use immutable cache for content-hashed files
+                if (!ctx.File.Name.Equals("index.html", StringComparison.OrdinalIgnoreCase))
+                {
+                    ctx.Context.Response.Headers["Cache-Control"] = "public,max-age=31536000,immutable";
+                }
+            }
+        });
+    }
 
     // Enable CORS with strict policy
     app.UseCors("StrictCors");
@@ -559,9 +635,6 @@ try
             await context.Response.WriteAsJsonAsync(response);
         }
     }).AllowAnonymous();
-
-    // SPA Fallback - serve React app for /app/* routes
-    app.MapFallbackToFile("/app/{**path}", "/app/index.html").AllowAnonymous();
 
     // Add security headers for SPA
     app.Use(async (context, next) =>
