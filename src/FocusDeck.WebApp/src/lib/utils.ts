@@ -34,46 +34,22 @@ export function formatDuration(seconds: number): string {
 // ========================================
 
 let cachedToken: string | null = null;
-let tokenPromise: Promise<string> | null = null;
-
-async function generateToken(): Promise<string> {
-  const response = await fetch('http://192.168.1.110:5000/v1/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'web-user', password: 'devmode', clientId: 'web-app' })
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to generate auth token');
-  }
-
-  const data = await response.json();
-  cachedToken = data.accessToken;
-  localStorage.setItem('focusdeck_access_token', data.accessToken);
-  localStorage.setItem('focusdeck_user', 'web-user');
-  
-  return data.accessToken;
-}
 
 export async function getAuthToken(): Promise<string> {
-  // Return cached token if available
-  if (cachedToken) return cachedToken;
-
-  // Check localStorage
-  const storedToken = localStorage.getItem('focusdeck_access_token');
+  if (cachedToken) return cachedToken
+  const storedToken = localStorage.getItem('focusdeck_access_token')
   if (storedToken) {
-    cachedToken = storedToken;
-    return storedToken;
+    cachedToken = storedToken
+    return storedToken
   }
-
-  // Generate new token (prevent duplicate requests)
-  if (!tokenPromise) {
-    tokenPromise = generateToken().finally(() => {
-      tokenPromise = null;
-    });
+  // No token — redirect to login
+  if (typeof window !== 'undefined') {
+    const loc = window.location
+    if (!loc.pathname.includes('/login')) {
+      window.location.href = '/login'
+    }
   }
-
-  return tokenPromise;
+  throw new Error('Not authenticated')
 }
 
 export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
@@ -87,4 +63,22 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
       ...options.headers,
     },
   });
+}
+
+export function storeTokens(accessToken: string, refreshToken?: string, userId?: string) {
+  cachedToken = accessToken
+  localStorage.setItem('focusdeck_access_token', accessToken)
+  if (refreshToken) localStorage.setItem('focusdeck_refresh_token', refreshToken)
+  if (userId) localStorage.setItem('focusdeck_user', userId)
+}
+
+export async function logout() {
+  try {
+    await fetch('/v1/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${await getAuthToken()}` } })
+  } catch {}
+  cachedToken = null
+  localStorage.removeItem('focusdeck_access_token')
+  localStorage.removeItem('focusdeck_refresh_token')
+  localStorage.removeItem('focusdeck_user')
+  if (typeof window !== 'undefined') window.location.href = '/login'
 }

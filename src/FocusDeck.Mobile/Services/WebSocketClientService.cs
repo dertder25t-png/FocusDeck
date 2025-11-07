@@ -1,6 +1,8 @@
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using CommunityToolkit.Mvvm.Messaging;
+using FocusDeck.Mobile.Messages;
 
 namespace FocusDeck.Mobile.Services;
 
@@ -26,15 +28,17 @@ public class WebSocketClientService : IWebSocketClientService, IDisposable
     private CancellationTokenSource? _receiveCts;
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private readonly ILogger<WebSocketClientService> _logger;
+    private readonly IMessenger _messenger;
 
     public bool IsConnected => _webSocket?.State == WebSocketState.Open;
 
     public event EventHandler<WebSocketMessageEventArgs>? MessageReceived;
     public event EventHandler<WebSocketStateChangedEventArgs>? StateChanged;
 
-    public WebSocketClientService(ILogger<WebSocketClientService> logger)
+    public WebSocketClientService(ILogger<WebSocketClientService> logger, IMessenger messenger)
     {
         _logger = logger;
+        _messenger = messenger;
     }
 
     public async Task ConnectAsync(string serverUrl, string accessToken, CancellationToken cancellationToken = default)
@@ -154,7 +158,27 @@ public class WebSocketClientService : IWebSocketClientService, IDisposable
                 {
                     var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
                     _logger.LogDebug("Received WebSocket message: {Message}", message);
-                    OnMessageReceived(message);
+
+                    try
+                    {
+                        var doc = JsonDocument.Parse(message);
+                        if (doc.RootElement.TryGetProperty("type", out var typeElement))
+                        {
+                            var messageType = typeElement.GetString();
+                            if (messageType == "ForcedLogout")
+                            {
+                                _messenger.Send(new ForcedLogoutMessage("Forced logout by server"));
+                            }
+                            else
+                            {
+                                OnMessageReceived(message);
+                            }
+                        }
+                    }
+                    catch (JsonException ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse incoming JSON message.");
+                    }
                 }
             }
         }

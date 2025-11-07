@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom'
+import { LoginPage } from './pages/LoginPage'
 import { ToastProvider, ToastViewport } from './components/Toast'
 import { DashboardPage } from './pages/DashboardPage'
 import { LecturesPage } from './pages/LecturesPage'
@@ -10,6 +11,10 @@ import { SettingsPage } from './pages/SettingsPage'
 import { OrganizationsPage } from './pages/OrganizationsPage'
 import { JobsPage } from './pages/JobsPage'
 import { cn } from './lib/utils'
+import { DevicesPage } from './pages/DevicesPage'
+import { logout } from './lib/utils'
+import { PairingPage } from './pages/PairingPage'
+import { ProvisioningPage } from './pages/ProvisioningPage'
 
 function AppShell() {
   const location = useLocation()
@@ -22,6 +27,9 @@ function AppShell() {
     { name: 'Notes', path: '/notes', icon: '📝' },
     { name: 'Design', path: '/design', icon: '🎨' },
     { name: 'Analytics', path: '/analytics', icon: '📈' },
+    { name: 'Devices', path: '/devices', icon: '💻' },
+    { name: 'Pairing', path: '/pairing', icon: '🔗' },
+    { name: 'Provisioning', path: '/provisioning', icon: '📱' },
   ]
 
   const isActive = (path: string, exact?: boolean) => {
@@ -114,11 +122,11 @@ function AppShell() {
                 <span className="text-xl">🔍</span>
               </button>
               <button
-                className="p-2 hover:bg-gray-800 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-label="User menu"
-              >
-                <span className="text-xl">👤</span>
-              </button>
+                onClick={() => logout()}
+                className="px-3 py-2 hover:bg-gray-800 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Logout"
+                title="Logout"
+              >Logout</button>
             </div>
           </header>
 
@@ -131,6 +139,7 @@ function AppShell() {
           >
             <div className="max-w-7xl mx-auto">
               <Routes>
+                <Route path="/login" element={<LoginPage />} />
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/lectures" element={<LecturesPage />} />
                 <Route path="/focus" element={<FocusPage />} />
@@ -138,6 +147,9 @@ function AppShell() {
                 <Route path="/design" element={<DesignPage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/devices" element={<DevicesPage />} />
+                <Route path="/pairing" element={<PairingPage />} />
+                <Route path="/provisioning" element={<ProvisioningPage />} />
                 <Route path="/organizations" element={<OrganizationsPage />} />
                 <Route path="/jobs" element={<JobsPage />} />
               </Routes>

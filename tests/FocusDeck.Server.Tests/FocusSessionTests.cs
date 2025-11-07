@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FocusDeck.Contracts.DTOs;
+using FocusDeck.Shared.SignalR.Notifications;
 using FocusDeck.Domain.Entities;
 using FocusDeck.Persistence;
 using FocusDeck.Server.Controllers.v1;
@@ -97,7 +98,6 @@ public class FocusSessionTests : IDisposable
         public Task LectureSummarized(string lectureId, string summaryText, string message) => Task.CompletedTask;
         public Task LectureNoteReady(string lectureId, string noteId, string message) => Task.CompletedTask;
         public Task RemoteActionCreated(string actionId, string kind, object payload) => Task.CompletedTask;
-        public Task RemoteTelemetry(int progressPercent, string focusState, string? activeNoteId) => Task.CompletedTask;
         
         public Task FocusDistraction(string reason, DateTime at)
         {
@@ -115,6 +115,11 @@ public class FocusSessionTests : IDisposable
         public Task FocusEnded(string sessionId, int actualMinutes, int distractionCount) => Task.CompletedTask;
         public Task DesignIdeasAdded(string projectId, int ideaCount, string message) => Task.CompletedTask;
         public Task NoteSuggestionReady(string noteId, string suggestionId, string type, string content) => Task.CompletedTask;
+
+        // Methods to fix build
+        // public Task ContextUpdated(ActivityState state) => Task.CompletedTask;
+        public Task RemoteTelemetry(TelemetryUpdate payload) => Task.CompletedTask;
+        public Task ForceLogout(ForceLogoutMessage payload) => Task.CompletedTask;
     }
 
     [Fact]

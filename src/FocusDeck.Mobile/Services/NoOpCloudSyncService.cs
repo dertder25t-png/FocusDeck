@@ -24,14 +24,14 @@ public class NoOpCloudSyncService : ICloudSyncService
     }
 
     /// <summary>No-op: Always succeeds silently</summary>
-    public async Task<bool> SyncSessionAsync(FocusDeck.Shared.Models.StudySession session, string authToken)
+    public async Task<bool> SyncSessionAsync(FocusDeck.Shared.Models.StudySession session, string? authToken = null)
     {
         await Task.Delay(10);
         return true; // Pretend success to not block local app
     }
 
     /// <summary>No-op: Returns empty list</summary>
-    public async Task<List<FocusDeck.Shared.Models.StudySession>> GetRemoteSessionsAsync(string authToken)
+    public async Task<List<FocusDeck.Shared.Models.StudySession>> GetRemoteSessionsAsync(string? authToken = null)
     {
         await Task.Delay(10);
         return new List<FocusDeck.Shared.Models.StudySession>();
@@ -41,7 +41,7 @@ public class NoOpCloudSyncService : ICloudSyncService
     public async Task<List<FocusDeck.Shared.Models.StudySession>> GetRemoteSessionsAsync(
         DateTime startDate, 
         DateTime endDate, 
-        string authToken)
+        string? authToken = null)
     {
         await Task.Delay(10);
         return new List<FocusDeck.Shared.Models.StudySession>();
@@ -55,14 +55,14 @@ public class NoOpCloudSyncService : ICloudSyncService
     }
 
     /// <summary>No-op: Always succeeds silently</summary>
-    public async Task<bool> DeleteRemoteSessionAsync(Guid sessionId, string authToken)
+    public async Task<bool> DeleteRemoteSessionAsync(Guid sessionId, string? authToken = null)
     {
         await Task.Delay(10);
         return true;
     }
 
     /// <summary>No-op: Returns empty/offline status</summary>
-    public async Task<SyncStatus> GetSyncStatusAsync(string authToken)
+    public async Task<SyncStatus> GetSyncStatusAsync(string? authToken = null)
     {
         await Task.Delay(10);
         return new SyncStatus

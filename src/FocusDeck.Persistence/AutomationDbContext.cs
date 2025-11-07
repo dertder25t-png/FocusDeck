@@ -54,6 +54,16 @@ public class AutomationDbContext : DbContext
     public DbSet<DesignProject> DesignProjects { get; set; }
     public DbSet<DesignIdea> DesignIdeas { get; set; }
 
+    // Context aggregation snapshots
+    public DbSet<FocusDeck.Domain.Entities.StudentContext> StudentContexts { get; set; }
+
+    // Auth / PAKE
+    public DbSet<FocusDeck.Domain.Entities.Auth.PakeCredential> PakeCredentials { get; set; }
+    public DbSet<FocusDeck.Domain.Entities.Auth.KeyVault> KeyVaults { get; set; }
+    public DbSet<FocusDeck.Domain.Entities.Auth.PairingSession> PairingSessions { get; set; }
+    public DbSet<FocusDeck.Domain.Entities.Auth.RevokedAccessToken> RevokedAccessTokens { get; set; }
+    public DbSet<FocusDeck.Domain.Entities.Auth.AuthEventLog> AuthEventLogs { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

@@ -1,5 +1,5 @@
 using FocusDeck.Mobile.ViewModels;
-using FocusDeck.Mobile.Data.Repositories;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FocusDeck.Mobile.Pages;
 
@@ -14,12 +14,17 @@ public partial class StudyTimerPage : ContentPage
         InitializeComponent();
         
         // Resolve ViewModel with dependencies from DI container
-        var sessionRepository = Application.Current!.Handler.MauiContext!.Services.GetService<ISessionRepository>();
-        if (sessionRepository == null)
-            throw new InvalidOperationException("ISessionRepository service not registered");
+        var viewModel = Application.Current?
+            .Handler?
+            .MauiContext?
+            .Services?
+            .GetService<StudyTimerViewModel>();
+
+        if (viewModel == null)
+            throw new InvalidOperationException("StudyTimerViewModel service not registered");
 
         // Bind the ViewModel to this page
-        BindingContext = new StudyTimerViewModel(sessionRepository);
+        BindingContext = viewModel;
         
         // Subscribe to ViewModel events
         if (BindingContext is StudyTimerViewModel viewModel)

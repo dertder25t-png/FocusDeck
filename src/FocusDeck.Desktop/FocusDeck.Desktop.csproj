@@ -15,6 +15,7 @@
     <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="9.0.10" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.1.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
     <PackageReference Include="Microsoft.VisualBasic" Version="10.3.0" />
     <PackageReference Include="NAudio" Version="2.2.1" />
@@ -23,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\FocusDeck.SharedKernel\FocusDeck.SharedKernel.csproj" />
     <ProjectReference Include="..\FocusDeck.Contracts\FocusDeck.Contracts.csproj" />
+    <ProjectReference Include="..\FocusDeck.Shared\FocusDeck.Shared.csproj" />
     <ProjectReference Include="..\FocusDeck.Services\FocusDeck.Services.csproj" />
   </ItemGroup>
 

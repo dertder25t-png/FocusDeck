@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using FocusDeck.Services.Activity;
 using Microsoft.Extensions.Logging;
 
-#if NET8_0_WINDOWS || WINDOWS
+#if NET8_0_WINDOWS || NET9_0_WINDOWS || WINDOWS
 
 namespace FocusDeck.Desktop.Services.Activity
 {
@@ -99,13 +99,13 @@ namespace FocusDeck.Desktop.Services.Activity
         /// <summary>
         /// Get currently focused application (window name and process).
         /// </summary>
-        protected override async Task<FocusedApplication?> GetFocusedApplicationInternalAsync(CancellationToken ct)
+        protected override Task<FocusedApplication?> GetFocusedApplicationInternalAsync(CancellationToken ct)
         {
             try
             {
                 var foregroundWindow = GetForegroundWindow();
                 if (foregroundWindow == IntPtr.Zero)
-                    return null;
+                    return Task.FromResult<FocusedApplication?>(null);
 
                 var sb = new StringBuilder(256);
                 GetWindowText(foregroundWindow, sb, 256);
@@ -118,25 +118,25 @@ namespace FocusDeck.Desktop.Services.Activity
                 {
                     var process = Process.GetProcessById((int)pid);
 
-                    return new FocusedApplication
+                    return Task.FromResult<FocusedApplication?>(new FocusedApplication
                     {
                         WindowTitle = windowTitle,
                         AppName = process.ProcessName,
                         ProcessPath = process.MainModule?.FileName ?? string.Empty,
                         Tags = ClassifyApplication(process.ProcessName),
                         SwitchedAt = DateTime.UtcNow
-                    };
+                    });
                 }
                 catch (ArgumentException)
                 {
                     // Process no longer exists
-                    return null;
+                    return Task.FromResult<FocusedApplication?>(null);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to get focused application");
-                return null;
+                return Task.FromResult<FocusedApplication?>(null);
             }
         }
 

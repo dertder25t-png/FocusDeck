@@ -60,6 +60,7 @@
 
 	<ItemGroup>
 		<!-- MAUI and Base Dependencies -->
+		<PackageReference Include="Isopoh.Cryptography.Argon2" Version="1.3.1" />
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.8" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.1" />
@@ -72,6 +73,8 @@
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Proxies" Version="8.0.0" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.0" />
 		<PackageReference Include="System.Data.SQLite.Core" Version="1.0.118" />
+		<PackageReference Include="ZXing.Net.MAUI.Controls" Version="0.4.0" />
+		<PackageReference Include="Plugin.Fingerprint" Version="2.1.5" />
 	</ItemGroup>
 
 	<!-- Project References -->

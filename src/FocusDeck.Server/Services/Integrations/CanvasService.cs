@@ -14,7 +14,7 @@ namespace FocusDeck.Server.Services.Integrations
             _httpClient = new HttpClient();
         }
 
-        public async Task<List<CanvasAssignment>> GetUpcomingAssignments(string canvasDomain, string accessToken)
+        public virtual async Task<List<CanvasAssignment>> GetUpcomingAssignments(string canvasDomain, string accessToken)
         {
             try
             {
@@ -26,8 +26,36 @@ namespace FocusDeck.Server.Services.Integrations
                 var response = await _httpClient.GetAsync(url);
                 if (response.IsSuccessStatusCode)
                 {
-                    _logger.LogInformation("Successfully fetched Canvas assignments");
-                    return new List<CanvasAssignment>(); // Placeholder
+                    var json = await response.Content.ReadAsStringAsync();
+                    // Minimal parse: map items with assignment-like shape
+                    var items = System.Text.Json.JsonDocument.Parse(json).RootElement;
+                    var list = new List<CanvasAssignment>();
+                    foreach (var e in items.EnumerateArray())
+                    {
+                        // Upcoming events can be assignments or other events
+                        var id = e.TryGetProperty("assignment_id", out var aid) && aid.ValueKind != System.Text.Json.JsonValueKind.Null
+                            ? aid.GetRawText().Trim('"')
+                            : (e.TryGetProperty("id", out var eid) ? eid.ToString() : Guid.NewGuid().ToString());
+                        var name = e.TryGetProperty("title", out var t) ? t.GetString() ?? "Untitled" : "Untitled";
+                        DateTime? dueAt = null;
+                        if (e.TryGetProperty("due_at", out var due) && due.ValueKind == System.Text.Json.JsonValueKind.String)
+                        {
+                            if (DateTime.TryParse(due.GetString(), out var dt)) dueAt = dt.ToUniversalTime();
+                        }
+                        string courseId = e.TryGetProperty("context_code", out var cc) ? cc.GetString() ?? string.Empty : string.Empty;
+                        string courseName = e.TryGetProperty("context_name", out var cn) ? cn.GetString() ?? string.Empty : string.Empty;
+
+                        list.Add(new CanvasAssignment
+                        {
+                            Id = id,
+                            Name = name,
+                            DueAt = dueAt,
+                            CourseId = courseId,
+                            CourseName = courseName
+                        });
+                    }
+                    _logger.LogInformation("Fetched {Count} Canvas upcoming events", list.Count);
+                    return list;
                 }
             }
             catch (Exception ex)
@@ -38,7 +66,7 @@ namespace FocusDeck.Server.Services.Integrations
             return new List<CanvasAssignment>();
         }
 
-        public async Task<List<CanvasGrade>> GetRecentGrades(string canvasDomain, string accessToken, string courseId)
+        public virtual async Task<List<CanvasGrade>> GetRecentGrades(string canvasDomain, string accessToken, string courseId)
         {
             try
             {
@@ -62,7 +90,7 @@ namespace FocusDeck.Server.Services.Integrations
             return new List<CanvasGrade>();
         }
 
-        public async Task<List<CanvasAnnouncement>> GetAnnouncements(string canvasDomain, string accessToken)
+        public virtual async Task<List<CanvasAnnouncement>> GetAnnouncements(string canvasDomain, string accessToken)
         {
             try
             {

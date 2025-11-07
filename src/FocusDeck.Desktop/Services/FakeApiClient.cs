@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json;
 
 namespace FocusDeck.Desktop.Services;
@@ -11,6 +12,7 @@ public class FakeApiClient : IApiClient
     private readonly JsonSerializerOptions _jsonOptions;
 
     public string? AccessToken { get; set; }
+    public Uri? BaseAddress => null;
 
     public FakeApiClient()
     {
@@ -70,7 +72,7 @@ public class FakeApiClient : IApiClient
                     id = "session-1",
                     title = "Morning Review - Architecture Patterns",
                     startTime = DateTime.UtcNow.AddHours(-2),
-                    endTime = DateTime.UtcNow.AddHours(-1),
+                    endTime = (DateTime?)DateTime.UtcNow.AddHours(-1),
                     durationMinutes = 60,
                     completed = true
                 },

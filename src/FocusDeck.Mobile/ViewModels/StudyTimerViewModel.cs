@@ -7,6 +7,7 @@ using Microsoft.Maui.Devices;
 using FocusDeck.Shared.Models;
 using FocusDeck.Mobile.Data.Repositories;
 using FocusDeck.Mobile.Services;
+using FocusDeck.Mobile.Services.Auth;
 
 namespace FocusDeck.Mobile.ViewModels;
 
@@ -20,6 +21,7 @@ public partial class StudyTimerViewModel : ObservableObject
     private DateTime _sessionStartTime;
     private readonly ISessionRepository _sessionRepository;
     private readonly ICloudSyncService _cloudSyncService;
+    private readonly MobileTokenStore _tokenStore;
     private StudySession? _currentSession;
     
     // Caching for display strings to avoid redundant formatting
@@ -165,10 +167,11 @@ public partial class StudyTimerViewModel : ObservableObject
     /// </summary>
     /// <param name="sessionRepository">Repository for database operations.</param>
     /// <param name="cloudSyncService">Service for cloud synchronization (optional).</param>
-    public StudyTimerViewModel(ISessionRepository sessionRepository, ICloudSyncService? cloudSyncService = null)
+    public StudyTimerViewModel(ISessionRepository sessionRepository, ICloudSyncService? cloudSyncService = null, MobileTokenStore? tokenStore = null)
     {
         _sessionRepository = sessionRepository ?? throw new ArgumentNullException(nameof(sessionRepository));
         _cloudSyncService = cloudSyncService ?? new NoOpCloudSyncService();
+        _tokenStore = tokenStore ?? new MobileTokenStore();
         _sessionStartTime = DateTime.Now;
         _currentSession = null;
         
@@ -537,11 +540,18 @@ public partial class StudyTimerViewModel : ObservableObject
             CloudSyncErrorMessage = string.Empty;
             MessageChanged?.Invoke(this, "Syncing to cloud...");
 
-            // Get stored auth token (if available)
-            var authToken = Preferences.Get("cloud_auth_token", "");
+            // Get stored auth token (prefer secure storage)
+            var authToken = await _tokenStore.GetAccessTokenAsync();
             if (string.IsNullOrWhiteSpace(authToken))
             {
-                // No auth token, can't sync
+                authToken = Preferences.Get("auth_token", string.Empty);
+            }
+            if (string.IsNullOrWhiteSpace(authToken))
+            {
+                authToken = Preferences.Get("cloud_auth_token", string.Empty);
+            }
+            if (string.IsNullOrWhiteSpace(authToken))
+            {
                 CloudSyncStatus = CloudSyncStatus.Idle;
                 CloudSyncErrorMessage = "Not authenticated with cloud server";
                 Debug.WriteLine("[Cloud] Not authenticated - skipping sync");

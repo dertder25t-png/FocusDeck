@@ -12,8 +12,12 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
         builder.Property(e => e.UserId).IsRequired().HasMaxLength(200);
         builder.Property(e => e.TokenHash).IsRequired().HasMaxLength(500);
         builder.Property(e => e.ClientFingerprint).IsRequired().HasMaxLength(500);
+        builder.Property(e => e.DeviceId).HasMaxLength(200);
+        builder.Property(e => e.DeviceName).HasMaxLength(200);
+        builder.Property(e => e.DevicePlatform).HasMaxLength(50);
         builder.Property(e => e.IssuedUtc).IsRequired();
         builder.Property(e => e.ExpiresUtc).IsRequired();
+        builder.Property(e => e.LastAccessUtc);
         builder.Property(e => e.RevokedUtc);
         builder.Property(e => e.ReplacedByTokenHash).HasMaxLength(500);
 
@@ -21,6 +25,7 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
         builder.HasIndex(e => e.UserId);
         builder.HasIndex(e => e.ExpiresUtc);
         builder.HasIndex(e => e.RevokedUtc);
+        builder.HasIndex(e => e.DeviceId);
 
         // Ignore computed properties
         builder.Ignore(e => e.IsExpired);

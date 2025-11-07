@@ -20,6 +20,26 @@ public partial class App : Application
         ConfigureServices(services);
         _serviceProvider = services.BuildServiceProvider();
 
+        // If using real server, load persisted tokens or prompt for sign-in
+        var api = _serviceProvider.GetRequiredService<IApiClient>();
+        if (!(Environment.GetEnvironmentVariable("USE_FAKE_SERVER") == "true"))
+        {
+            var store = new FocusDeck.Desktop.Services.Auth.TokenStore();
+            var rec = store.Load();
+            if (rec != null && !string.IsNullOrEmpty(rec.AccessToken))
+            {
+                api.AccessToken = rec.AccessToken;
+            }
+            if (string.IsNullOrEmpty(api.AccessToken))
+            {
+                var onboarding = new Views.OnboardingWindow();
+                onboarding.ShowDialog();
+            }
+            // Start refresh timer
+            var kp = _serviceProvider.GetRequiredService<FocusDeck.Desktop.Services.Auth.IKeyProvisioningService>();
+            kp.StartAutoRefresh();
+        }
+
         var shell = _serviceProvider.GetRequiredService<ShellWindow>();
         shell.Show();
     }
@@ -39,7 +59,9 @@ public partial class App : Application
             // Register HttpClient with Polly retry policy
             services.AddHttpClient<IApiClient, ApiClient>(client =>
             {
-                client.BaseAddress = new Uri("https://localhost:5239"); // Configure from settings
+                // Default dev server URL matches FocusDeck.Server launchSettings
+                // Use HTTP to avoid local dev cert issues unless HTTPS is explicitly configured
+                client.BaseAddress = new Uri("http://localhost:5239");
                 client.Timeout = TimeSpan.FromSeconds(30);
             })
             .AddStandardResilienceHandler(); // Adds retry, circuit breaker, timeout policies
@@ -51,6 +73,9 @@ public partial class App : Application
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<ICommandPaletteService, CommandPaletteService>();
         services.AddSingleton<IAudioRecorderService, AudioRecorderService>();
+        services.AddSingleton<FocusDeck.Services.Implementations.Core.EncryptionService>();
+        services.AddSingleton<FocusDeck.Desktop.Services.Auth.IKeyProvisioningService, FocusDeck.Desktop.Services.Auth.KeyProvisioningService>();
+        services.AddSingleton<IRemoteControllerService, RemoteControllerService>();
 
         // Register views
         services.AddSingleton<ShellWindow>();
@@ -62,3 +87,4 @@ public partial class App : Application
         base.OnExit(e);
     }
 }
+

@@ -25,17 +25,17 @@ public interface ICloudSyncService
     /// <summary>
     /// Uploads a completed study session to the cloud backend
     /// </summary>
-    Task<bool> SyncSessionAsync(StudySession session, string authToken);
+    Task<bool> SyncSessionAsync(StudySession session, string? authToken = null);
 
     /// <summary>
     /// Downloads all study sessions from cloud backend
     /// </summary>
-    Task<List<StudySession>> GetRemoteSessionsAsync(string authToken);
+    Task<List<StudySession>> GetRemoteSessionsAsync(string? authToken = null);
 
     /// <summary>
     /// Downloads sessions within a date range from cloud
     /// </summary>
-    Task<List<StudySession>> GetRemoteSessionsAsync(DateTime startDate, DateTime endDate, string authToken);
+    Task<List<StudySession>> GetRemoteSessionsAsync(DateTime startDate, DateTime endDate, string? authToken = null);
 
     /// <summary>
     /// Checks if server is reachable and healthy
@@ -45,12 +45,12 @@ public interface ICloudSyncService
     /// <summary>
     /// Deletes a session from cloud backend
     /// </summary>
-    Task<bool> DeleteRemoteSessionAsync(Guid sessionId, string authToken);
+    Task<bool> DeleteRemoteSessionAsync(Guid sessionId, string? authToken = null);
 
     /// <summary>
     /// Gets sync status information
     /// </summary>
-    Task<SyncStatus> GetSyncStatusAsync(string authToken);
+    Task<SyncStatus> GetSyncStatusAsync(string? authToken = null);
 }
 
 /// <summary>
@@ -149,11 +149,11 @@ public class PocketBaseCloudSyncService : ICloudSyncService
     /// <summary>
     /// Uploads a study session to PocketBase
     /// </summary>
-    public async Task<bool> SyncSessionAsync(StudySession session, string authToken)
+    public async Task<bool> SyncSessionAsync(StudySession session, string? authToken = null)
     {
         try
         {
-            if (string.IsNullOrEmpty(authToken))
+            if (string.IsNullOrWhiteSpace(authToken))
             {
                 Debug.WriteLine("[PocketBase] Error: No auth token provided");
                 return false;
@@ -207,11 +207,11 @@ public class PocketBaseCloudSyncService : ICloudSyncService
     /// <summary>
     /// Downloads all study sessions from PocketBase
     /// </summary>
-    public async Task<List<StudySession>> GetRemoteSessionsAsync(string authToken)
+    public async Task<List<StudySession>> GetRemoteSessionsAsync(string? authToken = null)
     {
         try
         {
-            if (string.IsNullOrEmpty(authToken))
+            if (string.IsNullOrWhiteSpace(authToken))
                 return new();
 
             _httpClient.DefaultRequestHeaders.Authorization = 
@@ -256,11 +256,11 @@ public class PocketBaseCloudSyncService : ICloudSyncService
     /// <summary>
     /// Downloads study sessions within a date range from PocketBase
     /// </summary>
-    public async Task<List<StudySession>> GetRemoteSessionsAsync(DateTime startDate, DateTime endDate, string authToken)
+    public async Task<List<StudySession>> GetRemoteSessionsAsync(DateTime startDate, DateTime endDate, string? authToken = null)
     {
         try
         {
-            if (string.IsNullOrEmpty(authToken))
+            if (string.IsNullOrWhiteSpace(authToken))
                 return new();
 
             _httpClient.DefaultRequestHeaders.Authorization = 
@@ -339,11 +339,11 @@ public class PocketBaseCloudSyncService : ICloudSyncService
     /// <summary>
     /// Deletes a session from PocketBase
     /// </summary>
-    public async Task<bool> DeleteRemoteSessionAsync(Guid sessionId, string authToken)
+    public async Task<bool> DeleteRemoteSessionAsync(Guid sessionId, string? authToken = null)
     {
         try
         {
-            if (string.IsNullOrEmpty(authToken))
+            if (string.IsNullOrWhiteSpace(authToken))
                 return false;
 
             _httpClient.DefaultRequestHeaders.Authorization = 
@@ -374,7 +374,7 @@ public class PocketBaseCloudSyncService : ICloudSyncService
     /// <summary>
     /// Gets sync status from PocketBase
     /// </summary>
-    public async Task<SyncStatus> GetSyncStatusAsync(string authToken)
+    public async Task<SyncStatus> GetSyncStatusAsync(string? authToken = null)
     {
         try
         {
@@ -385,7 +385,7 @@ public class PocketBaseCloudSyncService : ICloudSyncService
             var isHealthy = response.IsSuccessStatusCode;
 
             var sessionCount = 0;
-            if (isHealthy && !string.IsNullOrEmpty(authToken))
+            if (isHealthy && !string.IsNullOrWhiteSpace(authToken))
             {
                 var sessions = await GetRemoteSessionsAsync(authToken);
                 sessionCount = sessions.Count;

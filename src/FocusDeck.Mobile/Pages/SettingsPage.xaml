@@ -105,6 +105,18 @@
                         Text="{Binding SignInButtonText}"
                         TextColor="White" />
                     
+                    <!-- Register Button -->
+                    <Button
+                        BackgroundColor="#2563EB"
+                        Command="{Binding RegisterCommand}"
+                        CornerRadius="8"
+                        FontAttributes="Bold"
+                        FontSize="14"
+                        IsEnabled="{Binding IsRegistering, Converter={StaticResource InvertedBoolConverter}}"
+                        Padding="10"
+                        Text="{Binding RegisterButtonText}"
+                        TextColor="White" />
+                    
                     <Label
                         FontSize="11"
                         Text="Sign in to enable real-time sync and cloud features"

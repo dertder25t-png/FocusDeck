@@ -19,7 +19,6 @@ namespace FocusDeck.Server.Services.Activity
     public class LinuxActivityDetectionService : ActivityDetectionService
     {
         private DateTime _lastCheck = DateTime.UtcNow;
-        private FocusedApplication? _lastApp;
         private Queue<DateTime> _activityHistory = new();
         private const int ACTIVITY_HISTORY_CAPACITY = 100;
 
