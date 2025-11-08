@@ -665,21 +665,31 @@ try
     // For directory requests or routes without extensions, serve index.html to enable client-side routing
     app.Use(async (context, next) =>
     {
-        if (context.Request.Path.StartsWithSegments("/app"))
+        var path = context.Request.Path.Value ?? "/";
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        
+        // Only process non-API routes (API routes start with /v1, /swagger, /healthz, /hubs)
+        // Skip root "/" - it has a dedicated MapGet endpoint that injects version
+        if (!path.StartsWith("/v1") && 
+            !path.StartsWith("/swagger") && 
+            !path.StartsWith("/healthz") &&
+            !path.StartsWith("/hubs") &&
+            !path.Equals("/", StringComparison.OrdinalIgnoreCase) &&
+            !path.Equals("/swagger.json", StringComparison.OrdinalIgnoreCase))
         {
-            var path = context.Request.Path.Value ?? "/app";
-            var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+            // Support both /app/... and /... paths for UI
+            var uiPath = path.StartsWith("/app") ? path : $"/app{path}";
+            if (uiPath == "/app/") uiPath = "/app/index.html";
             
-            // Check if this is a real file that should exist
             var filePath = Path.Combine(
                 Directory.GetCurrentDirectory(),
                 "wwwroot",
-                path.TrimStart('/'));
+                uiPath.TrimStart('/'));
             
-            logger.LogDebug("SPA Fallback: Checking path={Path}, filePath={FilePath}", path, filePath);
+            logger.LogDebug("SPA Fallback: Checking path={Path}, uiPath={UiPath}, filePath={FilePath}", path, uiPath, filePath);
             
             // If path has an extension (like .css, .js, .svg), don't rewrite
-            if (Path.HasExtension(path))
+            if (Path.HasExtension(uiPath))
             {
                 logger.LogDebug("SPA Fallback: Path has extension, passing through");
                 await next();
@@ -696,12 +706,14 @@ try
             // Check if the file exists
             if (System.IO.File.Exists(filePath))
             {
-                logger.LogDebug("SPA Fallback: File exists at {FilePath}, serving index.html", filePath);
-                context.Request.Path = "/app/index.html";
+                logger.LogDebug("SPA Fallback: File exists at {FilePath}, serving as {UiPath}", filePath, uiPath);
+                context.Request.Path = uiPath;
             }
             else
             {
-                logger.LogDebug("SPA Fallback: File not found at {FilePath}, also 404", filePath);
+                logger.LogDebug("SPA Fallback: File not found at {FilePath}, defaulting to index.html", filePath);
+                // Default to index.html for client-side routing
+                context.Request.Path = "/app/index.html";
             }
         }
         await next();
