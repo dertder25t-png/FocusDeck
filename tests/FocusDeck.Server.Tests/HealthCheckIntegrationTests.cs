@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using System.Net;
 using System.Net.Http.Json;
 using Xunit;
@@ -17,9 +18,9 @@ public class HealthCheckIntegrationTests : IClassFixture<WebApplicationFactory<P
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
-            builder.UseEnvironment("Development");
             builder.ConfigureAppConfiguration((context, config) =>
             {
+                context.HostingEnvironment.EnvironmentName = "Development";
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["Cors:AllowedOrigins:0"] = "http://localhost:5173",

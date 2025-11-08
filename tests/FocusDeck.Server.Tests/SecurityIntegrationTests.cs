@@ -22,6 +22,7 @@ public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Prog
         {
             builder.ConfigureAppConfiguration((context, config) =>
             {
+                context.HostingEnvironment.EnvironmentName = "Development";
                 // Override configuration for tests
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
@@ -36,9 +37,6 @@ public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Prog
                     ["Storage:Root"] = Path.GetTempPath()
                 });
             });
-
-            // Ensure tests run in Development environment
-            builder.UseEnvironment("Development");
         });
 
         _client = _factory.CreateClient();

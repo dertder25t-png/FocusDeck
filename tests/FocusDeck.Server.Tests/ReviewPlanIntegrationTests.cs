@@ -6,6 +6,7 @@ using FocusDeck.Persistence;
 using FocusDeck.Server.Jobs;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -19,9 +20,9 @@ public class ReviewPlanIntegrationTests : IClassFixture<WebApplicationFactory<Pr
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
-            builder.UseEnvironment("Development");
             builder.ConfigureAppConfiguration((context, config) =>
             {
+                context.HostingEnvironment.EnvironmentName = "Development";
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["Cors:AllowedOrigins:0"] = "http://localhost:5173"
@@ -226,9 +227,9 @@ public class GenerateLectureNoteJobTests : IClassFixture<WebApplicationFactory<P
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
-            builder.UseEnvironment("Development");
             builder.ConfigureAppConfiguration((context, config) =>
             {
+                context.HostingEnvironment.EnvironmentName = "Development";
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["Cors:AllowedOrigins:0"] = "http://localhost:5173"
