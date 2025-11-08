@@ -29,6 +29,7 @@ public class ForcedLogoutPropagationTests
         public Task LectureSummarized(string lectureId, string summaryText, string message) => Task.CompletedTask;
         public Task LectureTranscribed(string lectureId, string transcriptionText, string message) => Task.CompletedTask;
         public Task NotificationReceived(string title, string message, string severity) => Task.CompletedTask;
+        public Task NoteSuggestionReady(string noteId, string suggestionId, string type, string content) => Task.CompletedTask;
         public Task RemoteActionCreated(string ActionId, string Kind, object Payload) => Task.CompletedTask;
         public Task RemoteTelemetry(TelemetryUpdate payload) => Task.CompletedTask;
         public Task SessionCompleted(string sessionId, int durationMinutes, string message) => Task.CompletedTask;
@@ -43,16 +44,19 @@ public class ForcedLogoutPropagationTests
 
     private sealed class FakeHubClients : IHubClients<INotificationClient>
     {
-        public FakeClient Client { get; } = new();
-        public IClientProxy All => throw new NotImplementedException();
-        public IClientProxy AllExcept(IReadOnlyList<string> excludedConnectionIds) => throw new NotImplementedException();
-        public IClientProxy Client(string connectionId) => throw new NotImplementedException();
-        public IClientProxy Clients(IReadOnlyList<string> connectionIds) => throw new NotImplementedException();
-        public INotificationClient Group(string groupName) => Client;
-        public INotificationClient GroupExcept(string groupName, IReadOnlyList<string> excludedConnectionIds) => Client;
-        public INotificationClient Groups(IReadOnlyList<string> groupNames) => Client;
-        public INotificationClient User(string userId) => Client;
-        public INotificationClient Users(IReadOnlyList<string> userIds) => Client;
+        private FakeClient _fakeClient = new();
+        
+        public INotificationClient All => _fakeClient;
+        public INotificationClient AllExcept(IReadOnlyList<string> excludedConnectionIds) => _fakeClient;
+        public INotificationClient Client(string connectionId) => _fakeClient;
+        public INotificationClient Clients(IReadOnlyList<string> connectionIds) => _fakeClient;
+        public INotificationClient Group(string groupName) => _fakeClient;
+        public INotificationClient GroupExcept(string groupName, IReadOnlyList<string> excludedConnectionIds) => _fakeClient;
+        public INotificationClient Groups(IReadOnlyList<string> groupNames) => _fakeClient;
+        public INotificationClient User(string userId) => _fakeClient;
+        public INotificationClient Users(IReadOnlyList<string> userIds) => _fakeClient;
+        
+        public FakeClient FakeClientInstance => _fakeClient;
     }
 
     private sealed class FakeHubContext : IHubContext<NotificationsHub, INotificationClient>
@@ -89,9 +93,9 @@ public class ForcedLogoutPropagationTests
 
         await svc.RevokeAsync(jti, userId, expires, CancellationToken.None, reason: "Test", deviceId: "dev1");
 
-        Assert.NotNull(hub.Inner.Client.Last);
-        Assert.Equal("Test", hub.Inner.Client.Last!.Reason);
-        Assert.Equal("dev1", hub.Inner.Client.Last!.DeviceId);
+        Assert.NotNull(hub.Inner.FakeClientInstance.Last);
+        Assert.Equal("Test", hub.Inner.FakeClientInstance.Last!.Reason);
+        Assert.Equal("dev1", hub.Inner.FakeClientInstance.Last!.DeviceId);
     }
 }
 

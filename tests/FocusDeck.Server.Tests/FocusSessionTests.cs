@@ -8,6 +8,7 @@ using FocusDeck.Domain.Entities;
 using FocusDeck.Persistence;
 using FocusDeck.Server.Controllers.v1;
 using FocusDeck.Server.Hubs;
+using FocusDeck.Services.Activity;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -115,9 +116,7 @@ public class FocusSessionTests : IDisposable
         public Task FocusEnded(string sessionId, int actualMinutes, int distractionCount) => Task.CompletedTask;
         public Task DesignIdeasAdded(string projectId, int ideaCount, string message) => Task.CompletedTask;
         public Task NoteSuggestionReady(string noteId, string suggestionId, string type, string content) => Task.CompletedTask;
-
-        // Methods to fix build
-        // public Task ContextUpdated(ActivityState state) => Task.CompletedTask;
+        public Task ContextUpdated(FocusDeck.Services.Activity.ActivityState state) => Task.CompletedTask;
         public Task RemoteTelemetry(TelemetryUpdate payload) => Task.CompletedTask;
         public Task ForceLogout(ForceLogoutMessage payload) => Task.CompletedTask;
     }
