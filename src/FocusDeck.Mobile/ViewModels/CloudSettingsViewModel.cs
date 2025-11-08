@@ -1,11 +1,6 @@
-using System.Diagnostics;
-using System.Globalization;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using Microsoft.Maui.Controls;
-using Microsoft.Maui.Graphics;
-using FocusDeck.Mobile.Services;
-using FocusDeck.Mobile.Data.Repositories;
+using CommunityToolkit.Mvvm.Messaging;
+using FocusDeck.Mobile.Messages;
+using FocusDeck.Mobile.Services.Auth;
 
 namespace FocusDeck.Mobile.ViewModels;
 
@@ -16,7 +11,10 @@ namespace FocusDeck.Mobile.ViewModels;
 public partial class CloudSettingsViewModel : ObservableObject
 {
     private readonly ICloudSyncService _cloudSyncService;
+    private readonly IMobileAuthService _mobileAuthService;
     private readonly ISessionRepository _sessionRepository;
+    private readonly MobileVaultService _vaultService;
+    private readonly IMessenger _messenger;
 
     /// <summary>
     /// Cloud server URL
@@ -49,10 +47,22 @@ public partial class CloudSettingsViewModel : ObservableObject
     private bool isSigningIn = false;
 
     /// <summary>
+    /// Is currently registering a new account?
+    /// </summary>
+    [ObservableProperty]
+    private bool isRegistering = false;
+
+    /// <summary>
     /// Sign in button text
     /// </summary>
     [ObservableProperty]
     private string signInButtonText = "Sign In";
+
+    /// <summary>
+    /// Register button text
+    /// </summary>
+    [ObservableProperty]
+    private string registerButtonText = "Register";
 
     /// <summary>
     /// Should show connection test result?
@@ -147,10 +157,21 @@ public partial class CloudSettingsViewModel : ObservableObject
     /// <summary>
     /// Initializes a new instance of CloudSettingsViewModel.
     /// </summary>
-    public CloudSettingsViewModel(ICloudSyncService cloudSyncService, ISessionRepository sessionRepository)
+    public CloudSettingsViewModel(ICloudSyncService cloudSyncService, ISessionRepository sessionRepository, IMobileAuthService mobileAuthService, MobileVaultService vaultService, IMessenger messenger)
     {
         _cloudSyncService = cloudSyncService ?? new NoOpCloudSyncService();
         _sessionRepository = sessionRepository ?? throw new ArgumentNullException(nameof(sessionRepository));
+        _mobileAuthService = mobileAuthService;
+        _vaultService = vaultService;
+        _messenger = messenger;
+
+        _messenger.Register<ForcedLogoutMessage>(this, (r, m) =>
+        {
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                await LogoutAsync();
+            });
+        });
     }
 
     /// <summary>
@@ -297,7 +318,6 @@ public partial class CloudSettingsViewModel : ObservableObject
             IsSigningIn = true;
             SignInButtonText = "Signing In...";
 
-            // Validate inputs
             if (string.IsNullOrWhiteSpace(CloudServerUrl))
             {
                 ShowTestResult("Invalid Input", "Please enter server URL", Colors.LightPink, Colors.Red, Colors.Red, Colors.Red);
@@ -312,42 +332,137 @@ public partial class CloudSettingsViewModel : ObservableObject
 
             Debug.WriteLine($"[Settings] Attempting sign in to {CloudServerUrl}");
 
-            // Create a test service to authenticate
-            var testService = new PocketBaseCloudSyncService(CloudServerUrl);
-            var authToken = await testService.AuthenticateAsync(CloudEmail, CloudPassword);
-
-            if (!string.IsNullOrWhiteSpace(authToken))
+            if (ShouldUseFocusDeckAuth())
             {
-                // Save credentials on successful authentication
-                Preferences.Set("cloud_server_url", CloudServerUrl);
-                Preferences.Set("cloud_email", CloudEmail);
-                Preferences.Set("cloud_password", CloudPassword);
-                Preferences.Set("auth_token", authToken);
+                var result = await _mobileAuthService.LoginAsync(CloudServerUrl, CloudEmail, CloudPassword);
+                if (result != null)
+                {
+                    Preferences.Set("cloud_server_url", CloudServerUrl);
+                    Preferences.Set("cloud_email", CloudEmail);
+                    Preferences.Set("cloud_password", CloudPassword);
+                    Preferences.Set("auth_token", result.AccessToken);
 
-                // Update status
-                UpdateCloudStatus();
-
-                ShowTestResult("✓ Signed In", "Successfully authenticated! Your sessions will now sync automatically.", Colors.LightGreen, Colors.Green, Colors.Green, Colors.Green);
-                Debug.WriteLine("[Settings] Sign in successful");
-
-                // Hide result after 3 seconds
-                await Task.Delay(3000);
-                ShowConnectionTestResult = false;
+                    UpdateCloudStatus();
+                    ShowTestResult("Signed In", "Connected to FocusDeck server.", Colors.LightGreen, Colors.Green, Colors.Green, Colors.Green);
+                    await Task.Delay(3000);
+                    ShowConnectionTestResult = false;
+                }
+                else
+                {
+                    ShowTestResult("Failed", "Authentication failed. Check your credentials.", Colors.LightPink, Colors.Red, Colors.Red, Colors.Red);
+                }
             }
             else
             {
-                ShowTestResult("✗ Failed", "Authentication failed. Check your credentials.", Colors.LightPink, Colors.Red, Colors.Red, Colors.Red);
+                var testService = new PocketBaseCloudSyncService(CloudServerUrl);
+                var authToken = await testService.AuthenticateAsync(CloudEmail, CloudPassword);
+
+                if (!string.IsNullOrWhiteSpace(authToken))
+                {
+                    Preferences.Set("cloud_server_url", CloudServerUrl);
+                    Preferences.Set("cloud_email", CloudEmail);
+                    Preferences.Set("cloud_password", CloudPassword);
+                    Preferences.Set("auth_token", authToken);
+
+                    UpdateCloudStatus();
+                    ShowTestResult("Signed In", "Successfully authenticated! Your sessions will now sync automatically.", Colors.LightGreen, Colors.Green, Colors.Green, Colors.Green);
+                    await Task.Delay(3000);
+                    ShowConnectionTestResult = false;
+                }
+                else
+                {
+                    ShowTestResult("Failed", "Authentication failed. Check your credentials.", Colors.LightPink, Colors.Red, Colors.Red, Colors.Red);
+                }
             }
         }
         catch (Exception ex)
         {
-            ShowTestResult("✗ Error", $"Sign in failed: {ex.Message}", Colors.LightPink, Colors.Red, Colors.Red, Colors.Red);
+            ShowTestResult("Error", $"Sign in failed: {ex.Message}", Colors.LightPink, Colors.Red, Colors.Red, Colors.Red);
             Debug.WriteLine($"[Settings] Sign in error: {ex.Message}");
         }
         finally
         {
             IsSigningIn = false;
             SignInButtonText = "Sign In";
+        }
+    }
+
+    [RelayCommand]
+    public async Task LogoutAsync()
+    {
+        try
+        {
+            await _mobileAuthService.LogoutAsync();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[Settings] Logout error: {ex.Message}");
+        }
+        finally
+        {
+            Preferences.Remove("auth_token");
+            Preferences.Remove("cloud_server_url");
+            Preferences.Remove("cloud_email");
+            Preferences.Remove("cloud_password");
+            await _vaultService.DeleteMasterKeyAsync();
+            UpdateCloudStatus();
+            ShowTestResult("Logged Out", "You have been logged out.", Colors.LightGray, Colors.Gray, Colors.Gray, Colors.Gray);
+        }
+    }
+
+    /// <summary>
+    /// Register a new FocusDeck account and upload encrypted vault metadata.
+    /// </summary>
+    [RelayCommand]
+    public async Task RegisterAsync()
+    {
+        if (IsRegistering)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!ShouldUseFocusDeckAuth())
+            {
+                ShowTestResult("Not Supported", "Registration is only available on FocusDeck Server endpoints.", Colors.LightPink, Colors.Red, Colors.Red, Colors.Red);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(CloudServerUrl))
+            {
+                ShowTestResult("Invalid Input", "Please enter server URL", Colors.LightPink, Colors.Red, Colors.Red, Colors.Red);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(CloudEmail) || string.IsNullOrWhiteSpace(CloudPassword))
+            {
+                ShowTestResult("Invalid Input", "Enter username and password to register.", Colors.LightPink, Colors.Red, Colors.Red, Colors.Red);
+                return;
+            }
+
+            IsRegistering = true;
+            RegisterButtonText = "Registering...";
+
+            var success = await _mobileAuthService.RegisterAsync(CloudServerUrl, CloudEmail, CloudPassword);
+            if (success)
+            {
+                ShowTestResult("Registered", "Account created. You can sign in now.", Colors.LightGreen, Colors.Green, Colors.Green, Colors.Green);
+            }
+            else
+            {
+                ShowTestResult("Failed", "Registration failed. Try again.", Colors.LightPink, Colors.Red, Colors.Red, Colors.Red);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[Settings] Registration error: {ex.Message}");
+            ShowTestResult("Error", $"Registration failed: {ex.Message}", Colors.LightPink, Colors.Red, Colors.Red, Colors.Red);
+        }
+        finally
+        {
+            IsRegistering = false;
+            RegisterButtonText = "Register";
         }
     }
 
@@ -411,6 +526,17 @@ public partial class CloudSettingsViewModel : ObservableObject
         ConnectionTestTitleColor = titleColor;
         ConnectionTestMessageColor = messageColor;
         ShowConnectionTestResult = true;
+    }
+
+    private bool ShouldUseFocusDeckAuth()
+    {
+        if (string.IsNullOrWhiteSpace(CloudServerUrl))
+        {
+            return false;
+        }
+
+        var normalized = CloudServerUrl.ToLowerInvariant();
+        return normalized.Contains("focusdeck") || normalized.Contains("/v1/");
     }
 
     /// <summary>

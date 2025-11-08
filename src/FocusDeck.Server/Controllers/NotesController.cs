@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using FocusDeck.Services.Abstractions;
 
 namespace FocusDeck.Server.Controllers
 {
@@ -15,11 +16,13 @@ namespace FocusDeck.Server.Controllers
     {
         private readonly AutomationDbContext _db;
         private readonly ILogger<NotesController> _logger;
+        private readonly IEncryptionService _encryptionService;
 
-        public NotesController(AutomationDbContext db, ILogger<NotesController> logger)
+        public NotesController(AutomationDbContext db, ILogger<NotesController> logger, IEncryptionService encryptionService)
         {
             _db = db;
             _logger = logger;
+            _encryptionService = encryptionService;
         }
 
         // GET: api/notes
@@ -34,6 +37,9 @@ namespace FocusDeck.Server.Controllers
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var pattern = $"%{search.Trim()}%";
+                // This search will not work on encrypted data.
+                // A more advanced solution (like a separate search index) is needed for encrypted data.
+                // For now, we will search on the unencrypted data.
                 query = query.Where(n =>
                     EF.Functions.Like(n.Title, pattern) ||
                     EF.Functions.Like(n.Content, pattern));
@@ -56,6 +62,12 @@ namespace FocusDeck.Server.Controllers
                     .ToList();
             }
 
+            results.ForEach(n =>
+            {
+                n.Title = _encryptionService.Decrypt(n.Title);
+                n.Content = _encryptionService.Decrypt(n.Content);
+            });
+
             _logger.LogInformation("Returned {Count} notes (search={Search}, tag={Tag}, pinned={Pinned})",
                 results.Count, search, tag, pinned);
 
@@ -77,6 +89,12 @@ namespace FocusDeck.Server.Controllers
                     recent = Array.Empty<Note>()
                 });
             }
+
+            notes.ForEach(n =>
+            {
+                n.Title = _encryptionService.Decrypt(n.Title);
+                n.Content = _encryptionService.Decrypt(n.Content);
+            });
 
             var tagCounts = notes
                 .SelectMany(n => n.Tags)
@@ -113,6 +131,10 @@ namespace FocusDeck.Server.Controllers
                 _logger.LogWarning("Note {NoteId} not found", id);
                 return NotFound();
             }
+
+            note.Title = _encryptionService.Decrypt(note.Title);
+            note.Content = _encryptionService.Decrypt(note.Content);
+
             return Ok(note);
         }
 
@@ -135,10 +157,16 @@ namespace FocusDeck.Server.Controllers
             note.CreatedDate = utcNow;
             note.LastModified = utcNow;
 
+            note.Title = _encryptionService.Encrypt(note.Title);
+            note.Content = _encryptionService.Encrypt(note.Content);
+
             await _db.Notes.AddAsync(note);
             await _db.SaveChangesAsync();
 
             _logger.LogInformation("Created note {NoteId}", note.Id);
+
+            note.Title = _encryptionService.Decrypt(note.Title);
+            note.Content = _encryptionService.Decrypt(note.Content);
 
             return CreatedAtAction(nameof(GetNote), new { id = note.Id }, note);
         }
@@ -159,8 +187,8 @@ namespace FocusDeck.Server.Controllers
                 return NotFound();
             }
 
-            note.Title = updatedNote.Title?.Trim() ?? string.Empty;
-            note.Content = updatedNote.Content ?? string.Empty;
+            note.Title = _encryptionService.Encrypt(updatedNote.Title?.Trim() ?? string.Empty);
+            note.Content = _encryptionService.Encrypt(updatedNote.Content ?? string.Empty);
             note.Color = string.IsNullOrWhiteSpace(updatedNote.Color) ? "#7C5CFF" : updatedNote.Color;
             note.IsPinned = updatedNote.IsPinned;
             note.Tags = NormalizeTags(updatedNote.Tags);
@@ -205,6 +233,12 @@ namespace FocusDeck.Server.Controllers
                 .OrderByDescending(n => n.LastModified ?? n.CreatedDate)
                 .ToListAsync();
 
+            notes.ForEach(n =>
+            {
+                n.Title = _encryptionService.Decrypt(n.Title);
+                n.Content = _encryptionService.Decrypt(n.Content);
+            });
+
             var filtered = notes
                 .Where(n => n.Tags.Any(t => t.Equals(tag, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
@@ -221,6 +255,13 @@ namespace FocusDeck.Server.Controllers
                 .Where(n => n.IsPinned)
                 .OrderByDescending(n => n.LastModified ?? n.CreatedDate)
                 .ToListAsync();
+
+            pinnedNotes.ForEach(n =>
+            {
+                n.Title = _encryptionService.Decrypt(n.Title);
+                n.Content = _encryptionService.Decrypt(n.Content);
+            });
+
             return Ok(pinnedNotes);
         }
 

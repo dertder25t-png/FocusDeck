@@ -33,6 +33,7 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" Version="1.0.0-beta.12" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.10.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageReference Include="StackExchange.Redis" Version="2.7.33" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
     <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
     <PackageReference Include="Serilog.Enrichers.Thread" Version="4.0.0" />
@@ -44,6 +45,7 @@
     <ProjectReference Include="..\FocusDeck.Domain\FocusDeck.Domain.csproj" />
     <ProjectReference Include="..\FocusDeck.Persistence\FocusDeck.Persistence.csproj" />
     <ProjectReference Include="..\FocusDeck.Contracts\FocusDeck.Contracts.csproj" />
+    <ProjectReference Include="..\FocusDeck.Services\FocusDeck.Services.csproj" />
   </ItemGroup>
 
   <!-- Build SPA and copy to wwwroot/app (DISABLED - WebApp not yet implemented) -->

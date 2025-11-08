@@ -1,0 +1,39 @@
+﻿# JARVIS Phase 1: Activity Detection Foundation (Weeks 1-4)
+# Multi-platform observability layer - The foundation for all JARVIS intelligence
+
+name: jarvis-phase-1-activity-detection
+description: Build the observability layer for JARVIS to detect what students are doing across Windows, Linux, and Mobile platforms. Implements IActivityDetectionService, context aggregation, and real-time telemetry.
+author: BMad Builder
+
+# Critical variables from config
+config_source: '{project-root}/bmad/jarvis/config.yaml'
+output_folder: '{config_source}:output_folder'
+user_name: '{config_source}:user_name'
+communication_language: '{config_source}:communication_language'
+date: system-generated
+
+# Paths
+installed_path: '{project-root}/bmad/jarvis/workflows/jarvis-phase-1-activity-detection'
+instructions: '{installed_path}/instructions.md'
+validation: '{installed_path}/checklist.md'
+
+# Phase 1 settings
+standalone: true
+template: false
+phase: 1
+duration_weeks: 4
+difficulty: Medium
+
+# Success criteria
+success_metrics:
+  - activity_detection_accuracy: 95
+  - cpu_overhead_percent: 5
+  - context_aggregation_latency_ms: 100
+  - cross_platform_consistency: true
+
+# Documentation references
+phase_detailed_guide: '{project-root}/docs/JARVIS_PHASE1_DETAILED.md'
+integration_guide: '{project-root}/docs/JARVIS_INTEGRATION_WITH_FOCUSDECK.md'
+
+# Output
+default_output_file: '{output_folder}/JARVIS_PHASE1_BUILD_LOG.md'

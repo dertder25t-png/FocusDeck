@@ -64,6 +64,215 @@ namespace FocusDeck.Persistence.Migrations
                     b.ToTable("Assets");
                 });
 
+            modelBuilder.Entity("FocusDeck.Domain.Entities.Auth.AuthEventLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeviceId")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeviceName")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsSuccess")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("MetadataJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RemoteIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(320)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventType");
+
+                    b.HasIndex("OccurredAtUtc");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AuthEventLogs", (string)null);
+                });
+
+            modelBuilder.Entity("FocusDeck.Domain.Entities.Auth.KeyVault", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasMaxLength(320)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CipherSuite")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("AES-256-GCM");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("KdfMetadataJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("VaultDataBase64")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Version")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(1);
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("KeyVaults", (string)null);
+                });
+
+            modelBuilder.Entity("FocusDeck.Domain.Entities.Auth.PairingSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceDeviceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TargetDeviceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("VaultCipherSuite")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("VaultDataBase64")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("VaultKdfMetadataJson")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Code", "Status");
+
+                    b.ToTable("PairingSessions", (string)null);
+                });
+
+            modelBuilder.Entity("FocusDeck.Domain.Entities.Auth.PakeCredential", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasMaxLength(320)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Algorithm")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Generator")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("KdfParametersJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ModulusHex")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SaltBase64")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("VerifierBase64")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("PakeCredentials", (string)null);
+                });
+
+            modelBuilder.Entity("FocusDeck.Domain.Entities.Auth.RevokedAccessToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Jti")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("RevokedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Jti")
+                        .IsUnique();
+
+                    b.ToTable("RevokedAccessTokens", (string)null);
+                });
+
             modelBuilder.Entity("FocusDeck.Domain.Entities.Automations.Automation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -232,6 +441,133 @@ namespace FocusDeck.Persistence.Migrations
                     b.ToTable("Courses");
                 });
 
+            modelBuilder.Entity("FocusDeck.Domain.Entities.DesignIdea", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("AssetId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsPinned")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("Score")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("ProjectId", "IsPinned");
+
+                    b.ToTable("DesignIdeas");
+                });
+
+            modelBuilder.Entity("FocusDeck.Domain.Entities.DesignProject", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BrandKeywords")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("GoalsText")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RequirementsText")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Vibes")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("DesignProjects");
+                });
+
+            modelBuilder.Entity("FocusDeck.Domain.Entities.FocusPolicyTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("AutoBreak")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("AutoDim")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("NotifyPhone")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Strict")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("TargetDurationMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("FocusPolicyTemplates");
+                });
+
             modelBuilder.Entity("FocusDeck.Domain.Entities.FocusSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -283,6 +619,50 @@ namespace FocusDeck.Persistence.Migrations
                     b.HasIndex("UserId", "Status");
 
                     b.ToTable("FocusSessions", (string)null);
+                });
+
+            modelBuilder.Entity("FocusDeck.Domain.Entities.Invite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("AcceptedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AcceptedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.ToTable("Invites");
                 });
 
             modelBuilder.Entity("FocusDeck.Domain.Entities.Lecture", b =>
@@ -399,6 +779,110 @@ namespace FocusDeck.Persistence.Migrations
                     b.ToTable("Notes");
                 });
 
+            modelBuilder.Entity("FocusDeck.Domain.Entities.NoteSuggestion", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("AcceptedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AcceptedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("Confidence")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("ContentMarkdown")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NoteId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("NoteId");
+
+                    b.ToTable("NoteSuggestions", (string)null);
+                });
+
+            modelBuilder.Entity("FocusDeck.Domain.Entities.OrgUser", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("JoinedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("OrganizationId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("OrgUsers");
+                });
+
+            modelBuilder.Entity("FocusDeck.Domain.Entities.Organization", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.ToTable("Organizations");
+                });
+
             modelBuilder.Entity("FocusDeck.Domain.Entities.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -410,10 +894,25 @@ namespace FocusDeck.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("DeviceId")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeviceName")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DevicePlatform")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("ExpiresUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("IssuedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastAccessUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ReplacedByTokenHash")
@@ -434,6 +933,8 @@ namespace FocusDeck.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DeviceId");
 
                     b.HasIndex("ExpiresUtc");
 
@@ -647,6 +1148,45 @@ namespace FocusDeck.Persistence.Migrations
                     b.ToTable("ServiceConfigurations");
                 });
 
+            modelBuilder.Entity("FocusDeck.Domain.Entities.StudentContext", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ActivityIntensity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FocusedAppName")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FocusedWindowTitle")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsIdle")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("OpenContextsJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Timestamp")
+                        .HasDatabaseName("IX_StudentContexts_User_Timestamp");
+
+                    b.ToTable("StudentContexts", (string)null);
+                });
+
             modelBuilder.Entity("FocusDeck.Domain.Entities.StudySession", b =>
                 {
                     b.Property<Guid>("SessionId")
@@ -851,6 +1391,75 @@ namespace FocusDeck.Persistence.Migrations
                     b.ToTable("SyncTransactions");
                 });
 
+            modelBuilder.Entity("FocusDeck.Domain.Entities.Sync.SyncVersion", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SyncVersions");
+                });
+
+            modelBuilder.Entity("FocusDeck.Domain.Entities.User", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastLoginAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Picture")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("FocusDeck.Domain.Entities.DesignIdea", b =>
+                {
+                    b.HasOne("FocusDeck.Domain.Entities.DesignProject", "Project")
+                        .WithMany("Ideas")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("FocusDeck.Domain.Entities.Invite", b =>
+                {
+                    b.HasOne("FocusDeck.Domain.Entities.Organization", "Organization")
+                        .WithMany("Invites")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
+                });
+
             modelBuilder.Entity("FocusDeck.Domain.Entities.Lecture", b =>
                 {
                     b.HasOne("FocusDeck.Domain.Entities.Asset", "AudioAsset")
@@ -869,6 +1478,36 @@ namespace FocusDeck.Persistence.Migrations
                     b.Navigation("Course");
                 });
 
+            modelBuilder.Entity("FocusDeck.Domain.Entities.NoteSuggestion", b =>
+                {
+                    b.HasOne("FocusDeck.Domain.Entities.Note", "Note")
+                        .WithMany()
+                        .HasForeignKey("NoteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Note");
+                });
+
+            modelBuilder.Entity("FocusDeck.Domain.Entities.OrgUser", b =>
+                {
+                    b.HasOne("FocusDeck.Domain.Entities.Organization", "Organization")
+                        .WithMany("Members")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FocusDeck.Domain.Entities.User", "User")
+                        .WithMany("Organizations")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("FocusDeck.Domain.Entities.ReviewSession", b =>
                 {
                     b.HasOne("FocusDeck.Domain.Entities.ReviewPlan", "ReviewPlan")
@@ -885,9 +1524,26 @@ namespace FocusDeck.Persistence.Migrations
                     b.Navigation("Lectures");
                 });
 
+            modelBuilder.Entity("FocusDeck.Domain.Entities.DesignProject", b =>
+                {
+                    b.Navigation("Ideas");
+                });
+
+            modelBuilder.Entity("FocusDeck.Domain.Entities.Organization", b =>
+                {
+                    b.Navigation("Invites");
+
+                    b.Navigation("Members");
+                });
+
             modelBuilder.Entity("FocusDeck.Domain.Entities.ReviewPlan", b =>
                 {
                     b.Navigation("ReviewSessions");
+                });
+
+            modelBuilder.Entity("FocusDeck.Domain.Entities.User", b =>
+                {
+                    b.Navigation("Organizations");
                 });
 #pragma warning restore 612, 618
         }

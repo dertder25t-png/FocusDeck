@@ -1,4 +1,5 @@
 using FocusDeck.Mobile.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FocusDeck.Mobile.Pages;
 
@@ -13,6 +14,19 @@ public partial class SettingsPage : ContentPage
     public SettingsPage()
     {
         InitializeComponent();
+
+        var viewModel = Application.Current?
+            .Handler?
+            .MauiContext?
+            .Services?
+            .GetService<CloudSettingsViewModel>();
+
+        if (viewModel == null)
+        {
+            throw new InvalidOperationException("CloudSettingsViewModel service not registered");
+        }
+
+        BindingContext = viewModel;
     }
 
     /// <summary>

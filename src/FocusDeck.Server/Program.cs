@@ -11,6 +11,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.AspNetCore.StaticFiles;
 using Serilog;
 using Serilog.Events;
 using OpenTelemetry.Resources;
@@ -18,6 +20,10 @@ using OpenTelemetry.Trace;
 using System.Diagnostics;
 using Hangfire;
 using Hangfire.PostgreSql;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
+using StackExchange.Redis;
+using Microsoft.Extensions.Caching.Memory;
 
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
@@ -123,8 +129,32 @@ try
     // Add HttpClient for OAuth token exchange
     builder.Services.AddHttpClient();
 
+    // Rate limiting for auth endpoints (per-IP)
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.AddPolicy("AuthBurst", context =>
+        {
+            var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+        });
+    });
+
     // Add Database (SQLite as default, PostgreSQL connection string can be configured)
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=focusdeck.db";
+    var dbPath = Path.Combine(Directory.GetCurrentDirectory(), "data", "focusdeck.db");
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? $"Data Source={dbPath}";
+    
+    // Ensure the directory for the SQLite database exists
+    var dbDirectory = Path.GetDirectoryName(dbPath);
+    if (dbDirectory != null && !Directory.Exists(dbDirectory))
+    {
+        Directory.CreateDirectory(dbDirectory);
+    }
     
     // Check if PostgreSQL connection string is configured
     if (connectionString.Contains("Host=") || connectionString.Contains("Server="))
@@ -143,9 +173,24 @@ try
     // Add SharedKernel services
     builder.Services.AddSingleton<IClock, SystemClock>();
     builder.Services.AddSingleton<IIdGenerator, GuidIdGenerator>();
+    builder.Services.AddSingleton<FocusDeck.Services.Abstractions.IEncryptionService, FocusDeck.Services.Implementations.Core.EncryptionService>();
+
+    // Redis cache for revocation/pub-sub (optional)
+    var redisConnection = builder.Configuration.GetConnectionString("Redis");
+    if (!string.IsNullOrWhiteSpace(redisConnection))
+    {
+        builder.Services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConnection));
+    }
 
     // Add Auth services
     builder.Services.AddScoped<FocusDeck.Server.Services.Auth.ITokenService, FocusDeck.Server.Services.Auth.TokenService>();
+    builder.Services.AddSingleton<FocusDeck.Server.Services.Auth.ISrpSessionCache, FocusDeck.Server.Services.Auth.SrpSessionCache>();
+    builder.Services.AddSingleton<FocusDeck.Server.Services.Auth.IAuthAttemptLimiter>(sp =>
+    {
+        var redis = sp.GetService<IConnectionMultiplexer>();
+        var memoryCache = sp.GetRequiredService<IMemoryCache>();
+        return new FocusDeck.Server.Services.Auth.AuthAttemptLimiter(redis, memoryCache);
+    });
 
     // Add Storage services
     builder.Services.AddSingleton<FocusDeck.Server.Services.Storage.IAssetStorage, FocusDeck.Server.Services.Storage.LocalFileSystemAssetStorage>();
@@ -178,6 +223,16 @@ try
     // Add SignalR for real-time notifications
     builder.Services.AddSignalR();
 
+    // Platform activity detection + context aggregation
+    builder.Services.AddSingleton<FocusDeck.Services.Activity.IActivityDetectionService, FocusDeck.Server.Services.Activity.LinuxActivityDetectionService>();
+    builder.Services.AddSingleton<FocusDeck.Server.Services.Integrations.CanvasService>();
+    builder.Services.AddMemoryCache();
+    builder.Services.AddSingleton<FocusDeck.Server.Services.Integrations.ICanvasCache, FocusDeck.Server.Services.Integrations.CanvasCache>();
+    builder.Services.AddHostedService<FocusDeck.Server.Services.Integrations.CanvasSyncService>();
+    builder.Services.AddSingleton<FocusDeck.Server.Services.Auth.IUserConnectionTracker, FocusDeck.Server.Services.Auth.UserConnectionTracker>();
+    builder.Services.AddSingleton<FocusDeck.Server.Services.Context.IContextAggregationService, FocusDeck.Server.Services.Context.ContextAggregationService>();
+    builder.Services.AddHostedService<FocusDeck.Server.Services.Context.ContextBroadcastService>();
+
     // Add Hangfire with PostgreSQL storage
     var hangfireConnection = builder.Configuration.GetConnectionString("HangfireConnection") 
         ?? builder.Configuration.GetConnectionString("DefaultConnection") 
@@ -206,9 +261,14 @@ try
     }
 
     // Add Health Checks
-    builder.Services.AddHealthChecks()
+    var healthChecks = builder.Services.AddHealthChecks()
         .AddDbContextCheck<AutomationDbContext>("database", tags: new[] { "db", "sql" })
         .AddCheck("filesystem", new FileSystemWriteHealthCheck(builder.Configuration), tags: new[] { "filesystem" });
+
+    if (!string.IsNullOrWhiteSpace(redisConnection))
+    {
+        healthChecks.AddCheck<RedisHealthCheck>("redis", tags: new[] { "cache", "redis" });
+    }
 
     // Add telemetry throttle service
     builder.Services.AddSingleton<ITelemetryThrottleService, TelemetryThrottleService>();
@@ -311,8 +371,36 @@ try
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
             ClockSkew = TimeSpan.FromMinutes(2)
         };
+
+        // Revocation check via OnTokenValidated
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async ctx =>
+            {
+                try
+                {
+                    var revocation = ctx.HttpContext.RequestServices.GetRequiredService<FocusDeck.Server.Services.Auth.IAccessTokenRevocationService>();
+                    var jti = ctx.Principal?.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti)?.Value;
+                    if (!string.IsNullOrEmpty(jti))
+                    {
+                        if (await revocation.IsRevokedAsync(jti, ctx.HttpContext.RequestAborted))
+                        {
+                            ctx.Fail("Token revoked");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Revocation check failed");
+                }
+            }
+        };
     });
     builder.Services.AddAuthorization();
+    builder.Services.AddHostedService<FocusDeck.Server.Services.Auth.TokenPruningService>();
+
+    // Revocation service
+    builder.Services.AddScoped<FocusDeck.Server.Services.Auth.IAccessTokenRevocationService, FocusDeck.Server.Services.Auth.AccessTokenRevocationService>();
 
     // Add HTTP logging for debugging (optional but helpful)
     builder.Services.AddHttpLogging(_ => { });
@@ -334,6 +422,9 @@ try
     // Global exception handler
     app.UseMiddleware<GlobalExceptionHandler>();
 
+    // Enable rate limiting
+    app.UseRateLimiter();
+
     // CRITICAL: Configure forwarded headers for Cloudflare proxy
     // This makes ASP.NET Core treat requests as HTTPS and see the real client IP
     app.UseForwardedHeaders(new ForwardedHeadersOptions
@@ -351,7 +442,14 @@ try
     using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
-        db.Database.EnsureCreated();
+        try
+        {
+            db.Database.Migrate();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Database migration failed; proceeding with best-effort initialization");
+        }
 
         // Lightweight schema guard: add new columns if missing (SQLite)
         try
@@ -399,6 +497,79 @@ try
                     IsActive INTEGER NOT NULL,
                     AppVersion TEXT
                 );",
+                // Auth: PakeCredentials
+                @"CREATE TABLE IF NOT EXISTS PakeCredentials (
+                    UserId TEXT PRIMARY KEY,
+                    SaltBase64 TEXT NOT NULL,
+                    VerifierBase64 TEXT NOT NULL,
+                    Algorithm TEXT NOT NULL,
+                    ModulusHex TEXT NOT NULL,
+                    Generator INTEGER NOT NULL,
+                    KdfParametersJson TEXT,
+                    CreatedAt TEXT NOT NULL,
+                    UpdatedAt TEXT NOT NULL
+                );",
+                // Auth: KeyVaults
+                @"CREATE TABLE IF NOT EXISTS KeyVaults (
+                    UserId TEXT PRIMARY KEY,
+                    VaultDataBase64 TEXT NOT NULL,
+                    Version INTEGER NOT NULL DEFAULT 1,
+                    CipherSuite TEXT NOT NULL DEFAULT 'AES-256-GCM',
+                    KdfMetadataJson TEXT,
+                    CreatedAt TEXT NOT NULL,
+                    UpdatedAt TEXT NOT NULL
+                );",
+                // Auth: PairingSessions
+                @"CREATE TABLE IF NOT EXISTS PairingSessions (
+                    Id TEXT PRIMARY KEY,
+                    UserId TEXT NOT NULL,
+                    Code TEXT NOT NULL,
+                    Status INTEGER NOT NULL,
+                    CreatedAt TEXT NOT NULL,
+                    ExpiresAt TEXT NOT NULL,
+                    SourceDeviceId TEXT,
+                    TargetDeviceId TEXT,
+                    VaultDataBase64 TEXT,
+                    VaultKdfMetadataJson TEXT,
+                    VaultCipherSuite TEXT
+                );",
+                // Auth: RevokedAccessTokens
+                @"CREATE TABLE IF NOT EXISTS RevokedAccessTokens (
+                    Id TEXT PRIMARY KEY,
+                    Jti TEXT NOT NULL,
+                    UserId TEXT NOT NULL,
+                    RevokedAt TEXT NOT NULL,
+                    ExpiresUtc TEXT NOT NULL
+                );",
+                // Auth: RefreshTokens
+                @"CREATE TABLE IF NOT EXISTS RefreshTokens (
+                    Id TEXT PRIMARY KEY,
+                    UserId TEXT NOT NULL,
+                    TokenHash TEXT NOT NULL,
+                    ClientFingerprint TEXT NOT NULL,
+                    DeviceId TEXT,
+                    DeviceName TEXT,
+                    DevicePlatform TEXT,
+                    IssuedUtc TEXT NOT NULL,
+                    ExpiresUtc TEXT NOT NULL,
+                    LastAccessUtc TEXT,
+                    RevokedUtc TEXT,
+                    ReplacedByTokenHash TEXT
+                );",
+                // Auth: AuthEventLogs
+                @"CREATE TABLE IF NOT EXISTS AuthEventLogs (
+                    Id TEXT PRIMARY KEY,
+                    EventType TEXT NOT NULL,
+                    UserId TEXT,
+                    OccurredAtUtc TEXT NOT NULL,
+                    IsSuccess INTEGER NOT NULL,
+                    FailureReason TEXT,
+                    RemoteIp TEXT,
+                    DeviceId TEXT,
+                    DeviceName TEXT,
+                    UserAgent TEXT,
+                    MetadataJson TEXT
+                );",
                 // SyncTransactions
                 @"CREATE TABLE IF NOT EXISTS SyncTransactions (
                     Id TEXT PRIMARY KEY,
@@ -431,6 +602,20 @@ try
                     Id INTEGER PRIMARY KEY AUTOINCREMENT,
                     CreatedAt TEXT NOT NULL
                 );",
+                // Indexes (best-effort)
+                @"CREATE UNIQUE INDEX IF NOT EXISTS IX_RevokedAccessTokens_Jti ON RevokedAccessTokens (Jti);",
+                @"CREATE INDEX IF NOT EXISTS IX_RevokedAccessTokens_ExpiresUtc ON RevokedAccessTokens (ExpiresUtc);",
+                @"CREATE INDEX IF NOT EXISTS IX_PairingSessions_UserId_Code_Status ON PairingSessions (UserId, Code, Status);",
+                @"CREATE INDEX IF NOT EXISTS IX_PairingSessions_Code ON PairingSessions (Code);",
+                @"CREATE INDEX IF NOT EXISTS IX_PairingSessions_ExpiresAt ON PairingSessions (ExpiresAt);",
+                @"CREATE UNIQUE INDEX IF NOT EXISTS IX_RefreshTokens_TokenHash ON RefreshTokens (TokenHash);",
+                @"CREATE INDEX IF NOT EXISTS IX_RefreshTokens_UserId ON RefreshTokens (UserId);",
+                @"CREATE INDEX IF NOT EXISTS IX_RefreshTokens_ExpiresUtc ON RefreshTokens (ExpiresUtc);",
+                @"CREATE INDEX IF NOT EXISTS IX_RefreshTokens_RevokedUtc ON RefreshTokens (RevokedUtc);",
+                @"CREATE INDEX IF NOT EXISTS IX_RefreshTokens_DeviceId ON RefreshTokens (DeviceId);",
+                @"CREATE INDEX IF NOT EXISTS IX_AuthEventLogs_UserId ON AuthEventLogs (UserId);",
+                @"CREATE INDEX IF NOT EXISTS IX_AuthEventLogs_EventType ON AuthEventLogs (EventType);",
+                @"CREATE INDEX IF NOT EXISTS IX_AuthEventLogs_OccurredAtUtc ON AuthEventLogs (OccurredAtUtc);",
                 // Notes
                 @"CREATE TABLE IF NOT EXISTS Notes (
                     Id TEXT PRIMARY KEY,
@@ -476,6 +661,52 @@ try
         app.MapOpenApi();
     }
 
+    // SPA Fallback middleware - MUST RUN BEFORE StaticFiles so rewrites are served
+    // For directory requests or routes without extensions, serve index.html to enable client-side routing
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path.StartsWithSegments("/app"))
+        {
+            var path = context.Request.Path.Value ?? "/app";
+            var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+            
+            // Check if this is a real file that should exist
+            var filePath = Path.Combine(
+                Directory.GetCurrentDirectory(),
+                "wwwroot",
+                path.TrimStart('/'));
+            
+            logger.LogDebug("SPA Fallback: Checking path={Path}, filePath={FilePath}", path, filePath);
+            
+            // If path has an extension (like .css, .js, .svg), don't rewrite
+            if (Path.HasExtension(path))
+            {
+                logger.LogDebug("SPA Fallback: Path has extension, passing through");
+                await next();
+                return;
+            }
+            
+            // If it's a directory, append index.html
+            if (Directory.Exists(filePath))
+            {
+                filePath = Path.Combine(filePath, "index.html");
+                logger.LogDebug("SPA Fallback: Is directory, checking for index.html at {FilePath}", filePath);
+            }
+            
+            // Check if the file exists
+            if (System.IO.File.Exists(filePath))
+            {
+                logger.LogDebug("SPA Fallback: File exists at {FilePath}, serving index.html", filePath);
+                context.Request.Path = "/app/index.html";
+            }
+            else
+            {
+                logger.LogDebug("SPA Fallback: File not found at {FilePath}, also 404", filePath);
+            }
+        }
+        await next();
+    });
+
     // Serve static files (Web UI)
     app.UseStaticFiles(new StaticFileOptions
     {
@@ -489,6 +720,34 @@ try
             }
         }
     });
+
+    // Serve static files from wwwroot/app (Vite build output)
+    var appAssetsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "app");
+    if (Directory.Exists(appAssetsPath))
+    {
+        var provider = new FileExtensionContentTypeProvider();
+        // Ensure CSS and JS have correct MIME types
+        provider.Mappings[".css"] = "text/css";
+        provider.Mappings[".js"] = "application/javascript";
+        provider.Mappings[".mjs"] = "application/javascript";
+        provider.Mappings[".json"] = "application/json";
+        provider.Mappings[".svg"] = "image/svg+xml";
+        
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new PhysicalFileProvider(appAssetsPath),
+            RequestPath = "/app",
+            ContentTypeProvider = provider,
+            OnPrepareResponse = ctx =>
+            {
+                // Cache static assets (JS, CSS, images) - use immutable cache for content-hashed files
+                if (!ctx.File.Name.Equals("index.html", StringComparison.OrdinalIgnoreCase))
+                {
+                    ctx.Context.Response.Headers["Cache-Control"] = "public,max-age=31536000,immutable";
+                }
+            }
+        });
+    }
 
     // Enable CORS with strict policy
     app.UseCors("StrictCors");
@@ -559,9 +818,6 @@ try
             await context.Response.WriteAsJsonAsync(response);
         }
     }).AllowAnonymous();
-
-    // SPA Fallback - serve React app for /app/* routes
-    app.MapFallbackToFile("/app/{**path}", "/app/index.html").AllowAnonymous();
 
     // Add security headers for SPA
     app.Use(async (context, next) =>

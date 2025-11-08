@@ -1,3 +1,4 @@
+using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -8,6 +9,7 @@ namespace FocusDeck.Desktop.Services;
 public interface IApiClient
 {
     string? AccessToken { get; set; }
+    Uri? BaseAddress { get; }
     Task<T?> GetAsync<T>(string endpoint, CancellationToken cancellationToken = default);
     Task<T?> PostAsync<T>(string endpoint, object data, CancellationToken cancellationToken = default);
     Task<T?> PutAsync<T>(string endpoint, object data, CancellationToken cancellationToken = default);
@@ -20,6 +22,7 @@ public class ApiClient : IApiClient
     private readonly JsonSerializerOptions _jsonOptions;
 
     public string? AccessToken { get; set; }
+    public Uri? BaseAddress => _httpClient.BaseAddress;
 
     public ApiClient(HttpClient httpClient)
     {

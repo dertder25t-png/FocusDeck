@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using FocusDeck.Server.Services;
+using FocusDeck.Shared.SignalR.Notifications;
 
 namespace FocusDeck.Server.Hubs;
 
@@ -10,24 +11,38 @@ public class NotificationsHub : Hub<INotificationClient>
 {
     private readonly ILogger<NotificationsHub> _logger;
     private readonly ITelemetryThrottleService _throttleService;
+    private readonly FocusDeck.Server.Services.Auth.IUserConnectionTracker _tracker;
 
     public NotificationsHub(
         ILogger<NotificationsHub> logger,
-        ITelemetryThrottleService throttleService)
+        ITelemetryThrottleService throttleService,
+        FocusDeck.Server.Services.Auth.IUserConnectionTracker tracker)
     {
         _logger = logger;
         _throttleService = throttleService;
+        _tracker = tracker;
     }
 
     public override async Task OnConnectedAsync()
     {
         _logger.LogInformation("Client connected: {ConnectionId}", Context.ConnectionId);
+        var userId = Context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!string.IsNullOrEmpty(userId))
+        {
+            _tracker.Add(userId, Context.ConnectionId);
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"user:{userId}");
+        }
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         _logger.LogInformation("Client disconnected: {ConnectionId}", Context.ConnectionId);
+        var userId = Context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!string.IsNullOrEmpty(userId))
+        {
+            _tracker.Remove(userId, Context.ConnectionId);
+        }
         await base.OnDisconnectedAsync(exception);
     }
 
@@ -67,6 +82,12 @@ public class NotificationsHub : Hub<INotificationClient>
         _logger.LogInformation("Client {ConnectionId} left session group: {SessionId}", Context.ConnectionId, sessionId);
     }
 
+    // Helper for dev to join test user group if needed
+    public async Task JoinTestUser()
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, "user:test-user");
+    }
+
     /// <summary>
     /// Send telemetry update (throttled to max 1 per second per user)
     /// </summary>
@@ -81,7 +102,7 @@ public class NotificationsHub : Hub<INotificationClient>
 
         // Send to user's group
         await Clients.Group($"user:{userId}")
-            .RemoteTelemetry(progressPercent, focusState, activeNoteId);
+            .RemoteTelemetry(new TelemetryUpdate(progressPercent, focusState, activeNoteId));
 
         // Record telemetry sent
         _throttleService.RecordTelemetrySent(userId);
@@ -94,7 +115,7 @@ public class NotificationsHub : Hub<INotificationClient>
 /// <summary>
 /// Typed client interface for strongly-typed notifications
 /// </summary>
-public interface INotificationClient
+public interface INotificationClient : INotificationClientContract
 {
     /// <summary>
     /// Notify client of a new study session
@@ -147,17 +168,7 @@ public interface INotificationClient
     Task LectureNoteReady(string lectureId, string noteId, string message);
     
     /// <summary>
-    /// Notify desktop client when a remote action is created
-    /// </summary>
-    Task RemoteActionCreated(string actionId, string kind, object payload);
-    
-    /// <summary>
     /// Notify phone client with telemetry updates
-    /// </summary>
-    Task RemoteTelemetry(int progressPercent, string focusState, string? activeNoteId);
-    
-    /// <summary>
-    /// Notify client when a distraction is detected
     /// </summary>
     Task FocusDistraction(string reason, DateTime at);
     
@@ -175,7 +186,7 @@ public interface INotificationClient
     /// Notify client when a focus session ends
     /// </summary>
     Task FocusEnded(string sessionId, int actualMinutes, int distractionCount);
-    
+
     /// <summary>
     /// Notify client when design ideas are added to a project
     /// </summary>
@@ -185,4 +196,9 @@ public interface INotificationClient
     /// Notify client when a note suggestion is available
     /// </summary>
     Task NoteSuggestionReady(string noteId, string suggestionId, string type, string content);
+
+    /// <summary>
+    /// Notify clients of aggregated activity/context updates
+    /// </summary>
+    Task ContextUpdated(FocusDeck.Services.Activity.ActivityState state);
 }

@@ -1,10 +1,13 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text;
 using FocusDeck.Contracts.DTOs;
 using FocusDeck.Persistence;
 using FocusDeck.Server.Services.Storage;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -24,6 +27,9 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
         {
             builder.ConfigureAppConfiguration((context, config) =>
             {
+                // Set environment to Development for tests
+                context.HostingEnvironment.EnvironmentName = "Development";
+                
                 // Override configuration for tests
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
@@ -35,9 +41,6 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
                     ["Cors:AllowedOrigins:0"] = "http://localhost:5173"
                 });
             });
-
-            // Ensure tests run in Development environment
-            builder.UseEnvironment("Development");
         });
     }
 

@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
+using FocusDeck.Shared.SignalR.Notifications;
 
 namespace FocusDeck.Desktop.Services;
 
@@ -16,6 +17,7 @@ public interface IRemoteControllerService
     Task StartTelemetryAsync(CancellationToken cancellationToken = default);
     Task StopTelemetryAsync();
     event EventHandler<RemoteActionEventArgs>? ActionReceived;
+    event EventHandler<ForceLogoutEventArgs>? ForcedLogout;
 }
 
 /// <summary>
@@ -37,6 +39,7 @@ public class RemoteControllerService : IRemoteControllerService, IDisposable
     private bool _isConnected;
 
     public event EventHandler<RemoteActionEventArgs>? ActionReceived;
+    public event EventHandler<ForceLogoutEventArgs>? ForcedLogout;
 
     public RemoteControllerService(IApiClient apiClient, ILogger<RemoteControllerService> logger)
     {
@@ -58,12 +61,15 @@ public class RemoteControllerService : IRemoteControllerService, IDisposable
         try
         {
             _hubConnection = new HubConnectionBuilder()
-                .WithUrl(hubUrl)
+                .WithUrl(hubUrl, options =>
+                {
+                    options.AccessTokenProvider = () => Task.FromResult<string?>(_apiClient.AccessToken);
+                })
                 .WithAutomaticReconnect()
                 .Build();
 
             // Subscribe to remote action events
-            _hubConnection.On<string, string, object>("RemoteActionCreated", (actionId, kind, payload) =>
+            _hubConnection.On<string, string, object>(nameof(INotificationClientContract.RemoteActionCreated), (actionId, kind, payload) =>
             {
                 _logger.LogInformation("Received remote action: {ActionId} ({Kind})", actionId, kind);
                 ActionReceived?.Invoke(this, new RemoteActionEventArgs
@@ -72,9 +78,21 @@ public class RemoteControllerService : IRemoteControllerService, IDisposable
                     Kind = kind,
                     Payload = payload
                 });
-                
+
                 // Handle the action
                 HandleActionAsync(actionId, kind, payload).ConfigureAwait(false);
+            });
+
+            _hubConnection.On<ForceLogoutMessage>(nameof(INotificationClientContract.ForceLogout), message =>
+            {
+                _logger.LogWarning("Received force logout signal. Reason: {Reason}, Device: {DeviceId}", message.Reason, message.DeviceId);
+                ForcedLogout?.Invoke(this, new ForceLogoutEventArgs(message.Reason, message.DeviceId));
+            });
+
+            _hubConnection.On<TelemetryUpdate>(nameof(INotificationClientContract.RemoteTelemetry), payload =>
+            {
+                _logger.LogDebug("Telemetry update received: progress={Progress} state={State}", payload.ProgressPercent, payload.FocusState);
+                // future: surface telemetry to UI
             });
 
             await _hubConnection.StartAsync(cancellationToken);

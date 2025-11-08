@@ -1,0 +1,67 @@
+<Window x:Class="FocusDeck.Desktop.Views.OnboardingWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="FocusDeck – Sign In" Height="420" Width="520"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Sign in to FocusDeck" FontSize="20" FontWeight="SemiBold"/>
+
+        <StackPanel Grid.Row="1" Margin="0,16,0,0">
+            <StackPanel.Resources>
+                <Style TargetType="FrameworkElement">
+                    <Setter Property="Margin" Value="0,4,0,0"/>
+                </Style>
+            </StackPanel.Resources>
+            <TextBlock Text="User ID"/>
+            <TextBox x:Name="UserIdBox"/>
+
+            <TextBlock Text="Password" Margin="0,8,0,0"/>
+            <PasswordBox x:Name="PasswordBox"/>
+
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <Button Content="Register" Click="Register_Click" Width="120"/>
+                <Button Content="Login" Click="Login_Click" Width="120" Margin="8,0,0,0"/>
+            </StackPanel>
+
+            <Border Margin="0,16,0,0" Padding="12" Background="#111" BorderBrush="#333" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="Pair another device" FontWeight="SemiBold"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="Start Pairing" Click="StartPair_Click" Width="140"/>
+                        <TextBlock x:Name="PairCodeText" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                    </StackPanel>
+                    <TextBlock x:Name="PairingIdText" FontSize="10" Foreground="#888"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <TextBlock Text="Password" VerticalAlignment="Center"/>
+                        <PasswordBox x:Name="TransferPasswordBox" Width="180" Margin="8,0,0,0"/>
+                        <Button Content="Upload Vault" Width="120" Margin="8,0,0,0" Click="Transfer_Click"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Vertical" Margin="0,12,0,0">
+                        <TextBlock Text="Redeem pairing" FontWeight="SemiBold"/>
+                        <TextBlock Text="Pairing ID"/>
+                        <TextBox x:Name="RedeemPairingIdBox"/>
+                        <TextBlock Text="Code"/>
+                        <TextBox x:Name="RedeemCodeBox"/>
+                        <TextBlock Text="Password (to decrypt vault)"/>
+                        <PasswordBox x:Name="RedeemPasswordBox"/>
+                        <Button Content="Redeem" Width="140" Click="Redeem_Click" Margin="0,6,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <TextBlock x:Name="StatusText" Foreground="#4ade80"/>
+            <TextBlock x:Name="ErrorText" Foreground="#f87171"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Close" Width="100" Click="Close_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

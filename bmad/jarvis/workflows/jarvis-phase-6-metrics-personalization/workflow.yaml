@@ -1,0 +1,16 @@
+﻿name: jarvis-phase-6-metrics-personalization
+description: Build balanced metrics dashboard and personalization learning engine. Track output, protection, and wellness. Adapt features based on user behavior.
+author: BMad Builder
+config_source: '{project-root}/bmad/jarvis/config.yaml'
+output_folder: '{config_source}:output_folder'
+user_name: '{config_source}:user_name'
+communication_language: '{config_source}:communication_language'
+date: system-generated
+installed_path: '{project-root}/bmad/jarvis/workflows/jarvis-phase-6-metrics-personalization'
+instructions: '{installed_path}/instructions.md'
+validation: '{installed_path}/checklist.md'
+standalone: true
+template: false
+phase: 6
+duration_weeks: 2
+default_output_file: '{output_folder}/JARVIS_PHASE6_BUILD_LOG.md'

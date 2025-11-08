@@ -1,6 +1,7 @@
 using FocusDeck.Contracts.DTOs;
 using FocusDeck.Domain.Entities;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -17,9 +18,9 @@ public class LectureIntegrationTests : IClassFixture<WebApplicationFactory<Progr
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
-            builder.UseEnvironment("Development");
             builder.ConfigureAppConfiguration((context, config) =>
             {
+                context.HostingEnvironment.EnvironmentName = "Development";
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["Cors:AllowedOrigins:0"] = "http://localhost:5173"

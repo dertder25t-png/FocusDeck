@@ -40,6 +40,13 @@
             Icon="settings.png"
             ContentTemplate="{DataTemplate local:MainPage}"
             Route="SettingsPage" />
+            
+        <!-- Provisioning Tab -->
+        <ShellContent
+            Title="Provisioning"
+            Icon="qr_code.png"
+            ContentTemplate="{DataTemplate pages:ProvisioningPage}"
+            Route="ProvisioningPage" />
     </TabBar>
 
 </Shell>

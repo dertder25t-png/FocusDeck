@@ -87,6 +87,13 @@
                             Background="Transparent"
                             BorderThickness="0"
                             Cursor="Hand"/>
+                    <Button Content="Logout"
+                            Click="Logout_Click"
+                            ToolTip="Logout"
+                            Padding="8,4"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Cursor="Hand"/>
                 </StackPanel>
             </Grid>
         </Border>

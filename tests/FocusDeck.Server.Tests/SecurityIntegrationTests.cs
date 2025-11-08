@@ -22,6 +22,7 @@ public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Prog
         {
             builder.ConfigureAppConfiguration((context, config) =>
             {
+                context.HostingEnvironment.EnvironmentName = "Development";
                 // Override configuration for tests
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
@@ -36,9 +37,6 @@ public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Prog
                     ["Storage:Root"] = Path.GetTempPath()
                 });
             });
-
-            // Ensure tests run in Development environment
-            builder.UseEnvironment("Development");
         });
 
         _client = _factory.CreateClient();
@@ -199,4 +197,147 @@ public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Prog
 
     private record LoginResponse(string AccessToken, string RefreshToken, int ExpiresIn);
     private record ErrorResponse(string Code, string Message, string TraceId);
+
+    [Fact]
+    public async Task Pake_RegisterAndLogin_WithArgon2id_Succeeds()
+    {
+        // Arrange: User credentials
+        var userId = $"testuser-{Guid.NewGuid():N}";
+        var password = "password123-!@#";
+
+        // Act I: Registration
+        // 1. Start registration to get KDF parameters
+        var regStartRequest = new FocusDeck.Shared.Contracts.Auth.RegisterStartRequest(userId);
+        var regStartResponse = await _client.PostAsJsonAsync("/v1/auth/pake/register/start", regStartRequest);
+        regStartResponse.EnsureSuccessStatusCode();
+        var regStartResult = await regStartResponse.Content.ReadFromJsonAsync<FocusDeck.Shared.Contracts.Auth.RegisterStartResponse>();
+        Assert.NotNull(regStartResult);
+        Assert.False(string.IsNullOrEmpty(regStartResult.KdfParametersJson));
+
+        // 2. Client computes verifier using Argon2id
+        var kdfParams = System.Text.Json.JsonSerializer.Deserialize<FocusDeck.Shared.Security.SrpKdfParameters>(regStartResult.KdfParametersJson);
+        Assert.NotNull(kdfParams);
+        var privateKeyX = FocusDeck.Shared.Security.Srp.ComputePrivateKey(kdfParams, userId, password);
+        var verifier = FocusDeck.Shared.Security.Srp.ComputeVerifier(privateKeyX);
+
+        // 3. Finish registration
+        var regFinishRequest = new FocusDeck.Shared.Contracts.Auth.RegisterFinishRequest(
+            userId,
+            Convert.ToBase64String(FocusDeck.Shared.Security.Srp.ToBigEndian(verifier)),
+            regStartResult.KdfParametersJson,
+            null, null, null);
+        var regFinishResponse = await _client.PostAsJsonAsync("/v1/auth/pake/register/finish", regFinishRequest);
+        regFinishResponse.EnsureSuccessStatusCode();
+
+        // Act II: Login
+        // 1. Client generates ephemeral key
+        var (clientSecretA, clientPublicA) = FocusDeck.Shared.Security.Srp.GenerateClientEphemeral();
+
+        // 2. Start login
+        var loginStartRequest = new FocusDeck.Shared.Contracts.Auth.LoginStartRequest(userId, Convert.ToBase64String(FocusDeck.Shared.Security.Srp.ToBigEndian(clientPublicA)));
+        var loginStartResponse = await _client.PostAsJsonAsync("/v1/auth/pake/login/start", loginStartRequest);
+        loginStartResponse.EnsureSuccessStatusCode();
+        var loginStartResult = await loginStartResponse.Content.ReadFromJsonAsync<FocusDeck.Shared.Contracts.Auth.LoginStartResponse>();
+        Assert.NotNull(loginStartResult);
+
+        // 3. Client computes session key and proof
+        var serverPublicB = FocusDeck.Shared.Security.Srp.FromBigEndian(Convert.FromBase64String(loginStartResult.ServerPublicEphemeralBase64));
+        var scrambleU = FocusDeck.Shared.Security.Srp.ComputeScramble(clientPublicA, serverPublicB);
+        var clientSessionS = FocusDeck.Shared.Security.Srp.ComputeClientSession(serverPublicB, privateKeyX, clientSecretA, scrambleU);
+        var sessionKeyK = FocusDeck.Shared.Security.Srp.ComputeSessionKey(clientSessionS);
+        var clientProofM1 = FocusDeck.Shared.Security.Srp.ComputeClientProof(clientPublicA, serverPublicB, sessionKeyK);
+
+        // 4. Finish login
+        var loginFinishRequest = new FocusDeck.Shared.Contracts.Auth.LoginFinishRequest(userId, loginStartResult.SessionId, Convert.ToBase64String(clientProofM1));
+        var loginFinishResponse = await _client.PostAsJsonAsync("/v1/auth/pake/login/finish", loginFinishRequest);
+        
+        // Assert
+        loginFinishResponse.EnsureSuccessStatusCode();
+        var loginFinishResult = await loginFinishResponse.Content.ReadFromJsonAsync<FocusDeck.Shared.Contracts.Auth.LoginFinishResponse>();
+        Assert.NotNull(loginFinishResult);
+        Assert.True(loginFinishResult.Success);
+        Assert.False(string.IsNullOrWhiteSpace(loginFinishResult.AccessToken));
+    }
+
+    [Fact]
+    public async Task Pake_LoginAndUpgrade_ForLegacyUser_Succeeds()
+    {
+        // Arrange: Seed a legacy user directly in the database
+        var userId = $"legacy-user-{Guid.NewGuid():N}";
+        var password = "password-legacy-456-!@#";
+        var salt = FocusDeck.Shared.Security.Srp.GenerateSalt();
+
+        // 1. Client computes legacy verifier
+        var privateKeyX = FocusDeck.Shared.Security.Srp.ComputePrivateKey(salt, userId, password);
+        var verifier = FocusDeck.Shared.Security.Srp.ComputeVerifier(privateKeyX);
+
+        // 2. Seed database
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+            dbContext.PakeCredentials.Add(new FocusDeck.Domain.Entities.Auth.PakeCredential
+            {
+                UserId = userId,
+                SaltBase64 = Convert.ToBase64String(salt),
+                VerifierBase64 = Convert.ToBase64String(FocusDeck.Shared.Security.Srp.ToBigEndian(verifier)),
+                Algorithm = FocusDeck.Shared.Security.Srp.Algorithm,
+                ModulusHex = FocusDeck.Shared.Security.Srp.ModulusHex,
+                Generator = (int)FocusDeck.Shared.Security.Srp.G,
+                KdfParametersJson = null, // Explicitly null for legacy user
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+            await dbContext.SaveChangesAsync();
+        }
+
+        // Act I: Legacy Login
+        var (clientSecretA, clientPublicA) = FocusDeck.Shared.Security.Srp.GenerateClientEphemeral();
+        var loginStartRequest = new FocusDeck.Shared.Contracts.Auth.LoginStartRequest(userId, Convert.ToBase64String(FocusDeck.Shared.Security.Srp.ToBigEndian(clientPublicA)));
+        var loginStartResponse = await _client.PostAsJsonAsync("/v1/auth/pake/login/start", loginStartRequest);
+        loginStartResponse.EnsureSuccessStatusCode();
+        var loginStartResult = await loginStartResponse.Content.ReadFromJsonAsync<FocusDeck.Shared.Contracts.Auth.LoginStartResponse>();
+        Assert.NotNull(loginStartResult);
+        Assert.Null(loginStartResult.KdfParametersJson); // Assert it's a legacy login
+
+        var serverPublicB = FocusDeck.Shared.Security.Srp.FromBigEndian(Convert.FromBase64String(loginStartResult.ServerPublicEphemeralBase64));
+        var scrambleU = FocusDeck.Shared.Security.Srp.ComputeScramble(clientPublicA, serverPublicB);
+        var clientSessionS = FocusDeck.Shared.Security.Srp.ComputeClientSession(serverPublicB, privateKeyX, clientSecretA, scrambleU);
+        var sessionKeyK = FocusDeck.Shared.Security.Srp.ComputeSessionKey(clientSessionS);
+        var clientProofM1 = FocusDeck.Shared.Security.Srp.ComputeClientProof(clientPublicA, serverPublicB, sessionKeyK);
+
+        var loginFinishRequest = new FocusDeck.Shared.Contracts.Auth.LoginFinishRequest(userId, loginStartResult.SessionId, Convert.ToBase64String(clientProofM1));
+        var loginFinishResponse = await _client.PostAsJsonAsync("/v1/auth/pake/login/finish", loginFinishRequest);
+        loginFinishResponse.EnsureSuccessStatusCode();
+        var loginFinishResult = await loginFinishResponse.Content.ReadFromJsonAsync<FocusDeck.Shared.Contracts.Auth.LoginFinishResponse>();
+        Assert.NotNull(loginFinishResult);
+        var accessToken = loginFinishResult.AccessToken;
+
+        // Act II: Upgrade Credential
+        // 1. Client generates new KDF params and verifier
+        var newKdfParams = FocusDeck.Shared.Security.Srp.GenerateKdfParameters();
+        var newPrivateKeyX = FocusDeck.Shared.Security.Srp.ComputePrivateKey(newKdfParams, userId, password);
+        var newVerifier = FocusDeck.Shared.Security.Srp.ComputeVerifier(newPrivateKeyX);
+        var newKdfParamsJson = System.Text.Json.JsonSerializer.Serialize(newKdfParams);
+
+        // 2. Call upgrade endpoint with auth token
+        var upgradeRequest = new FocusDeck.Shared.Contracts.Auth.UpgradeCredentialRequest(userId, Convert.ToBase64String(FocusDeck.Shared.Security.Srp.ToBigEndian(newVerifier)), newKdfParamsJson);
+        var requestMessage = new HttpRequestMessage(HttpMethod.Post, "/v1/auth/pake/upgrade");
+        requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        requestMessage.Content = JsonContent.Create(upgradeRequest);
+        var upgradeResponse = await _client.SendAsync(requestMessage);
+
+        // Assert II: Upgrade was successful
+        upgradeResponse.EnsureSuccessStatusCode();
+
+        // 3. Verify in DB
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+            var updatedCred = await dbContext.PakeCredentials.AsNoTracking().FirstOrDefaultAsync(c => c.UserId == userId);
+            Assert.NotNull(updatedCred);
+            Assert.NotNull(updatedCred.KdfParametersJson);
+            Assert.Equal(newKdfParamsJson, updatedCred.KdfParametersJson);
+            Assert.Equal(Convert.ToBase64String(FocusDeck.Shared.Security.Srp.ToBigEndian(newVerifier)), updatedCred.VerifierBase64);
+        }
+    }
 }

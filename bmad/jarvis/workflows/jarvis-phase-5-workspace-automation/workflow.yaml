@@ -1,0 +1,16 @@
+﻿name: jarvis-phase-5-workspace-automation
+description: Build context-aware workspace automation. Desktop workspace preparation, focus mode enforcement, app blocking, and distraction prevention.
+author: BMad Builder
+config_source: '{project-root}/bmad/jarvis/config.yaml'
+output_folder: '{config_source}:output_folder'
+user_name: '{config_source}:user_name'
+communication_language: '{config_source}:communication_language'
+date: system-generated
+installed_path: '{project-root}/bmad/jarvis/workflows/jarvis-phase-5-workspace-automation'
+instructions: '{installed_path}/instructions.md'
+validation: '{installed_path}/checklist.md'
+standalone: true
+template: false
+phase: 5
+duration_weeks: 4
+default_output_file: '{output_folder}/JARVIS_PHASE5_BUILD_LOG.md'

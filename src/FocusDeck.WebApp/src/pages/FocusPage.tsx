@@ -5,6 +5,8 @@ import { Badge } from '../components/Badge'
 import { EmptyState } from '../components/States'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/Dialog'
 import { Input } from '../components/Input'
+import { apiFetch } from '../lib/utils'
+import { createNotificationsConnection, type ActivityState as LiveActivityState } from '../lib/signalr'
 
 interface FocusSession {
   id: string
@@ -55,6 +57,13 @@ export function FocusPage() {
   const [todayMinutes, setTodayMinutes] = useState(0)
   const [distractionsPerHour, setDistractionsPerHour] = useState(0)
   const [currentStreak, setCurrentStreak] = useState(0)
+  
+  // Live context
+  const [liveContext, setLiveContext] = useState<LiveActivityState | null>(null)
+  const [events, setEvents] = useState<string[]>([])
+  const [timeline, setTimeline] = useState<any[]>([])
+  const [activeSessions, setActiveSessions] = useState<number>(0)
+  const [lastIssued, setLastIssued] = useState<string | null>(null)
 
   // New session form
   const [newSessionMode, setNewSessionMode] = useState<'strict' | 'soft'>('soft')
@@ -69,7 +78,26 @@ export function FocusPage() {
     fetchActiveSession()
     fetchSessions()
     fetchPolicies()
-    // In a real app, connect to SignalR here for real-time updates
+    
+    // Connect to SignalR for real-time context updates
+    ;(async () => {
+      try {
+        const conn = await createNotificationsConnection()
+        conn.on('ContextUpdated', (state: LiveActivityState) => {
+          setLiveContext(state)
+          setEvents(prev => [`Context: ${state.focusedAppName ?? '(none)'} (${state.activityIntensity})`, ...prev].slice(0, 50))
+        })
+        conn.on('FocusRecoverySuggested', (suggestion: string) => {
+          setEvents(prev => [`Recovery: ${suggestion}`, ...prev].slice(0, 50))
+        })
+      } catch (err) {
+        console.error('SignalR connection failed', err)
+      }
+    })()
+
+    // Initial timeline load
+    fetchTimeline()
+    fetchSessionsOverview()
   }, [])
 
   useEffect(() => {
@@ -85,7 +113,7 @@ export function FocusPage() {
 
   const fetchActiveSession = async () => {
     try {
-      const response = await fetch('/v1/focus/sessions/active')
+      const response = await apiFetch('/v1/focus/sessions/active')
       if (response.ok) {
         const data = await response.json()
         setActiveSession(data)
@@ -97,7 +125,7 @@ export function FocusPage() {
 
   const fetchSessions = async () => {
     try {
-      const response = await fetch('/v1/focus/sessions?limit=10')
+      const response = await apiFetch('/v1/focus/sessions?limit=10')
       if (response.ok) {
         const data = await response.json()
         setSessions(data)
@@ -137,7 +165,7 @@ export function FocusPage() {
 
   const fetchPolicies = async () => {
     try {
-      const response = await fetch('/v1/focus/policies')
+      const response = await apiFetch('/v1/focus/policies')
       if (response.ok) {
         const data = await response.json()
         setPolicies(data)
@@ -149,7 +177,7 @@ export function FocusPage() {
 
   const startSession = async () => {
     try {
-      const response = await fetch('/v1/focus/sessions', {
+      const response = await apiFetch('/v1/focus/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -173,11 +201,38 @@ export function FocusPage() {
     }
   }
 
+  const fetchTimeline = async () => {
+    try {
+      const res = await apiFetch('/v1/context/timeline?limit=20')
+      if (res.ok) {
+        const data = await res.json()
+        setTimeline(data)
+      }
+    } catch (e) {
+      console.error('Failed to fetch timeline', e)
+    }
+  }
+
+  const fetchSessionsOverview = async () => {
+    try {
+      const res = await apiFetch('/v1/auth/devices')
+      if (res.ok) {
+        const data = await res.json()
+        const active = data.filter((d: any) => d.isActive && !d.revokedUtc).length
+        setActiveSessions(active)
+        if (data.length > 0) {
+          const issued = data.reduce((max: number, d: any) => Math.max(max, new Date(d.issuedUtc).getTime()), 0)
+          setLastIssued(new Date(issued).toLocaleString())
+        }
+      }
+    } catch {}
+  }
+
   const endSession = async () => {
     if (!activeSession) return
     
     try {
-      const response = await fetch(`/v1/focus/sessions/${activeSession.id}/end`, {
+      const response = await apiFetch(`/v1/focus/sessions/${activeSession.id}/end`, {
         method: 'POST'
       })
       
@@ -193,7 +248,7 @@ export function FocusPage() {
 
   const createPolicy = async () => {
     try {
-      const response = await fetch('/v1/focus/policies', {
+      const response = await apiFetch('/v1/focus/policies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -270,6 +325,94 @@ export function FocusPage() {
         </Card>
       </div>
 
+      {/* Live Context */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Live Context</CardTitle>
+          <CardDescription>Real-time activity across devices</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {liveContext ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <div className="text-sm text-gray-400">Focused App</div>
+                <div className="text-lg font-semibold">{liveContext.focusedAppName ?? '—'}</div>
+                <div className="text-xs text-gray-500 truncate">{liveContext.focusedWindowTitle}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-400">Intensity</div>
+                <div className="text-lg font-semibold">{liveContext.activityIntensity}</div>
+                <div className="text-xs text-gray-500">{liveContext.isIdle ? 'Idle' : 'Active'}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-400">Upcoming</div>
+                <div className="space-y-1">
+                  {liveContext.openContexts.filter(c => c.type === 'canvas_assignment').slice(0,3).map((c, i) => (
+                    <div key={i} className="text-sm">{c.title}</div>
+                  ))}
+                  {liveContext.openContexts.filter(c => c.type === 'canvas_assignment').length === 0 && (
+                    <div className="text-sm text-gray-500">No upcoming assignments</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <EmptyState title="No context yet" description="Connect a device or start a session to see live updates." />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Sessions Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Sessions Overview</CardTitle>
+          <CardDescription>Active device sessions</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-2xl font-bold text-primary">{activeSessions}</div>
+              <div className="text-sm text-gray-400">Active Sessions</div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm">Last Issued</div>
+              <div className="text-xs text-gray-400">{lastIssued ?? '—'}</div>
+            </div>
+          </div>
+          <div className="mt-3">
+            <a href="/app/devices" className="text-sm text-primary">Manage Devices →</a>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Context Timeline */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Context Timeline</CardTitle>
+          <CardDescription>Recent activity snapshots</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {timeline.length === 0 ? (
+            <div className="text-sm text-gray-500">No recent activity</div>
+          ) : (
+            <div className="space-y-2">
+              {timeline.map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 border border-gray-700 rounded-lg">
+                  <div className="flex-1">
+                    <div className="font-semibold">{item.focusedAppName ?? '—'}</div>
+                    <div className="text-xs text-gray-400 truncate">{item.focusedWindowTitle}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm">{item.activityIntensity}</div>
+                    <div className="text-xs text-gray-500">{new Date(item.timestamp).toLocaleString()}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Active Session */}
       {activeSession ? (
         <Card>
@@ -322,28 +465,24 @@ export function FocusPage() {
         </Card>
       )}
 
-      {/* Event Log - Ready for SignalR */}
-      {false && ( // Placeholder for future real-time distraction events
-        <Card>
-          <CardHeader>
-            <CardTitle>Event Log</CardTitle>
-            <CardDescription>Recent distractions and events</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {mockDistractions.map((d, i) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-red-500/10 rounded-lg border border-red-500/20">
-                  <div className="flex items-center gap-2">
-                    <span className="text-red-400">🚨</span>
-                    <span className="text-sm">{d.reason}</span>
-                  </div>
-                  <span className="text-xs text-gray-400">{formatDateTime(d.at)}</span>
-                </div>
+      {/* Event Log */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Event Log</CardTitle>
+          <CardDescription>Latest context updates and suggestions</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {events.length === 0 ? (
+            <div className="text-sm text-gray-500">No events yet</div>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {events.map((e, i) => (
+                <li key={i} className="text-gray-300">{e}</li>
               ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Policies */}
       <Card>

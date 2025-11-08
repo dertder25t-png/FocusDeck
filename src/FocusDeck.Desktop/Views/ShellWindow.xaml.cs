@@ -1,4 +1,6 @@
 using FocusDeck.Desktop.Services;
+using FocusDeck.Desktop.Services;
+using FocusDeck.Desktop.Services.Auth;
 using System.Windows;
 using System.Windows.Input;
 
@@ -9,16 +11,20 @@ public partial class ShellWindow : Window
     private readonly IThemeService _themeService;
     private readonly ISnackbarService _snackbarService;
     private readonly ICommandPaletteService _commandPaletteService;
+    private readonly IKeyProvisioningService _provisioning;
 
     public ShellWindow(
         IThemeService themeService,
         ISnackbarService snackbarService,
-        ICommandPaletteService commandPaletteService)
+        ICommandPaletteService commandPaletteService,
+        IKeyProvisioningService provisioning)
     {
         InitializeComponent();
         _themeService = themeService;
         _snackbarService = snackbarService;
         _commandPaletteService = commandPaletteService;
+        _provisioning = provisioning;
+        _provisioning.ForcedLogout += OnForcedLogout;
 
         // Subscribe to snackbar service
         _snackbarService.MessageReceived += OnSnackbarMessage;
@@ -98,5 +104,38 @@ public partial class ShellWindow : Window
             _commandPaletteService.Hide();
             e.Handled = true;
         }
+    }
+
+    private async void Logout_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await _provisioning.LogoutAsync();
+            _snackbarService.Show("Logged out", TimeSpan.FromSeconds(3));
+            var onboarding = new OnboardingWindow
+            {
+                Owner = this
+            };
+            onboarding.ShowDialog();
+        }
+        catch
+        {
+            _snackbarService.Show("Logout failed", TimeSpan.FromSeconds(3));
+        }
+    }
+
+    private void OnForcedLogout(object? sender, ForceLogoutEventArgs e)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            var message = string.IsNullOrWhiteSpace(e.Reason) ? "Your session has ended" : e.Reason;
+            _snackbarService.Show(message, TimeSpan.FromSeconds(4));
+
+            var onboarding = new OnboardingWindow
+            {
+                Owner = this
+            };
+            onboarding.ShowDialog();
+        });
     }
 }
