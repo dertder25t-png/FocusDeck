@@ -1,8 +1,8 @@
-﻿#  JARVIS Phase 1: Activity Detection Foundation (Weeks 1-4)
+﻿#  JARVIS Phase 1: Activity Detection Foundation (Weeks 1-6)
 
 **Phase Status:** Ready to Start  
 **Difficulty:** Medium  
-**Time Estimate:** 4 weeks (full-time)  
+**Time Estimate:** 6 weeks (full-time)  
 
 ---
 

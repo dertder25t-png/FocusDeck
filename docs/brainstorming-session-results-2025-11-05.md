@@ -374,7 +374,7 @@ _Transformative ideas defining competitive advantage_
 - Web UI for device management portal
 - SignalR real-time notification system (already exists!)
 
-**Timeline:** 3-4 weeks (relatively straightforward)
+**Timeline:** 3-6 weeks (relatively straightforward)
 - Weeks 19-20: Redis + revocation middleware
 - Weeks 21: Active devices API + UI
 - Weeks 22: SignalR real-time revocation
@@ -1384,7 +1384,7 @@ MODIFICATION: Never auto-submit
 
 ## Implementation Roadmap: AI Features (Parallel to Auth)
 
-### Phase 1: Foundations (Weeks 1-4)
+### Phase 1: Foundations (Weeks 1-6)
 
 **Build the observation layer:**
 - ✅ Desktop window tracking (Windows WPF)

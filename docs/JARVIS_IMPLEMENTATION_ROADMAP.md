@@ -23,7 +23,7 @@ Transform FocusDeck from a productivity tracker into **JARVIS for Academics**  a
 
 ##  Implementation Phases (6-Month Plan)
 
-### Phase 1: Foundation - Multi-Sensor Context Detection (Weeks 1-4)
+### Phase 1: Foundation - Multi-Sensor Context Detection (Weeks 1-6)
 
 **Goal:** Build the observability layer so JARVIS sees what students are doing
 
@@ -264,7 +264,7 @@ Transform FocusDeck from a productivity tracker into **JARVIS for Academics**  a
 
 ##  Timeline
 
-- Weeks 1-4: Activity Detection Foundation
+- Weeks 1-6: Activity Detection Foundation
 - Weeks 5-8: Burnout Prevention
 - Weeks 9-12: Notification Management
 - Weeks 13-20: Content Generation (Flashcards + Essays)

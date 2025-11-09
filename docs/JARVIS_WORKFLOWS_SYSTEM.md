@@ -18,10 +18,10 @@ Choose your build path:
 - Sequential (all phases in order, 26 weeks)
 - Parallel (teams work simultaneously, 13 weeks)  
 - Specific (pick individual phases)
-- MVP (Phase 1 only, 4 weeks)
+   - MVP (Phase 1 only, 6 weeks)
 
 ### 6 Phase Workflows
-1. **Phase 1** - Activity Detection Foundation (4 weeks) - READY TO BUILD
+1. **Phase 1** - Activity Detection Foundation (6 weeks) - READY TO BUILD
 2. **Phase 2** - Burnout Detection (4 weeks)
 3. **Phase 3** - Notification Management (4 weeks)
 4. **Phase 4** - Content Generation (8 weeks)
@@ -99,7 +99,7 @@ All with copy-paste ready code from JARVIS_PHASE1_DETAILED.md!
 
 | Phase | Duration | Starts After |
 |-------|----------|--------------|
-| 1 | 4 weeks | Now |
+| 1 | 6 weeks | Now |
 | 2 | 4 weeks | Phase 1 done |
 | 3 | 4 weeks | Phase 1 done |
 | 4 | 8 weeks | Phase 1 done |
@@ -108,7 +108,7 @@ All with copy-paste ready code from JARVIS_PHASE1_DETAILED.md!
 
 **Sequential Total:** 26 weeks (mid-January 2026)  
 **Parallel Total:** 13 weeks (faster with multiple teams)  
-**MVP Only:** 4 weeks (Phase 1 foundation)
+**MVP Only:** 6 weeks (Phase 1 foundation)
 
 ---
 
@@ -124,7 +124,7 @@ All with copy-paste ready code from JARVIS_PHASE1_DETAILED.md!
    - Begin Week 1: Interface Design
    - Reference JARVIS_PHASE1_DETAILED.md
 
-3. **WEEK 2+:** Complete Phase 1 (4 weeks total)
+3. **WEEK 2+:** Complete Phase 1 (6 weeks total)
    - All tests passing
    - CPU overhead <5%
    - Ready for MVP deployment

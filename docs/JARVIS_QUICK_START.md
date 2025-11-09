@@ -26,7 +26,7 @@ You now have **three documents** in /docs:
 ### 2 JARVIS_PHASE1_DETAILED.md
 **Read this next for:** Immediate implementation tasks
 
--  Week-by-week breakdown (4 weeks)
+-  Week-by-week breakdown (6 weeks)
 -  Exact code snippets you can copy/paste
 -  Testing strategy for each component
 -  Task checklists with boxes
@@ -60,8 +60,8 @@ you're doing    FOR you         Adapts to you
 ##  6-Month Implementation Plan
 
 `
-Week 1-4:  Activity Detection Foundation   
-Week 5-8:  Burnout Prevention             
+Week 1-6:  Activity Detection Foundation   
+Week 7-8:  Burnout Prevention             
 Week 9-12: Smart Notifications            
 Week 13-20: Content Generation (MVP)      
 Week 21-24: Workspace Automation          
@@ -128,7 +128,7 @@ Metrics Dashboard
 
 ---
 
-##  Week 1-4 High-Level Tasks
+##  Week 1-6 High-Level Tasks
 
 | Week | Task | Status |
 |------|------|--------|
@@ -175,7 +175,7 @@ Before Phase 1 is "complete," measure:
 ##  FAQ
 
 **Q: Can I build this part-time?**  
-A: Technically yes, but it'll take 8 weeks instead of 4. Best with full focus for 4 weeks.
+A: Technically yes, but it'll take 8 weeks instead of 6. Best with full focus for 6 weeks.
 
 **Q: Do I need an AI team?**  
 A: Phase 1-3 don't need AI. Phase 4 (content generation) needs either:
