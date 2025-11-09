@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using FocusDeck.Server.Services.Tenancy;
 
 namespace FocusDeck.Server.Controllers.v1;
 
@@ -27,6 +28,7 @@ public class AuthController : ControllerBase
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly FocusDeck.Server.Services.Auth.IAccessTokenRevocationService _revocationService;
     private readonly IHubContext<NotificationsHub, INotificationClient> _notifications;
+    private readonly ITenantMembershipService _tenantMembership;
 
     public AuthController(
         ITokenService tokenService,
@@ -35,7 +37,8 @@ public class AuthController : ControllerBase
         IConfiguration configuration,
         IHttpClientFactory httpClientFactory,
         FocusDeck.Server.Services.Auth.IAccessTokenRevocationService revocationService,
-        IHubContext<NotificationsHub, INotificationClient> notifications)
+        IHubContext<NotificationsHub, INotificationClient> notifications,
+        ITenantMembershipService tenantMembership)
     {
         _tokenService = tokenService;
         _db = db;
@@ -44,6 +47,7 @@ public class AuthController : ControllerBase
         _httpClientFactory = httpClientFactory;
         _revocationService = revocationService;
         _notifications = notifications;
+        _tenantMembership = tenantMembership;
     }
 
     [HttpPost("login")]
@@ -61,9 +65,10 @@ public class AuthController : ControllerBase
         var userId = request.Username;
         var roles = new[] { "User" };
 
-        var accessToken = _tokenService.GenerateAccessToken(userId, roles);
+        var tenantId = await _tenantMembership.EnsureTenantAsync(userId, request.Username, request.Username, HttpContext.RequestAborted);
+        var accessToken = _tokenService.GenerateAccessToken(userId, roles, tenantId);
         var refreshToken = _tokenService.GenerateRefreshToken();
-        
+
         // Compute device context
         var deviceId = request.ClientId ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-device";
         var deviceName = request.DeviceName ?? request.ClientId ?? request.Username ?? "unknown";
@@ -84,11 +89,12 @@ public class AuthController : ControllerBase
             DeviceId = deviceId,
             DeviceName = deviceName,
             DevicePlatform = devicePlatform,
-            LastAccessUtc = DateTime.UtcNow
+            LastAccessUtc = DateTime.UtcNow,
+            TenantId = tenantId
         };
 
         _db.RefreshTokens.Add(refreshTokenEntity);
-        await UpsertDeviceRegistrationAsync(userId, deviceId, deviceName, devicePlatform);
+        await UpsertDeviceRegistrationAsync(userId, tenantId, deviceId, deviceName, devicePlatform);
         await _db.SaveChangesAsync();
 
         return Ok(new
@@ -190,9 +196,22 @@ public class AuthController : ControllerBase
                 return Unauthorized(new { code = "TOKEN_MISMATCH", message = "Token mismatch", traceId = HttpContext.TraceIdentifier });
             }
 
+            var tenantId = storedToken.TenantId;
+            if (tenantId == Guid.Empty)
+            {
+                var tenantClaim = principal.FindFirst("app_tenant_id")?.Value;
+                if (!Guid.TryParse(tenantClaim, out tenantId))
+                {
+                    var email = principal.FindFirst(ClaimTypes.Email)?.Value;
+                    var displayName = principal.FindFirst(ClaimTypes.Name)?.Value;
+                    tenantId = await _tenantMembership.EnsureTenantAsync(userId, email, displayName, HttpContext.RequestAborted);
+                }
+                storedToken.TenantId = tenantId;
+            }
+
             // Generate new tokens
             var roles = principal.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
-            var newAccessToken = _tokenService.GenerateAccessToken(userId, roles);
+            var newAccessToken = _tokenService.GenerateAccessToken(userId, roles, tenantId);
             var newRefreshToken = _tokenService.GenerateRefreshToken();
             var newTokenHash = _tokenService.ComputeTokenHash(newRefreshToken);
 
@@ -213,11 +232,12 @@ public class AuthController : ControllerBase
                 DeviceId = deviceId,
                 DeviceName = deviceName,
                 DevicePlatform = devicePlatform,
-                LastAccessUtc = DateTime.UtcNow
+                LastAccessUtc = DateTime.UtcNow,
+                TenantId = tenantId
             };
 
             _db.RefreshTokens.Add(newRefreshTokenEntity);
-            await UpsertDeviceRegistrationAsync(userId, deviceId, deviceName, devicePlatform);
+            await UpsertDeviceRegistrationAsync(userId, tenantId, deviceId, deviceName, devicePlatform);
             await _db.SaveChangesAsync();
             await transaction.CommitAsync();
 
@@ -313,8 +333,9 @@ public class AuthController : ControllerBase
 
             var userId = tokenInfo.Sub ?? tokenInfo.Email!;
             var roles = new[] { "User" };
+            var tenantId = await _tenantMembership.EnsureTenantAsync(userId, tokenInfo.Email, tokenInfo.Name, HttpContext.RequestAborted);
 
-            var accessToken = _tokenService.GenerateAccessToken(userId, roles);
+            var accessToken = _tokenService.GenerateAccessToken(userId, roles, tenantId);
             var refreshToken = _tokenService.GenerateRefreshToken();
 
             var deviceId = request.ClientId ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-device";
@@ -335,11 +356,12 @@ public class AuthController : ControllerBase
                 DeviceId = deviceId,
                 DeviceName = deviceName,
                 DevicePlatform = devicePlatform,
-                LastAccessUtc = DateTime.UtcNow
+                LastAccessUtc = DateTime.UtcNow,
+                TenantId = tenantId
             };
 
             _db.RefreshTokens.Add(refreshTokenEntity);
-            await UpsertDeviceRegistrationAsync(userId, deviceId, deviceName, devicePlatform);
+            await UpsertDeviceRegistrationAsync(userId, tenantId, deviceId, deviceName, devicePlatform);
             await _db.SaveChangesAsync();
 
             _logger.LogInformation("User {UserId} authenticated via Google OAuth", userId);
@@ -525,7 +547,7 @@ public class AuthController : ControllerBase
         return Ok(new { success = true, count = tokens.Count });
     }
 
-    private async Task UpsertDeviceRegistrationAsync(string userId, string deviceId, string? deviceName, string? devicePlatform)
+    private async Task UpsertDeviceRegistrationAsync(string userId, Guid tenantId, string deviceId, string? deviceName, string? devicePlatform)
     {
         deviceId = deviceId.Trim();
         var registration = await _db.DeviceRegistrations.FirstOrDefaultAsync(d => d.UserId == userId && d.DeviceId == deviceId);
@@ -542,7 +564,8 @@ public class AuthController : ControllerBase
                 Platform = parsedPlatform,
                 RegisteredAt = DateTime.UtcNow,
                 LastSyncAt = DateTime.UtcNow,
-                IsActive = true
+                IsActive = true,
+                TenantId = tenantId
             };
             _db.DeviceRegistrations.Add(registration);
         }
@@ -552,6 +575,10 @@ public class AuthController : ControllerBase
             registration.Platform = parsedPlatform;
             registration.LastSyncAt = DateTime.UtcNow;
             registration.IsActive = true;
+            if (registration.TenantId == Guid.Empty)
+            {
+                registration.TenantId = tenantId;
+            }
         }
     }
 
@@ -564,6 +591,7 @@ public class AuthController : ControllerBase
 
         return DevicePlatform.Windows;
     }
+
 }
 
 public record LoginRequest(string Username, string Password, string? ClientId = null, string? DeviceName = null, string? DevicePlatform = null);

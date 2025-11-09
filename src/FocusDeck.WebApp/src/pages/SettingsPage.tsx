@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react'
 
 export function SettingsPage() {
   const [systemInfo, setSystemInfo] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<'profile' | 'org' | 'integrations' | 'system'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'tenant' | 'integrations' | 'system'>('profile')
 
   useEffect(() => {
     // Fetch system info for system tab
@@ -19,7 +19,7 @@ export function SettingsPage() {
 
   const tabs = [
     { id: 'profile' as const, label: 'Profile' },
-    { id: 'org' as const, label: 'Organization' },
+    { id: 'tenant' as const, label: 'Tenant' },
     { id: 'integrations' as const, label: 'Integrations' },
     { id: 'system' as const, label: 'System' }
   ]
@@ -102,17 +102,17 @@ export function SettingsPage() {
         </div>
       )}
 
-      {/* Organization Tab */}
-      {activeTab === 'org' && (
+      {/* Tenant Tab */}
+      {activeTab === 'tenant' && (
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Organizations</CardTitle>
-              <CardDescription>View and manage your organizations</CardDescription>
+              <CardTitle>Tenants</CardTitle>
+              <CardDescription>View and manage your tenants</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Link to="/app/organizations">
-                <Button>Manage Organizations</Button>
+              <Link to="/tenants">
+                <Button>Manage Tenants</Button>
               </Link>
             </CardContent>
           </Card>

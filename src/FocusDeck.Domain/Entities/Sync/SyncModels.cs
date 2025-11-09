@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using FocusDeck.Domain.Entities;
 
 namespace FocusDeck.Domain.Entities.Sync
 {
     /// <summary>
     /// Represents a device registered for syncing
     /// </summary>
-    public class DeviceRegistration
+    public class DeviceRegistration : IMustHaveTenant
     {
         public Guid Id { get; set; }
         public string DeviceId { get; set; } = null!; // Unique identifier (MAC+Hostname hash)
@@ -17,6 +18,7 @@ namespace FocusDeck.Domain.Entities.Sync
         public DateTime LastSyncAt { get; set; }
         public bool IsActive { get; set; }
         public string? AppVersion { get; set; }
+        public Guid TenantId { get; set; }
     }
 
     /// <summary>
@@ -35,7 +37,7 @@ namespace FocusDeck.Domain.Entities.Sync
     /// <summary>
     /// Represents a sync transaction - a batch of changes from a device
     /// </summary>
-    public class SyncTransaction
+    public class SyncTransaction : IMustHaveTenant
     {
         public Guid Id { get; set; }
         public string DeviceId { get; set; } = null!;
@@ -43,12 +45,13 @@ namespace FocusDeck.Domain.Entities.Sync
         public List<SyncChange> Changes { get; set; } = new();
         public SyncStatus Status { get; set; }
         public string? ErrorMessage { get; set; }
+        public Guid TenantId { get; set; }
     }
 
     /// <summary>
     /// Individual change within a sync transaction
     /// </summary>
-    public class SyncChange
+    public class SyncChange : IMustHaveTenant
     {
         public Guid Id { get; set; }
         public Guid TransactionId { get; set; }
@@ -58,6 +61,7 @@ namespace FocusDeck.Domain.Entities.Sync
         public string DataJson { get; set; } = null!; // Serialized entity data
         public DateTime ChangedAt { get; set; }
         public long ChangeVersion { get; set; } // Monotonically increasing version number
+        public Guid TenantId { get; set; }
     }
 
     /// <summary>
@@ -155,13 +159,14 @@ namespace FocusDeck.Domain.Entities.Sync
     /// <summary>
     /// Metadata about sync state for a device
     /// </summary>
-    public class SyncMetadata
+    public class SyncMetadata : IMustHaveTenant
     {
         public Guid Id { get; set; }
         public string DeviceId { get; set; } = null!;
         public long LastSyncVersion { get; set; } // Last version successfully synced
         public DateTime LastSyncTime { get; set; }
         public Dictionary<SyncEntityType, long> EntityVersions { get; set; } = new();
+        public Guid TenantId { get; set; }
     }
 
     /// <summary>

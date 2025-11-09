@@ -2,6 +2,7 @@ using FocusDeck.Persistence;
 using FocusDeck.Domain.Entities.Sync;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using FocusDeck.SharedKernel.Tenancy;
 
 namespace FocusDeck.Server.Services
 {
@@ -39,11 +40,13 @@ namespace FocusDeck.Server.Services
     {
         private readonly AutomationDbContext _db;
         private readonly ILogger<SyncService> _logger;
+        private readonly ICurrentTenant _currentTenant;
 
-        public SyncService(AutomationDbContext db, ILogger<SyncService> logger)
+        public SyncService(AutomationDbContext db, ILogger<SyncService> logger, ICurrentTenant currentTenant)
         {
             _db = db;
             _logger = logger;
+            _currentTenant = currentTenant;
         }
 
         private async Task<long> GetCurrentVersionAsync()
@@ -72,23 +75,26 @@ namespace FocusDeck.Server.Services
         {
             try
             {
-                // Check if device already exists
                 var existing = await _db.Set<DeviceRegistration>()
                     .FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.UserId == userId);
 
                 if (existing != null)
                 {
-                    // Update existing registration
                     existing.DeviceName = deviceName;
                     existing.Platform = platform;
                     existing.LastSyncAt = DateTime.UtcNow;
                     existing.IsActive = true;
+                    if (existing.TenantId == Guid.Empty && _currentTenant.HasTenant)
+                    {
+                        existing.TenantId = _currentTenant.TenantId!.Value;
+                    }
                     await _db.SaveChangesAsync();
                     _logger.LogInformation("Device {DeviceId} re-registered for user {UserId}", deviceId, userId);
                     return existing;
                 }
 
-                // Create new registration
+                var tenantId = _currentTenant.TenantId ?? Guid.Empty;
+
                 var device = new DeviceRegistration
                 {
                     Id = Guid.NewGuid(),
@@ -98,7 +104,8 @@ namespace FocusDeck.Server.Services
                     UserId = userId,
                     RegisteredAt = DateTime.UtcNow,
                     LastSyncAt = DateTime.UtcNow,
-                    IsActive = true
+                    IsActive = true,
+                    TenantId = tenantId
                 };
 
                 _db.Set<DeviceRegistration>().Add(device);

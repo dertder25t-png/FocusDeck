@@ -8,7 +8,7 @@ namespace FocusDeck.Server.Services.Auth;
 
 public interface ITokenService
 {
-    string GenerateAccessToken(string userId, string[] roles);
+    string GenerateAccessToken(string userId, string[] roles, Guid tenantId);
     string GenerateRefreshToken();
     ClaimsPrincipal? GetPrincipalFromExpiredToken(string token);
     string ComputeTokenHash(string token);
@@ -26,7 +26,7 @@ public class TokenService : ITokenService
         _logger = logger;
     }
 
-    public string GenerateAccessToken(string userId, string[] roles)
+    public string GenerateAccessToken(string userId, string[] roles, Guid tenantId)
     {
         var jwtSection = _configuration.GetSection("Jwt");
         var key = jwtSection.GetValue<string>("Key") ?? throw new InvalidOperationException("JWT Key not configured");
@@ -41,7 +41,8 @@ public class TokenService : ITokenService
         {
             new(ClaimTypes.NameIdentifier, userId),
             new(JwtRegisteredClaimNames.Sub, userId),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new("app_tenant_id", tenantId.ToString())
         };
 
         foreach (var role in roles)

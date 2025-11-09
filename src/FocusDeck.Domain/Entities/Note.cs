@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace FocusDeck.Domain.Entities
 {
-    public class Note
+    public class Note : IMustHaveTenant
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Title { get; set; } = "";
@@ -14,6 +14,7 @@ namespace FocusDeck.Domain.Entities
         public DateTime CreatedDate { get; set; } = DateTime.Now;
         public DateTime? LastModified { get; set; }
         public List<NoteBookmark> Bookmarks { get; set; } = new();
+        public Guid TenantId { get; set; }
     }
 
     public class NoteBookmark

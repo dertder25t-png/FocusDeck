@@ -12,7 +12,7 @@ namespace FocusDeck.Server.Controllers.v1;
 
 [ApiController]
 [ApiVersion("1.0")]
-[Route("v{version:apiVersion}/invites")]
+[Route("v{version:apiVersion}/tenant-invites")]
 [Authorize]
 public class InvitesController : ControllerBase
 {
@@ -27,62 +27,83 @@ public class InvitesController : ControllerBase
 
     private string GetUserId() => User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException();
 
-    [HttpPost]
-    public async Task<IActionResult> CreateInvite([FromBody] CreateInviteRequest request, [FromQuery] Guid orgId)
+    [HttpGet]
+    public async Task<IActionResult> ListInvites([FromQuery] Guid tenantId)
     {
         var userId = GetUserId();
-        
-        // Check if requester is admin or owner
-        var requester = await _db.OrgUsers
-            .FirstOrDefaultAsync(ou => ou.OrganizationId == orgId && ou.UserId == userId);
-            
-        if (requester == null || requester.Role == OrgRole.Member)
+
+        var isMember = await _db.UserTenants.AnyAsync(ut => ut.TenantId == tenantId && ut.UserId == userId);
+        if (!isMember)
+        {
+            return NotFound(new { code = "TENANT_NOT_FOUND", message = "Tenant not found or access denied" });
+        }
+
+        var invites = await _db.TenantInvites
+            .Where(i => i.TenantId == tenantId)
+            .Select(i => new TenantInviteDto(
+                i.Id,
+                i.Email,
+                i.Role.ToString(),
+                i.CreatedAt,
+                i.ExpiresAt,
+                i.ExpiresAt < DateTime.UtcNow,
+                i.AcceptedAt != null))
+            .ToListAsync();
+
+        return Ok(invites);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateInvite([FromBody] CreateTenantInviteRequest request, [FromQuery] Guid tenantId)
+    {
+        var userId = GetUserId();
+
+        var requester = await _db.UserTenants
+            .FirstOrDefaultAsync(ut => ut.TenantId == tenantId && ut.UserId == userId);
+
+        if (requester == null || requester.Role == TenantRole.Member)
         {
             return Forbid();
         }
-        
-        // Validate role
-        if (!Enum.TryParse<OrgRole>(request.Role, true, out var role))
+
+        if (!Enum.TryParse<TenantRole>(request.Role, true, out var role))
         {
             return BadRequest(new { code = "INVALID_ROLE", message = "Invalid role specified" });
         }
-        
-        // Check if user is already a member
-        var existingMember = await _db.OrgUsers
-            .AnyAsync(ou => ou.OrganizationId == orgId && ou.User.Email == request.Email);
-            
+
+        var existingMember = await _db.UserTenants
+            .AnyAsync(ut => ut.TenantId == tenantId && ut.User.Email == request.Email);
+
         if (existingMember)
         {
-            return Conflict(new { code = "ALREADY_MEMBER", message = "User is already a member of this organization" });
+            return Conflict(new { code = "ALREADY_MEMBER", message = "User is already a member of this tenant" });
         }
-        
-        // Check for pending invite
-        var existingInvite = await _db.Invites
-            .FirstOrDefaultAsync(i => i.OrganizationId == orgId && i.Email == request.Email && i.AcceptedAt == null && i.ExpiresAt > DateTime.UtcNow);
-            
+
+        var existingInvite = await _db.TenantInvites
+            .FirstOrDefaultAsync(i => i.TenantId == tenantId && i.Email == request.Email && i.AcceptedAt == null && i.ExpiresAt > DateTime.UtcNow);
+
         if (existingInvite != null)
         {
             return Conflict(new { code = "INVITE_PENDING", message = "An invitation is already pending for this email" });
         }
-        
-        // Create invite
-        var invite = new Invite
+
+        var invite = new TenantInvite
         {
             Id = Guid.NewGuid(),
-            OrganizationId = orgId,
+            TenantId = tenantId,
             Email = request.Email,
             Role = role,
             Token = GenerateSecureToken(),
             CreatedAt = DateTime.UtcNow,
             ExpiresAt = DateTime.UtcNow.AddDays(7)
         };
-        
-        _db.Invites.Add(invite);
+
+        _db.TenantInvites.Add(invite);
         await _db.SaveChangesAsync();
-        
-        _logger.LogInformation("Invite created for {Email} to org {OrgId} by {UserId}", request.Email, orgId, userId);
-        
-        return CreatedAtAction(nameof(GetInvite), new { id = invite.Id }, new InviteDto(
+
+        _logger.LogInformation("Invite created for {Email} to tenant {TenantId} by {UserId}", request.Email, tenantId, userId);
+
+        return CreatedAtAction(nameof(GetInvite), new { id = invite.Id }, new TenantInviteDto(
             invite.Id,
             invite.Email,
             invite.Role.ToString(),
@@ -96,14 +117,14 @@ public class InvitesController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetInvite(Guid id)
     {
-        var invite = await _db.Invites.FindAsync(id);
-        
+        var invite = await _db.TenantInvites.FindAsync(id);
+
         if (invite == null)
         {
             return NotFound(new { code = "INVITE_NOT_FOUND", message = "Invite not found" });
         }
-        
-        return Ok(new InviteDto(
+
+        return Ok(new TenantInviteDto(
             invite.Id,
             invite.Email,
             invite.Role.ToString(),
@@ -115,107 +136,101 @@ public class InvitesController : ControllerBase
     }
 
     [HttpPost("accept")]
-    public async Task<IActionResult> AcceptInvite([FromBody] AcceptInviteRequest request)
+    public async Task<IActionResult> AcceptInvite([FromBody] AcceptTenantInviteRequest request)
     {
         var userId = GetUserId();
         var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? userId;
-        
-        var invite = await _db.Invites
-            .Include(i => i.Organization)
+
+        var invite = await _db.TenantInvites
+            .Include(i => i.Tenant)
             .FirstOrDefaultAsync(i => i.Token == request.Token);
-            
+
         if (invite == null)
         {
             return NotFound(new { code = "INVITE_NOT_FOUND", message = "Invalid invitation token" });
         }
-        
+
         if (invite.AcceptedAt != null)
         {
             return BadRequest(new { code = "ALREADY_ACCEPTED", message = "This invitation has already been accepted" });
         }
-        
+
         if (invite.ExpiresAt < DateTime.UtcNow)
         {
             return BadRequest(new { code = "INVITE_EXPIRED", message = "This invitation has expired" });
         }
-        
-        // Email must match (case-insensitive)
+
         if (!string.Equals(invite.Email, userEmail, StringComparison.OrdinalIgnoreCase))
         {
             return Forbid();
         }
-        
-        // Check if user already member
-        var existingMember = await _db.OrgUsers
-            .AnyAsync(ou => ou.OrganizationId == invite.OrganizationId && ou.UserId == userId);
-            
+
+        var existingMember = await _db.UserTenants
+            .AnyAsync(ut => ut.TenantId == invite.TenantId && ut.UserId == userId);
+
         if (existingMember)
         {
-            return BadRequest(new { code = "ALREADY_MEMBER", message = "You are already a member of this organization" });
+            return BadRequest(new { code = "ALREADY_MEMBER", message = "You are already a member of this tenant" });
         }
-        
-        // Ensure user exists
-        var user = await _db.Users.FindAsync(userId);
+
+        var user = await _db.TenantUsers.FindAsync(userId);
         if (user == null)
         {
             var userName = User.FindFirst(ClaimTypes.Name)?.Value ?? userEmail;
-            user = new User
+            user = new TenantUser
             {
                 Id = userId,
                 Email = userEmail,
                 Name = userName,
                 CreatedAt = DateTime.UtcNow
             };
-            _db.Users.Add(user);
+            _db.TenantUsers.Add(user);
         }
-        
-        // Add user to organization
-        var orgUser = new OrgUser
+
+        var membership = new UserTenant
         {
             Id = Guid.NewGuid(),
-            OrganizationId = invite.OrganizationId,
+            TenantId = invite.TenantId,
             UserId = userId,
             Role = invite.Role,
             JoinedAt = DateTime.UtcNow
         };
-        _db.OrgUsers.Add(orgUser);
-        
-        // Mark invite as accepted
+        _db.UserTenants.Add(membership);
+
         invite.AcceptedAt = DateTime.UtcNow;
         invite.AcceptedByUserId = userId;
-        
+
         await _db.SaveChangesAsync();
-        
-        _logger.LogInformation("User {UserId} accepted invite {InviteId} to org {OrgId}", userId, invite.Id, invite.OrganizationId);
-        
-        return Ok(new { organizationId = invite.OrganizationId, organizationName = invite.Organization.Name });
+
+        _logger.LogInformation("User {UserId} accepted invite {InviteId} to tenant {TenantId}", userId, invite.Id, invite.TenantId);
+
+        return Ok(new { tenantId = invite.TenantId, tenantName = invite.Tenant.Name });
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> RevokeInvite(Guid id, [FromQuery] Guid orgId)
+    public async Task<IActionResult> RevokeInvite(Guid id, [FromQuery] Guid tenantId)
     {
         var userId = GetUserId();
-        
-        // Check if requester is admin or owner
-        var requester = await _db.OrgUsers
-            .FirstOrDefaultAsync(ou => ou.OrganizationId == orgId && ou.UserId == userId);
-            
-        if (requester == null || requester.Role == OrgRole.Member)
+
+        var requester = await _db.UserTenants
+            .FirstOrDefaultAsync(ut => ut.TenantId == tenantId && ut.UserId == userId);
+
+        if (requester == null || requester.Role == TenantRole.Member)
         {
             return Forbid();
         }
-        
-        var invite = await _db.Invites.FindAsync(id);
-        if (invite == null || invite.OrganizationId != orgId)
+
+        var invite = await _db.TenantInvites.FindAsync(id);
+        if (invite == null || invite.TenantId != tenantId)
         {
             return NotFound(new { code = "INVITE_NOT_FOUND", message = "Invite not found" });
         }
-        
-        _db.Invites.Remove(invite);
+
+        _db.TenantInvites.Remove(invite);
         await _db.SaveChangesAsync();
-        
+
         _logger.LogInformation("Invite {InviteId} revoked by {UserId}", id, userId);
-        
+
         return NoContent();
     }
 

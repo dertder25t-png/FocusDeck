@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
-import { Button } from '../components/Button';
-import { Input } from '../components/Input';
-import { Badge } from '../components/Badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/Card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/Dialog';
+import { useState, useEffect } from 'react'
+import { Button } from '../components/Button'
+import { Input } from '../components/Input'
+import { Badge } from '../components/Badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/Card'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/Dialog'
+import { apiFetch } from '../lib/utils'
 
-interface OrgMember {
+interface TenantMember {
   id: string;
   userId: string;
   userName: string;
@@ -20,12 +21,13 @@ interface Invite {
   role: 'Owner' | 'Admin' | 'Member';
   createdAt: string;
   expiresAt: string;
-  token: string;
+  isExpired: boolean;
+  isAccepted: boolean;
 }
 
-export function OrgSettingsPage() {
-  const [orgId] = useState('org-1'); // Get from context/route
-  const [members, setMembers] = useState<OrgMember[]>([]);
+export function TenantSettingsPage() {
+  const [tenantId] = useState('tenant-1') // TODO: wire to router context
+  const [members, setMembers] = useState<TenantMember[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -35,13 +37,11 @@ export function OrgSettingsPage() {
   useEffect(() => {
     loadMembers();
     loadInvites();
-  }, [orgId]);
+  }, [tenantId]);
 
   const loadMembers = async () => {
     try {
-      const res = await fetch(`/v1/orgs/${orgId}/members`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      const res = await apiFetch(`/v1/tenants/${tenantId}/members`)
       if (res.ok) {
         const data = await res.json();
         setMembers(data);
@@ -53,9 +53,7 @@ export function OrgSettingsPage() {
 
   const loadInvites = async () => {
     try {
-      const res = await fetch(`/v1/orgs/${orgId}/invites`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      const res = await apiFetch(`/v1/tenant-invites?tenantId=${tenantId}`)
       if (res.ok) {
         const data = await res.json();
         setInvites(data);
@@ -70,11 +68,10 @@ export function OrgSettingsPage() {
     
     setLoading(true);
     try {
-      const res = await fetch(`/v1/invites?orgId=${orgId}`, {
+      const res = await apiFetch(`/v1/tenant-invites?tenantId=${tenantId}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ email: inviteEmail, role: inviteRole })
       });
@@ -93,12 +90,11 @@ export function OrgSettingsPage() {
   };
 
   const handleRemoveMember = async (memberId: string) => {
-    if (!confirm('Remove this member from the organization?')) return;
-    
+    if (!confirm('Remove this member from the tenant?')) return;
+
     try {
-      const res = await fetch(`/v1/orgs/${orgId}/members/${memberId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      const res = await apiFetch(`/v1/tenants/${tenantId}/members/${memberId}`, {
+        method: 'DELETE'
       });
       
       if (res.ok) {
@@ -111,9 +107,8 @@ export function OrgSettingsPage() {
 
   const handleRevokeInvite = async (inviteId: string) => {
     try {
-      const res = await fetch(`/v1/invites/${inviteId}?orgId=${orgId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      const res = await apiFetch(`/v1/tenant-invites/${inviteId}?tenantId=${tenantId}`, {
+        method: 'DELETE'
       });
       
       if (res.ok) {
@@ -136,7 +131,7 @@ export function OrgSettingsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-semibold text-white">Organization Settings</h1>
+        <h1 className="text-3xl font-semibold text-white">Tenant Settings</h1>
         <p className="text-gray-400 mt-2">Manage members, invites, and roles</p>
       </div>
 
@@ -146,7 +141,7 @@ export function OrgSettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Members</CardTitle>
-              <CardDescription>Active organization members</CardDescription>
+              <CardDescription>Active tenant members</CardDescription>
             </div>
             <Button onClick={() => setShowInviteDialog(true)}>Invite Member</Button>
           </div>
@@ -226,7 +221,7 @@ export function OrgSettingsPage() {
           <DialogHeader>
             <DialogTitle>Invite Member</DialogTitle>
             <DialogDescription>
-              Send an invitation to join your organization
+              Send an invitation to join your tenant
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

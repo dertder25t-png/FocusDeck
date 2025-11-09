@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using FocusDeck.Server.Services.Auth;
+using FocusDeck.Server.Services.Tenancy;
 
 namespace FocusDeck.Server.Controllers.v1;
 
@@ -29,6 +30,7 @@ public class AuthPakeController : ControllerBase
     private readonly FocusDeck.Server.Services.Auth.ISrpSessionCache _srpSessions;
     private readonly IConfiguration _configuration;
     private readonly IAuthAttemptLimiter _authLimiter;
+    private readonly ITenantMembershipService _tenantMembership;
 
     public AuthPakeController(
         AutomationDbContext db,
@@ -36,7 +38,8 @@ public class AuthPakeController : ControllerBase
         FocusDeck.Server.Services.Auth.ITokenService tokenService,
         FocusDeck.Server.Services.Auth.ISrpSessionCache srpSessions,
         IConfiguration configuration,
-        IAuthAttemptLimiter authLimiter)
+        IAuthAttemptLimiter authLimiter,
+        ITenantMembershipService tenantMembership)
     {
         _db = db;
         _logger = logger;
@@ -44,6 +47,7 @@ public class AuthPakeController : ControllerBase
         _srpSessions = srpSessions;
         _configuration = configuration;
         _authLimiter = authLimiter;
+        _tenantMembership = tenantMembership;
     }
 
     [HttpPost("register/start")]
@@ -265,7 +269,8 @@ public class AuthPakeController : ControllerBase
             var serverProof = Srp.ComputeServerProof(session.ClientPublic, expectedProof, sessionKey);
 
             var roles = new[] { "User" };
-            var accessToken = _tokenService.GenerateAccessToken(session.UserId, roles);
+            var tenantId = await _tenantMembership.EnsureTenantAsync(session.UserId, session.UserId, session.UserId, HttpContext.RequestAborted);
+            var accessToken = _tokenService.GenerateAccessToken(session.UserId, roles, tenantId);
             var refreshToken = _tokenService.GenerateRefreshToken();
 
             var deviceId = request.ClientId ?? session.ClientId ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-device";
@@ -286,13 +291,14 @@ public class AuthPakeController : ControllerBase
                 DeviceId = deviceId,
                 DeviceName = deviceName,
                 DevicePlatform = devicePlatform,
-                LastAccessUtc = DateTime.UtcNow
+                LastAccessUtc = DateTime.UtcNow,
+                TenantId = tenantId
             };
             _db.RefreshTokens.Add(refreshEntity);
 
             if (!string.IsNullOrWhiteSpace(deviceId))
             {
-                await UpsertDeviceRegistrationAsync(session.UserId, deviceId!, deviceName, devicePlatform);
+                await UpsertDeviceRegistrationAsync(session.UserId, tenantId, deviceId!, deviceName, devicePlatform);
             }
 
             await _db.SaveChangesAsync();
@@ -437,7 +443,7 @@ public class AuthPakeController : ControllerBase
         });
     }
 
-    private async Task UpsertDeviceRegistrationAsync(string userId, string deviceId, string? deviceName, string? devicePlatform)
+    private async Task UpsertDeviceRegistrationAsync(string userId, Guid tenantId, string deviceId, string? deviceName, string? devicePlatform)
     {
         deviceId = deviceId.Trim();
         var registration = await _db.DeviceRegistrations.FirstOrDefaultAsync(d => d.UserId == userId && d.DeviceId == deviceId);
@@ -454,7 +460,8 @@ public class AuthPakeController : ControllerBase
                 Platform = platform,
                 RegisteredAt = DateTime.UtcNow,
                 LastSyncAt = DateTime.UtcNow,
-                IsActive = true
+                IsActive = true,
+                TenantId = tenantId
             };
             _db.DeviceRegistrations.Add(registration);
         }
@@ -464,6 +471,10 @@ public class AuthPakeController : ControllerBase
             registration.Platform = platform;
             registration.LastSyncAt = DateTime.UtcNow;
             registration.IsActive = true;
+            if (registration.TenantId == Guid.Empty)
+            {
+                registration.TenantId = tenantId;
+            }
         }
     }
 

@@ -1,8 +1,11 @@
 import { useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { pakeLogin } from '../lib/pake'
 import { storeTokens } from '../lib/utils'
 
 export function LoginPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const [userId, setUserId] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -15,7 +18,8 @@ export function LoginPage() {
     try {
       const res = await pakeLogin(userId, password)
       storeTokens(res.accessToken, res.refreshToken, userId)
-      window.location.href = '/app/focus'
+      const from = (location.state as { from?: string } | undefined)?.from || '/'
+      navigate(from, { replace: true })
     } catch (err: any) {
       setError(err?.message || 'Login failed')
     } finally {
@@ -24,9 +28,10 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface text-white">
-      <form onSubmit={onSubmit} className="w-full max-w-sm p-6 border border-gray-700 rounded-lg bg-surface-100">
-        <h1 className="text-xl font-semibold mb-4">Sign in</h1>
+    <div className="min-h-screen flex items-center justify-center bg-surface text-white px-4">
+      <form onSubmit={onSubmit} className="w-full max-w-sm p-6 border border-gray-700 rounded-lg bg-surface-100 shadow-lg">
+        <h1 className="text-2xl font-semibold mb-2">Welcome back</h1>
+        <p className="text-sm text-gray-400 mb-6">Sign in with your FocusDeck ID to continue.</p>
 
         <label className="block text-sm mb-1">Email or User ID</label>
         <input
@@ -55,6 +60,13 @@ export function LoginPage() {
         >
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
+
+        <div className="text-sm text-gray-400 mt-6 text-center">
+          Need an account?{' '}
+          <Link to="/register" className="text-primary hover:underline">
+            Register
+          </Link>
+        </div>
       </form>
     </div>
   )

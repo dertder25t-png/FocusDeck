@@ -4,7 +4,7 @@ namespace FocusDeck.Domain.Entities;
 /// Represents a study session with timing, notes, and status information.
 /// This is a cross-platform model shared between desktop and mobile applications.
 /// </summary>
-public class StudySession
+public class StudySession : IMustHaveTenant
 {
     /// <summary>
     /// Unique identifier for the study session (Primary Key).
@@ -80,6 +80,7 @@ public class StudySession
     /// Returns true if the session has completed.
     /// </summary>
     public bool IsCompleted => Status == SessionStatus.Completed;
+    public Guid TenantId { get; set; }
 }
 
 /// <summary>

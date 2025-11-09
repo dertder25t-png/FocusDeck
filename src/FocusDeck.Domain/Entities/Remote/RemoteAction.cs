@@ -7,7 +7,7 @@ namespace FocusDeck.Domain.Entities.Remote;
 /// <summary>
 /// Represents a remote action command sent from one device to another
 /// </summary>
-public class RemoteAction
+public class RemoteAction : IMustHaveTenant
 {
     /// <summary>
     /// Unique identifier for the remote action
@@ -82,6 +82,7 @@ public class RemoteAction
     /// Check if action is pending
     /// </summary>
     public bool IsPending => !CompletedAt.HasValue;
+    public Guid TenantId { get; set; }
 }
 
 /// <summary>

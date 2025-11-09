@@ -1,6 +1,6 @@
 namespace FocusDeck.Domain.Entities;
 
-public class RefreshToken
+public class RefreshToken : IMustHaveTenant
 {
     public Guid Id { get; set; }
     public string UserId { get; set; } = string.Empty;
@@ -17,4 +17,5 @@ public class RefreshToken
     public bool IsExpired => DateTime.UtcNow >= ExpiresUtc;
     public bool IsRevoked => RevokedUtc != null;
     public bool IsActive => !IsRevoked && !IsExpired;
+    public Guid TenantId { get; set; }
 }
