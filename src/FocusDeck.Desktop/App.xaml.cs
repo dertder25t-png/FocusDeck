@@ -59,9 +59,9 @@ public partial class App : Application
             // Register HttpClient with Polly retry policy
             services.AddHttpClient<IApiClient, ApiClient>(client =>
             {
-                // Default dev server URL matches FocusDeck.Server launchSettings
+                // Default dev server URL matches standardized FocusDeck.Server port
                 // Use HTTP to avoid local dev cert issues unless HTTPS is explicitly configured
-                client.BaseAddress = new Uri("http://localhost:5239");
+                client.BaseAddress = new Uri("http://localhost:5000");
                 client.Timeout = TimeSpan.FromSeconds(30);
             })
             .AddStandardResilienceHandler(); // Adds retry, circuit breaker, timeout policies

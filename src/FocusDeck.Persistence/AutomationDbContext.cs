@@ -1,16 +1,23 @@
+using System;
+using System.Reflection;
+using System.Threading;
 using FocusDeck.Domain.Entities;
 using FocusDeck.Domain.Entities.Automations;
-using FocusDeck.Domain.Entities.Sync;
 using FocusDeck.Domain.Entities.Remote;
+using FocusDeck.Domain.Entities.Sync;
+using FocusDeck.SharedKernel.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
 namespace FocusDeck.Persistence;
 
 public class AutomationDbContext : DbContext
 {
-    public AutomationDbContext(DbContextOptions<AutomationDbContext> options)
+    private readonly ICurrentTenant _currentTenant;
+
+    public AutomationDbContext(DbContextOptions<AutomationDbContext> options, ICurrentTenant currentTenant)
         : base(options)
     {
+        _currentTenant = currentTenant;
     }
 
     public DbSet<Automation> Automations { get; set; }
@@ -42,10 +49,10 @@ public class AutomationDbContext : DbContext
     public DbSet<FocusPolicyTemplate> FocusPolicyTemplates { get; set; }
 
     // Multi-tenancy tables
-    public DbSet<Organization> Organizations { get; set; }
-    public DbSet<User> Users { get; set; }
-    public DbSet<OrgUser> OrgUsers { get; set; }
-    public DbSet<Invite> Invites { get; set; }
+    public DbSet<Tenant> Tenants { get; set; }
+    public DbSet<TenantUser> TenantUsers { get; set; }
+    public DbSet<UserTenant> UserTenants { get; set; }
+    public DbSet<TenantInvite> TenantInvites { get; set; }
 
     // Note suggestions
     public DbSet<NoteSuggestion> NoteSuggestions { get; set; }
@@ -70,5 +77,57 @@ public class AutomationDbContext : DbContext
 
         // Apply all configurations from the Configurations folder
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AutomationDbContext).Assembly);
+
+        ApplyTenantQueryFilters(modelBuilder);
+    }
+
+    public override int SaveChanges()
+    {
+        ApplyTenantStamps();
+        return base.SaveChanges();
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        ApplyTenantStamps();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void ApplyTenantStamps()
+    {
+        if (!_currentTenant.HasTenant)
+        {
+            return;
+        }
+
+        foreach (var entry in ChangeTracker.Entries<IMustHaveTenant>())
+        {
+            if (entry.State == EntityState.Added && entry.Entity.TenantId == Guid.Empty)
+            {
+                entry.Entity.TenantId = _currentTenant.TenantId!.Value;
+            }
+        }
+    }
+
+    private void ApplyTenantQueryFilters(ModelBuilder modelBuilder)
+    {
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (typeof(IMustHaveTenant).IsAssignableFrom(entityType.ClrType))
+            {
+                var methodInfo = typeof(AutomationDbContext)
+                    .GetMethod(nameof(SetTenantQueryFilter), BindingFlags.NonPublic | BindingFlags.Instance)!
+                    .MakeGenericMethod(entityType.ClrType);
+
+                methodInfo.Invoke(this, new object[] { modelBuilder });
+            }
+        }
+    }
+
+    private void SetTenantQueryFilter<TEntity>(ModelBuilder modelBuilder)
+        where TEntity : class, IMustHaveTenant
+    {
+        modelBuilder.Entity<TEntity>()
+            .HasQueryFilter(entity => !_currentTenant.HasTenant || entity.TenantId == _currentTenant.TenantId);
     }
 }

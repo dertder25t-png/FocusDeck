@@ -1,6 +1,6 @@
 namespace FocusDeck.Domain.Entities;
 
-public class NoteSuggestion
+public class NoteSuggestion : IMustHaveTenant
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public string NoteId { get; set; } = string.Empty;
@@ -14,6 +14,7 @@ public class NoteSuggestion
     
     // Navigation properties
     public Note Note { get; set; } = null!;
+    public Guid TenantId { get; set; }
 }
 
 public enum NoteSuggestionType

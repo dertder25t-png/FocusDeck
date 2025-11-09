@@ -1,6 +1,6 @@
 namespace FocusDeck.Domain.Entities;
 
-public class Lecture
+public class Lecture : IMustHaveTenant
 {
     public string Id { get; set; } = string.Empty;
     public string CourseId { get; set; } = string.Empty;
@@ -28,6 +28,7 @@ public class Lecture
     // Navigation properties
     public Course Course { get; set; } = null!;
     public Asset? AudioAsset { get; set; }
+    public Guid TenantId { get; set; }
 }
 
 public enum LectureStatus

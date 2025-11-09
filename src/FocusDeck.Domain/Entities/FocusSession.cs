@@ -3,7 +3,7 @@ namespace FocusDeck.Domain.Entities;
 /// <summary>
 /// Represents a focus session with smart signals and policies
 /// </summary>
-public class FocusSession
+public class FocusSession : IMustHaveTenant
 {
     /// <summary>
     /// Unique identifier for the focus session
@@ -69,6 +69,7 @@ public class FocusSession
     /// Returns true if the session has completed
     /// </summary>
     public bool IsCompleted => Status == FocusSessionStatus.Completed;
+    public Guid TenantId { get; set; }
 }
 
 /// <summary>

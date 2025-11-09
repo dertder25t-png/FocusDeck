@@ -18,7 +18,7 @@ NC='\033[0m' # No Color
 # Configuration
 FOCUSDECK_HOME="${HOME}/FocusDeck"
 SERVICE_NAME="focusdeck"
-PORT="5239"
+PORT="5000"
 SYSTEMD_SERVICE="/etc/systemd/system/${SERVICE_NAME}.service"
 
 # Helper functions

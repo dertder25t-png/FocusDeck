@@ -1,6 +1,8 @@
+using FocusDeck.Domain.Entities;
+
 namespace FocusDeck.Domain.Entities.Auth;
 
-public class KeyVault
+public class KeyVault : IMustHaveTenant
 {
     public string UserId { get; set; } = string.Empty;
     public string VaultDataBase64 { get; set; } = string.Empty; // salt+nonce+ciphertext+tag (from client export)
@@ -9,4 +11,5 @@ public class KeyVault
     public string? KdfMetadataJson { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public Guid TenantId { get; set; }
 }

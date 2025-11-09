@@ -1,6 +1,6 @@
 namespace FocusDeck.Domain.Entities;
 
-public class ReviewPlan
+public class ReviewPlan : IMustHaveTenant
 {
     public string Id { get; set; } = string.Empty;
     public string UserId { get; set; } = string.Empty;
@@ -13,9 +13,10 @@ public class ReviewPlan
     
     // Review sessions (spaced repetition schedule)
     public List<ReviewSession> ReviewSessions { get; set; } = new();
+    public Guid TenantId { get; set; }
 }
 
-public class ReviewSession
+public class ReviewSession : IMustHaveTenant
 {
     public string Id { get; set; } = string.Empty;
     public string ReviewPlanId { get; set; } = string.Empty;
@@ -24,9 +25,10 @@ public class ReviewSession
     public ReviewSessionStatus Status { get; set; } = ReviewSessionStatus.Pending;
     public int? Score { get; set; } // 0-100 self-assessment score
     public string? Notes { get; set; }
-    
+
     // Navigation
     public ReviewPlan ReviewPlan { get; set; } = null!;
+    public Guid TenantId { get; set; }
 }
 
 public enum ReviewPlanEntityType

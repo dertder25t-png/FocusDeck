@@ -1,3 +1,5 @@
+using FocusDeck.Domain.Entities;
+
 namespace FocusDeck.Domain.Entities.Auth;
 
 public enum PairingStatus
@@ -8,7 +10,7 @@ public enum PairingStatus
     Expired = 3
 }
 
-public class PairingSession
+public class PairingSession : IMustHaveTenant
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string UserId { get; set; } = string.Empty;
@@ -25,4 +27,5 @@ public class PairingSession
     public string? VaultDataBase64 { get; set; }
     public string? VaultKdfMetadataJson { get; set; }
     public string? VaultCipherSuite { get; set; }
+    public Guid TenantId { get; set; }
 }

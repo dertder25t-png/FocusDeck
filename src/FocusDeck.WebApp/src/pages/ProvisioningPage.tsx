@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { QrReader } from 'react-qr-reader';
-import { QRCode } from 'qrcode.react';
+import React, { useState } from 'react'
+import { QrReader } from 'react-qr-reader'
+import { QRCode } from 'qrcode.react'
 
-const ProvisioningPage: React.FC = () => {
+export function ProvisioningPage() {
   const [mode, setMode] = useState<'scan' | 'display'>('display');
   const [scannedData, setScannedData] = useState<string | null>(null);
 
@@ -46,6 +46,4 @@ const ProvisioningPage: React.FC = () => {
       )}
     </div>
   );
-};
-
-export default ProvisioningPage;
+}

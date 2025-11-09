@@ -4,7 +4,7 @@ namespace FocusDeck.Domain.Entities;
 /// Stores OAuth client credentials and other service configuration
 /// that users can configure through the UI without editing appsettings.json
 /// </summary>
-public class ServiceConfiguration
+public class ServiceConfiguration : IMustHaveTenant
 {
     public Guid Id { get; set; }
     public string ServiceName { get; set; } = string.Empty;
@@ -19,4 +19,5 @@ public class ServiceConfiguration
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public Guid TenantId { get; set; }
 }

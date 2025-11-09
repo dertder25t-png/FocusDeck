@@ -50,4 +50,5 @@ dist/
 build/
 
 # SPA build output in wwwroot
-src/FocusDeck.Server/wwwroot/app/
+src/FocusDeck.Server/wwwroot/*
+!src/FocusDeck.Server/wwwroot/.gitkeep

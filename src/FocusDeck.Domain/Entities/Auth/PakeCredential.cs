@@ -1,6 +1,8 @@
+using FocusDeck.Domain.Entities;
+
 namespace FocusDeck.Domain.Entities.Auth;
 
-public class PakeCredential
+public class PakeCredential : IMustHaveTenant
 {
     public string UserId { get; set; } = string.Empty; // email or user identifier
     public string SaltBase64 { get; set; } = string.Empty;
@@ -11,4 +13,5 @@ public class PakeCredential
     public string? KdfParametersJson { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public Guid TenantId { get; set; }
 }

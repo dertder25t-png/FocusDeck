@@ -1,6 +1,8 @@
+using FocusDeck.Domain.Entities;
+
 namespace FocusDeck.Domain.Entities.Automations
 {
-    public class Automation
+    public class Automation : IMustHaveTenant
     {
         public Guid Id { get; set; }
         public string Name { get; set; } = null!;
@@ -11,5 +13,6 @@ namespace FocusDeck.Domain.Entities.Automations
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public DateTime? LastRunAt { get; set; }
+        public Guid TenantId { get; set; }
     }
 }

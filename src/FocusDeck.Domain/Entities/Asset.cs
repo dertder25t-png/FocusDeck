@@ -1,6 +1,6 @@
 namespace FocusDeck.Domain.Entities;
 
-public class Asset
+public class Asset : IMustHaveTenant
 {
     public string Id { get; set; } = null!;
     public string FileName { get; set; } = null!;
@@ -11,4 +11,5 @@ public class Asset
     public string? UploadedBy { get; set; }
     public string? Description { get; set; }
     public Dictionary<string, string>? Metadata { get; set; }
+    public Guid TenantId { get; set; }
 }

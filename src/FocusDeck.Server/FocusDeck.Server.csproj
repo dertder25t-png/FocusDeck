@@ -48,15 +48,15 @@
     <ProjectReference Include="..\FocusDeck.Services\FocusDeck.Services.csproj" />
   </ItemGroup>
 
-  <!-- Build SPA and copy to wwwroot/app (DISABLED - WebApp not yet implemented) -->
-  <!--
   <Target Name="BuildSpa" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release'">
-    <Exec Command="cd $(ProjectDir)../FocusDeck.WebApp &amp;&amp; npm install &amp;&amp; npm run build" />
+    <Exec WorkingDirectory="$(ProjectDir)../FocusDeck.WebApp" Command="npm ci" />
+    <Exec WorkingDirectory="$(ProjectDir)../FocusDeck.WebApp" Command="npm run build" />
+    <RemoveDir Directories="$(ProjectDir)wwwroot" />
+    <MakeDir Directories="$(ProjectDir)wwwroot" />
     <ItemGroup>
-      <SpaFiles Include="$(ProjectDir)../FocusDeck.WebApp/dist/**/*.*" />
+      <SpaFiles Include="$(ProjectDir)../FocusDeck.WebApp/dist/**/*" />
     </ItemGroup>
-    <Copy SourceFiles="@(SpaFiles)" DestinationFolder="$(ProjectDir)wwwroot/app/%(RecursiveDir)" />
+    <Copy SourceFiles="@(SpaFiles)" DestinationFiles="@(SpaFiles->'$(ProjectDir)wwwroot/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
-  -->
 
 </Project>

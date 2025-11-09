@@ -7,7 +7,7 @@ namespace FocusDeck.Domain.Entities.Remote;
 /// <summary>
 /// Represents a device (Desktop or Phone) registered for remote control capabilities
 /// </summary>
-public class DeviceLink
+public class DeviceLink : IMustHaveTenant
 {
     /// <summary>
     /// Unique identifier for the device
@@ -67,6 +67,8 @@ public class DeviceLink
     {
         CapabilitiesJson = JsonSerializer.Serialize(capabilities);
     }
+
+    public Guid TenantId { get; set; }
 }
 
 /// <summary>

@@ -1,6 +1,6 @@
 namespace FocusDeck.Domain.Entities;
 
-public class StudentContext
+public class StudentContext : IMustHaveTenant
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string UserId { get; set; } = string.Empty;
@@ -12,5 +12,6 @@ public class StudentContext
     public bool IsIdle { get; set; }
 
     public string? OpenContextsJson { get; set; }
+    public Guid TenantId { get; set; }
 }
 

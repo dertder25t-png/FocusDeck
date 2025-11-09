@@ -25,11 +25,15 @@ FocusDeck is a cross-platform productivity suite combining window management, st
 
 ### 🌐 Web Application (Browser-Based SaaS)
 
-Access FocusDeck through your web browser - no installation required!
+Access FocusDeck through your web browser - no installation required! The new FocusDeck + Jarvis execution plan standardizes the
+SPA at the root path, so deployments should target the base URL:
 
 ```
-https://your-focusdeck-domain.com/app
+https://your-focusdeck-domain.com/
 ```
+
+📌 **Roadmap reference:** See [FocusDeck + Jarvis Execution Roadmap](docs/FocusDeck_Jarvis_Execution_Roadmap.md) for the full
+upgrade plan (Phase 0.1 covers the `/` SPA routing work and removal of legacy assets).
 
 **Features:**
 - 🎓 **Lecture Companion** - Upload, transcribe, and process lectures

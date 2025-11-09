@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { apiFetch } from '../lib/utils'
+import { startPairing } from '../lib/pake'
 import { QrCode } from '../components/QrCode'
 
 export function PairingPage() {
@@ -10,9 +10,7 @@ export function PairingPage() {
   const start = async () => {
     setError(null)
     try {
-      const res = await apiFetch('/v1/auth/pake/pair/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
-      if (!res.ok) throw new Error('Failed to start pairing')
-      const data = await res.json()
+      const data = await startPairing()
       setPairingId(data.pairingId)
       setCode(data.code)
     } catch (e: any) {

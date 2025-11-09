@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.FileProviders;
@@ -24,6 +25,8 @@ using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using StackExchange.Redis;
 using Microsoft.Extensions.Caching.Memory;
+using FocusDeck.Server.Services.Tenancy;
+using FocusDeck.SharedKernel.Tenancy;
 
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
@@ -128,6 +131,7 @@ try
 
     // Add HttpClient for OAuth token exchange
     builder.Services.AddHttpClient();
+    builder.Services.AddHttpContextAccessor();
 
     // Rate limiting for auth endpoints (per-IP)
     builder.Services.AddRateLimiter(options =>
@@ -191,6 +195,8 @@ try
         var memoryCache = sp.GetRequiredService<IMemoryCache>();
         return new FocusDeck.Server.Services.Auth.AuthAttemptLimiter(redis, memoryCache);
     });
+    builder.Services.AddScoped<ITenantMembershipService, TenantMembershipService>();
+    builder.Services.AddScoped<ICurrentTenant, HttpContextCurrentTenant>();
 
     // Add Storage services
     builder.Services.AddSingleton<FocusDeck.Server.Services.Storage.IAssetStorage, FocusDeck.Server.Services.Storage.LocalFileSystemAssetStorage>();
@@ -451,209 +457,6 @@ try
             Log.Warning(ex, "Database migration failed; proceeding with best-effort initialization");
         }
 
-        // Lightweight schema guard: add new columns if missing (SQLite)
-        try
-        {
-            var conn = db.Database.GetDbConnection();
-            await conn.OpenAsync();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "PRAGMA table_info(ConnectedServices);";
-            var cols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            using (var reader = await cmd.ExecuteReaderAsync())
-            {
-                while (await reader.ReadAsync())
-                {
-                    cols.Add(reader.GetString(1));
-                }
-            }
-            var alterCmds = new List<string>();
-            if (!cols.Contains("MetadataJson")) alterCmds.Add("ALTER TABLE ConnectedServices ADD COLUMN MetadataJson TEXT;");
-            if (!cols.Contains("IsConfigured")) alterCmds.Add("ALTER TABLE ConnectedServices ADD COLUMN IsConfigured INTEGER NOT NULL DEFAULT 0;");
-            foreach (var sql in alterCmds)
-            {
-                using var c2 = conn.CreateCommand();
-                c2.CommandText = sql;
-                await c2.ExecuteNonQueryAsync();
-            }
-        }
-        catch { /* best-effort */ }
-
-        // Ensure sync tables exist (SQLite) - best-effort CREATE IF NOT EXISTS
-        try
-        {
-            var conn = db.Database.GetDbConnection();
-            await conn.OpenAsync();
-            var createCommands = new[]
-            {
-                // DeviceRegistrations
-                @"CREATE TABLE IF NOT EXISTS DeviceRegistrations (
-                    Id TEXT PRIMARY KEY,
-                    DeviceId TEXT NOT NULL,
-                    DeviceName TEXT NOT NULL,
-                    Platform INTEGER NOT NULL,
-                    UserId TEXT NOT NULL,
-                    RegisteredAt TEXT NOT NULL,
-                    LastSyncAt TEXT NOT NULL,
-                    IsActive INTEGER NOT NULL,
-                    AppVersion TEXT
-                );",
-                // Auth: PakeCredentials
-                @"CREATE TABLE IF NOT EXISTS PakeCredentials (
-                    UserId TEXT PRIMARY KEY,
-                    SaltBase64 TEXT NOT NULL,
-                    VerifierBase64 TEXT NOT NULL,
-                    Algorithm TEXT NOT NULL,
-                    ModulusHex TEXT NOT NULL,
-                    Generator INTEGER NOT NULL,
-                    KdfParametersJson TEXT,
-                    CreatedAt TEXT NOT NULL,
-                    UpdatedAt TEXT NOT NULL
-                );",
-                // Auth: KeyVaults
-                @"CREATE TABLE IF NOT EXISTS KeyVaults (
-                    UserId TEXT PRIMARY KEY,
-                    VaultDataBase64 TEXT NOT NULL,
-                    Version INTEGER NOT NULL DEFAULT 1,
-                    CipherSuite TEXT NOT NULL DEFAULT 'AES-256-GCM',
-                    KdfMetadataJson TEXT,
-                    CreatedAt TEXT NOT NULL,
-                    UpdatedAt TEXT NOT NULL
-                );",
-                // Auth: PairingSessions
-                @"CREATE TABLE IF NOT EXISTS PairingSessions (
-                    Id TEXT PRIMARY KEY,
-                    UserId TEXT NOT NULL,
-                    Code TEXT NOT NULL,
-                    Status INTEGER NOT NULL,
-                    CreatedAt TEXT NOT NULL,
-                    ExpiresAt TEXT NOT NULL,
-                    SourceDeviceId TEXT,
-                    TargetDeviceId TEXT,
-                    VaultDataBase64 TEXT,
-                    VaultKdfMetadataJson TEXT,
-                    VaultCipherSuite TEXT
-                );",
-                // Auth: RevokedAccessTokens
-                @"CREATE TABLE IF NOT EXISTS RevokedAccessTokens (
-                    Id TEXT PRIMARY KEY,
-                    Jti TEXT NOT NULL,
-                    UserId TEXT NOT NULL,
-                    RevokedAt TEXT NOT NULL,
-                    ExpiresUtc TEXT NOT NULL
-                );",
-                // Auth: RefreshTokens
-                @"CREATE TABLE IF NOT EXISTS RefreshTokens (
-                    Id TEXT PRIMARY KEY,
-                    UserId TEXT NOT NULL,
-                    TokenHash TEXT NOT NULL,
-                    ClientFingerprint TEXT NOT NULL,
-                    DeviceId TEXT,
-                    DeviceName TEXT,
-                    DevicePlatform TEXT,
-                    IssuedUtc TEXT NOT NULL,
-                    ExpiresUtc TEXT NOT NULL,
-                    LastAccessUtc TEXT,
-                    RevokedUtc TEXT,
-                    ReplacedByTokenHash TEXT
-                );",
-                // Auth: AuthEventLogs
-                @"CREATE TABLE IF NOT EXISTS AuthEventLogs (
-                    Id TEXT PRIMARY KEY,
-                    EventType TEXT NOT NULL,
-                    UserId TEXT,
-                    OccurredAtUtc TEXT NOT NULL,
-                    IsSuccess INTEGER NOT NULL,
-                    FailureReason TEXT,
-                    RemoteIp TEXT,
-                    DeviceId TEXT,
-                    DeviceName TEXT,
-                    UserAgent TEXT,
-                    MetadataJson TEXT
-                );",
-                // SyncTransactions
-                @"CREATE TABLE IF NOT EXISTS SyncTransactions (
-                    Id TEXT PRIMARY KEY,
-                    DeviceId TEXT NOT NULL,
-                    Timestamp TEXT NOT NULL,
-                    Status INTEGER NOT NULL,
-                    ErrorMessage TEXT
-                );",
-                // SyncChanges
-                @"CREATE TABLE IF NOT EXISTS SyncChanges (
-                    Id TEXT PRIMARY KEY,
-                    TransactionId TEXT NOT NULL,
-                    EntityType INTEGER NOT NULL,
-                    EntityId TEXT NOT NULL,
-                    Operation INTEGER NOT NULL,
-                    DataJson TEXT NOT NULL,
-                    ChangedAt TEXT NOT NULL,
-                    ChangeVersion INTEGER NOT NULL
-                );",
-                // SyncMetadata
-                @"CREATE TABLE IF NOT EXISTS SyncMetadata (
-                    Id TEXT PRIMARY KEY,
-                    DeviceId TEXT NOT NULL UNIQUE,
-                    LastSyncVersion INTEGER NOT NULL,
-                    LastSyncTime TEXT NOT NULL,
-                    EntityVersions TEXT
-                );",
-                // SyncVersions (global version stamps)
-                @"CREATE TABLE IF NOT EXISTS SyncVersions (
-                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    CreatedAt TEXT NOT NULL
-                );",
-                // Indexes (best-effort)
-                @"CREATE UNIQUE INDEX IF NOT EXISTS IX_RevokedAccessTokens_Jti ON RevokedAccessTokens (Jti);",
-                @"CREATE INDEX IF NOT EXISTS IX_RevokedAccessTokens_ExpiresUtc ON RevokedAccessTokens (ExpiresUtc);",
-                @"CREATE INDEX IF NOT EXISTS IX_PairingSessions_UserId_Code_Status ON PairingSessions (UserId, Code, Status);",
-                @"CREATE INDEX IF NOT EXISTS IX_PairingSessions_Code ON PairingSessions (Code);",
-                @"CREATE INDEX IF NOT EXISTS IX_PairingSessions_ExpiresAt ON PairingSessions (ExpiresAt);",
-                @"CREATE UNIQUE INDEX IF NOT EXISTS IX_RefreshTokens_TokenHash ON RefreshTokens (TokenHash);",
-                @"CREATE INDEX IF NOT EXISTS IX_RefreshTokens_UserId ON RefreshTokens (UserId);",
-                @"CREATE INDEX IF NOT EXISTS IX_RefreshTokens_ExpiresUtc ON RefreshTokens (ExpiresUtc);",
-                @"CREATE INDEX IF NOT EXISTS IX_RefreshTokens_RevokedUtc ON RefreshTokens (RevokedUtc);",
-                @"CREATE INDEX IF NOT EXISTS IX_RefreshTokens_DeviceId ON RefreshTokens (DeviceId);",
-                @"CREATE INDEX IF NOT EXISTS IX_AuthEventLogs_UserId ON AuthEventLogs (UserId);",
-                @"CREATE INDEX IF NOT EXISTS IX_AuthEventLogs_EventType ON AuthEventLogs (EventType);",
-                @"CREATE INDEX IF NOT EXISTS IX_AuthEventLogs_OccurredAtUtc ON AuthEventLogs (OccurredAtUtc);",
-                // Notes
-                @"CREATE TABLE IF NOT EXISTS Notes (
-                    Id TEXT PRIMARY KEY,
-                    Title TEXT NOT NULL,
-                    Content TEXT NOT NULL,
-                    Tags TEXT,
-                    Color TEXT,
-                    IsPinned INTEGER NOT NULL DEFAULT 0,
-                    CreatedDate TEXT NOT NULL,
-                    LastModified TEXT,
-                    Bookmarks TEXT
-                );",
-                // StudySessions
-                @"CREATE TABLE IF NOT EXISTS StudySessions (
-                    SessionId TEXT PRIMARY KEY,
-                    StartTime TEXT NOT NULL,
-                    EndTime TEXT,
-                    DurationMinutes INTEGER NOT NULL,
-                    SessionNotes TEXT,
-                    Status INTEGER NOT NULL,
-                    CreatedAt TEXT NOT NULL,
-                    UpdatedAt TEXT NOT NULL,
-                    FocusRate INTEGER,
-                    BreaksCount INTEGER NOT NULL DEFAULT 0,
-                    BreakDurationMinutes INTEGER NOT NULL DEFAULT 0,
-                    Category TEXT
-                );"
-            };
-
-            foreach (var sql in createCommands)
-            {
-                using var c = conn.CreateCommand();
-                c.CommandText = sql;
-                await c.ExecuteNonQueryAsync();
-            }
-        }
-        catch { /* best-effort */ }
-    }
 
     // Configure the HTTP request pipeline.
     if (app.Environment.IsDevelopment())
@@ -661,105 +464,36 @@ try
         app.MapOpenApi();
     }
 
-    // SPA Fallback middleware - MUST RUN BEFORE StaticFiles so rewrites are served
-    // For directory requests or routes without extensions, serve index.html to enable client-side routing
-    app.Use(async (context, next) =>
-    {
-        var path = context.Request.Path.Value ?? "/";
-        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-        
-        // Only process non-API routes (API routes start with /v1, /swagger, /healthz, /hubs)
-        // Skip root "/" - it has a dedicated MapGet endpoint that injects version
-        if (!path.StartsWith("/v1") && 
-            !path.StartsWith("/swagger") && 
-            !path.StartsWith("/healthz") &&
-            !path.StartsWith("/hubs") &&
-            !path.Equals("/", StringComparison.OrdinalIgnoreCase) &&
-            !path.Equals("/swagger.json", StringComparison.OrdinalIgnoreCase))
-        {
-            // Support both /app/... and /... paths for UI
-            var uiPath = path.StartsWith("/app") ? path : $"/app{path}";
-            if (uiPath == "/app/") uiPath = "/app/index.html";
-            
-            var filePath = Path.Combine(
-                Directory.GetCurrentDirectory(),
-                "wwwroot",
-                uiPath.TrimStart('/'));
-            
-            logger.LogDebug("SPA Fallback: Checking path={Path}, uiPath={UiPath}, filePath={FilePath}", path, uiPath, filePath);
-            
-            // If path has an extension (like .css, .js, .svg), don't rewrite
-            if (Path.HasExtension(uiPath))
-            {
-                logger.LogDebug("SPA Fallback: Path has extension, passing through");
-                await next();
-                return;
-            }
-            
-            // If it's a directory, append index.html
-            if (Directory.Exists(filePath))
-            {
-                filePath = Path.Combine(filePath, "index.html");
-                logger.LogDebug("SPA Fallback: Is directory, checking for index.html at {FilePath}", filePath);
-            }
-            
-            // Check if the file exists
-            if (System.IO.File.Exists(filePath))
-            {
-                logger.LogDebug("SPA Fallback: File exists at {FilePath}, serving as {UiPath}", filePath, uiPath);
-                context.Request.Path = uiPath;
-            }
-            else
-            {
-                logger.LogDebug("SPA Fallback: File not found at {FilePath}, defaulting to index.html", filePath);
-                // Default to index.html for client-side routing
-                context.Request.Path = "/app/index.html";
-            }
-        }
-        await next();
-    });
-
-    // Serve static files (Web UI)
+    app.UseDefaultFiles();
     app.UseStaticFiles(new StaticFileOptions
     {
         OnPrepareResponse = ctx =>
         {
-            // For non-HTML files, use aggressive caching.
-            // HTML files are served by the custom endpoint below and will have their own headers.
-            if (!ctx.File.Name.EndsWith(".html"))
+            if (!ctx.File.Name.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
             {
-                ctx.Context.Response.Headers.Append("Cache-Control", "public,max-age=604800"); // 7 days
+                ctx.Context.Response.Headers.Append("Cache-Control", "public,max-age=604800");
             }
         }
     });
 
-    // Serve static files from wwwroot/app (Vite build output)
-    var appAssetsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "app");
-    if (Directory.Exists(appAssetsPath))
-    {
-        var provider = new FileExtensionContentTypeProvider();
-        // Ensure CSS and JS have correct MIME types
-        provider.Mappings[".css"] = "text/css";
-        provider.Mappings[".js"] = "application/javascript";
-        provider.Mappings[".mjs"] = "application/javascript";
-        provider.Mappings[".json"] = "application/json";
-        provider.Mappings[".svg"] = "image/svg+xml";
-        
-        app.UseStaticFiles(new StaticFileOptions
+    app.MapWhen(
+        ctx =>
+            !ctx.Request.Path.StartsWithSegments("/v1") &&
+            !ctx.Request.Path.StartsWithSegments("/hubs") &&
+            !Path.HasExtension(ctx.Request.Path.Value ?? string.Empty),
+        spa => spa.Run(async context =>
         {
-            FileProvider = new PhysicalFileProvider(appAssetsPath),
-            RequestPath = "/app",
-            ContentTypeProvider = provider,
-            OnPrepareResponse = ctx =>
+            var indexFile = Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "index.html");
+            if (!System.IO.File.Exists(indexFile))
             {
-                // Cache static assets (JS, CSS, images) - use immutable cache for content-hashed files
-                if (!ctx.File.Name.Equals("index.html", StringComparison.OrdinalIgnoreCase))
-                {
-                    ctx.Context.Response.Headers["Cache-Control"] = "public,max-age=31536000,immutable";
-                }
+                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                await context.Response.WriteAsync("SPA assets not found. Run 'npm run build' in src/FocusDeck.WebApp.'");
+                return;
             }
-        });
-    }
+
+            context.Response.ContentType = "text/html";
+            await context.Response.SendFileAsync(indexFile);
+        }));
 
     // Enable CORS with strict policy
     app.UseCors("StrictCors");

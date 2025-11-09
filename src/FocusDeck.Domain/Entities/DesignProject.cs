@@ -1,6 +1,6 @@
 namespace FocusDeck.Domain.Entities;
 
-public class DesignProject
+public class DesignProject : IMustHaveTenant
 {
     public Guid Id { get; set; }
     public string UserId { get; set; } = string.Empty;
@@ -11,8 +11,9 @@ public class DesignProject
     public List<string> BrandKeywords { get; set; } = new();
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
-    
+
     public ICollection<DesignIdea> Ideas { get; set; } = new List<DesignIdea>();
+    public Guid TenantId { get; set; }
 }
 
 public enum DesignIdeaType
@@ -23,7 +24,7 @@ public enum DesignIdeaType
     Reference
 }
 
-public class DesignIdea
+public class DesignIdea : IMustHaveTenant
 {
     public Guid Id { get; set; }
     public Guid ProjectId { get; set; }
@@ -33,6 +34,7 @@ public class DesignIdea
     public double? Score { get; set; }
     public bool IsPinned { get; set; }
     public DateTime CreatedAt { get; set; }
-    
+
     public DesignProject Project { get; set; } = null!;
+    public Guid TenantId { get; set; }
 }

@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FocusDeck.Domain\FocusDeck.Domain.csproj" />
+    <ProjectReference Include="..\FocusDeck.SharedKernel\FocusDeck.SharedKernel.csproj" />
   </ItemGroup>
 
 </Project>
