@@ -2,6 +2,8 @@ using Asp.Versioning;
 using FocusDeck.Contracts.MultiTenancy;
 using FocusDeck.Domain.Entities;
 using FocusDeck.Persistence;
+using FocusDeck.Server.Services.Auth;
+using FocusDeck.SharedKernel.Tenancy;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,11 +20,19 @@ public class TenantsController : ControllerBase
 {
     private readonly AutomationDbContext _db;
     private readonly ILogger<TenantsController> _logger;
+    private readonly ITokenService _tokenService;
+    private readonly ICurrentTenant _currentTenant;
 
-    public TenantsController(AutomationDbContext db, ILogger<TenantsController> logger)
+    public TenantsController(
+        AutomationDbContext db,
+        ILogger<TenantsController> logger,
+        ITokenService tokenService,
+        ICurrentTenant currentTenant)
     {
         _db = db;
         _logger = logger;
+        _tokenService = tokenService;
+        _currentTenant = currentTenant;
     }
 
     private string GetUserId() => User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException();
@@ -47,6 +57,53 @@ public class TenantsController : ControllerBase
             .ToListAsync();
 
         return Ok(tenants);
+    }
+
+    [HttpGet("current")]
+    public async Task<IActionResult> GetCurrentTenantSummary()
+    {
+        var userId = GetUserId();
+        var tenantId = _currentTenant.TenantId;
+
+        if (tenantId == null || tenantId == Guid.Empty)
+        {
+            tenantId = await _db.UserTenants
+                .Where(ut => ut.UserId == userId)
+                .OrderBy(ut => ut.JoinedAt)
+                .Select(ut => (Guid?)ut.TenantId)
+                .FirstOrDefaultAsync();
+
+            if (tenantId == null)
+            {
+                return NotFound(new { code = "TENANT_NOT_FOUND", message = "No tenant associated with this user." });
+            }
+
+            _currentTenant.SetTenant(tenantId.Value);
+        }
+
+        var tenant = await _db.Tenants
+            .Include(t => t.Members)
+            .ThenInclude(m => m.User)
+            .FirstOrDefaultAsync(t => t.Id == tenantId.Value);
+
+        if (tenant == null)
+        {
+            return NotFound(new { code = "TENANT_NOT_FOUND", message = "Tenant referenced in token no longer exists." });
+        }
+
+        var membership = tenant.Members.FirstOrDefault(m => m.UserId == userId);
+        if (membership == null)
+        {
+            return Forbid();
+        }
+
+        return Ok(new CurrentTenantDto(
+            tenant.Id,
+            tenant.Name,
+            tenant.Slug,
+            membership.Role.ToString(),
+            tenant.Members.Count
+        ));
     }
 
     [HttpPost]
@@ -162,6 +219,25 @@ public class TenantsController : ControllerBase
             .ToListAsync();
 
         return Ok(members);
+    }
+
+    [HttpPost("{id}/switch")]
+    public async Task<IActionResult> SwitchTenant(Guid id)
+    {
+        var userId = GetUserId();
+
+        var membership = await _db.UserTenants.FirstOrDefaultAsync(ut => ut.TenantId == id && ut.UserId == userId);
+        if (membership == null)
+        {
+            return NotFound(new { code = "TENANT_NOT_FOUND", message = "Tenant not found or access denied" });
+        }
+
+        var accessToken = _tokenService.GenerateAccessToken(userId, new[] { membership.Role.ToString() }, id);
+        var refreshToken = _tokenService.GenerateRefreshToken();
+
+        _currentTenant.SetTenant(id);
+
+        return Ok(new { accessToken, refreshToken });
     }
 
     [HttpDelete("{id}/members/{memberId}")]

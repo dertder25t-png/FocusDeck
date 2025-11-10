@@ -456,7 +456,7 @@ try
         {
             Log.Warning(ex, "Database migration failed; proceeding with best-effort initialization");
         }
-
+    }
 
     // Configure the HTTP request pipeline.
     if (app.Environment.IsDevelopment())

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
@@ -17,12 +17,15 @@ import { DevicesPage } from './pages/DevicesPage'
 import { logout } from './lib/utils'
 import { PairingPage } from './pages/PairingPage'
 import { ProvisioningPage } from './pages/ProvisioningPage'
+import { useCurrentTenant } from './hooks/useCurrentTenant'
 
 type NavigationItem = { name: string; path: string; icon: string; exact?: boolean }
 
 function AppLayout() {
   const location = useLocation()
+  const navigate = useNavigate()
   const isOnline = true
+  const { tenant, loading: tenantLoading, error: tenantError, refresh: refreshTenant } = useCurrentTenant()
 
   const navigation: NavigationItem[] = useMemo(() => [
     { name: 'Dashboard', path: '/', icon: '📊', exact: true },
@@ -41,6 +44,10 @@ function AppLayout() {
       item.exact ? location.pathname === item.path : location.pathname.startsWith(item.path)
     )
   }, [location.pathname, navigation])
+
+  useEffect(() => {
+    refreshTenant()
+  }, [location.pathname, refreshTenant])
 
   return (
     <div className="flex h-screen bg-surface text-white">
@@ -121,11 +128,31 @@ function AppLayout() {
               <span className="text-xl">🔍</span>
             </button>
             <button
+              onClick={() => navigate('/tenants')}
+              className="flex items-center gap-2 rounded-full border border-gray-700 bg-gray-900/70 px-3 py-1.5 text-sm text-gray-200 hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              title={tenant?.name ?? 'Select tenant'}
+            >
+              {tenant ? (
+                <>
+                  <span className="font-medium">{tenant.name}</span>
+                  <span className="text-xs text-gray-400">/{tenant.slug}</span>
+                </>
+              ) : tenantLoading ? (
+                <span className="text-xs text-gray-400">Resolving tenant…</span>
+              ) : tenantError ? (
+                <span className="text-xs text-red-300">Tenant error</span>
+              ) : (
+                <span className="text-xs text-gray-400">Select tenant</span>
+              )}
+            </button>
+            <button
               onClick={() => logout()}
               className="px-3 py-2 hover:bg-gray-800 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               aria-label="Logout"
               title="Logout"
-            >Logout</button>
+            >
+              Logout
+            </button>
           </div>
         </header>
 

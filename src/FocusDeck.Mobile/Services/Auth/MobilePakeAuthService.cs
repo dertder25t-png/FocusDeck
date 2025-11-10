@@ -1,5 +1,7 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Linq;
+using FocusDeck.Contracts.MultiTenancy;
 using FocusDeck.Shared.Contracts.Auth;
 using FocusDeck.Shared.Security;
 using Microsoft.Maui.Devices;
@@ -14,6 +16,9 @@ public interface IMobileAuthService
     Task<MobileAuthResult?> LoginAsync(string serverBaseUrl, string userId, string password, CancellationToken cancellationToken = default);
     Task<bool> RegisterAsync(string serverBaseUrl, string userId, string password, CancellationToken cancellationToken = default);
     Task LogoutAsync(CancellationToken cancellationToken = default);
+    Task<CurrentTenantDto?> RefreshCurrentTenantAsync(CancellationToken cancellationToken = default);
+    CurrentTenantDto? CurrentTenant { get; }
+    event EventHandler<CurrentTenantDto?>? CurrentTenantChanged;
 }
 
 public class MobilePakeAuthService : IMobileAuthService
@@ -23,6 +28,9 @@ public class MobilePakeAuthService : IMobileAuthService
     private readonly MobileTokenStore _tokenStore;
     private readonly MobileVaultService _vaultService;
     private readonly ILogger<MobilePakeAuthService> _logger;
+    private Uri? _lastBaseUri;
+    private string? _accessToken;
+    private CurrentTenantDto? _currentTenant;
 
     public MobilePakeAuthService(HttpClient httpClient, IDeviceIdService deviceIdService, MobileTokenStore tokenStore, MobileVaultService vaultService, ILogger<MobilePakeAuthService> logger)
     {
@@ -135,6 +143,9 @@ public class MobilePakeAuthService : IMobileAuthService
         }
 
         await _tokenStore.SaveAsync(userId, finishResponse.AccessToken, finishResponse.RefreshToken);
+        _lastBaseUri = baseUri;
+        SetAccessToken(finishResponse.AccessToken);
+        await RefreshCurrentTenantAsync(cancellationToken);
 
         return new MobileAuthResult(
             userId,
@@ -172,6 +183,8 @@ public class MobilePakeAuthService : IMobileAuthService
         finally
         {
             await _tokenStore.ClearAsync(userId);
+            SetAccessToken(null);
+            UpdateCurrentTenant(null);
         }
     }
 
@@ -195,5 +208,58 @@ public class MobilePakeAuthService : IMobileAuthService
             return default;
         }
         return await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: cancellationToken);
+    }
+
+    private void SetAccessToken(string? token)
+    {
+        _accessToken = token;
+        if (string.IsNullOrEmpty(token))
+        {
+            _httpClient.DefaultRequestHeaders.Authorization = null;
+            return;
+        }
+
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    }
+
+    private void UpdateCurrentTenant(CurrentTenantDto? tenant)
+    {
+        if (tenant?.Id == _currentTenant?.Id) return;
+        _currentTenant = tenant;
+        CurrentTenantChanged?.Invoke(this, tenant);
+    }
+
+    public CurrentTenantDto? CurrentTenant => _currentTenant;
+
+    public event EventHandler<CurrentTenantDto?>? CurrentTenantChanged;
+
+    public async Task<CurrentTenantDto?> RefreshCurrentTenantAsync(CancellationToken cancellationToken = default)
+    {
+        if (_lastBaseUri == null || string.IsNullOrEmpty(_accessToken))
+        {
+            return null;
+        }
+
+        try
+        {
+            var requestUri = new Uri(_lastBaseUri, "/v1/tenants/current");
+            var response = await _httpClient.GetAsync(requestUri, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Current tenant request failed with {StatusCode}", response.StatusCode);
+                UpdateCurrentTenant(null);
+                return null;
+            }
+
+            var tenant = await response.Content.ReadFromJsonAsync<CurrentTenantDto>(cancellationToken: cancellationToken);
+            UpdateCurrentTenant(tenant);
+            return tenant;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to refresh current tenant");
+            UpdateCurrentTenant(null);
+            return null;
+        }
     }
 }

@@ -1,3 +1,4 @@
+using FocusDeck.Contracts.MultiTenancy;
 using FocusDeck.Desktop.Services;
 using FocusDeck.Desktop.Services;
 using FocusDeck.Desktop.Services.Auth;
@@ -12,6 +13,7 @@ public partial class ShellWindow : Window
     private readonly ISnackbarService _snackbarService;
     private readonly ICommandPaletteService _commandPaletteService;
     private readonly IKeyProvisioningService _provisioning;
+    private CurrentTenantDto? _currentTenant;
 
     public ShellWindow(
         IThemeService themeService,
@@ -32,6 +34,7 @@ public partial class ShellWindow : Window
         // Subscribe to command palette service
         _commandPaletteService.ShowRequested += OnShowCommandPalette;
         _commandPaletteService.HideRequested += OnHideCommandPalette;
+        _provisioning.CurrentTenantChanged += OnCurrentTenantChanged;
     }
 
     private void ThemeToggle_Click(object sender, RoutedEventArgs e)
@@ -130,6 +133,7 @@ public partial class ShellWindow : Window
         {
             var message = string.IsNullOrWhiteSpace(e.Reason) ? "Your session has ended" : e.Reason;
             _snackbarService.Show(message, TimeSpan.FromSeconds(4));
+            UpdateTenantBadge(null);
 
             var onboarding = new OnboardingWindow
             {
@@ -137,5 +141,32 @@ public partial class ShellWindow : Window
             };
             onboarding.ShowDialog();
         });
+    }
+
+    private void OnCurrentTenantChanged(object? sender, CurrentTenantDto? tenant)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            _currentTenant = tenant;
+            UpdateTenantBadge(tenant);
+        });
+    }
+
+    private void UpdateTenantBadge(CurrentTenantDto? tenant)
+    {
+        if (tenant == null)
+        {
+            TenantBadgeText.Text = "No tenant selected";
+            TenantBadgeText.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        TenantBadgeText.Text = $"{tenant.Name} /{tenant.Slug}";
+        TenantBadgeText.Visibility = Visibility.Visible;
+    }
+
+    private async void ShellWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        await _provisioning.RefreshCurrentTenantAsync();
     }
 }

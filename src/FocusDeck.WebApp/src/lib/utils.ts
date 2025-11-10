@@ -82,3 +82,24 @@ export async function logout() {
   localStorage.removeItem('focusdeck_user')
   if (typeof window !== 'undefined') window.location.href = '/login'
 }
+
+export function parseJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const payload = token.split('.')[1]
+    if (!payload) return null
+    const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    return JSON.parse(decodeURIComponent(encodeURIComponent(decoded)))
+  } catch {
+    return null
+  }
+}
+
+export function getTenantIdFromToken(): string | null {
+  const token = localStorage.getItem('focusdeck_access_token')
+  if (!token) {
+    return null
+  }
+  const payload = parseJwtPayload(token)
+  const tenantId = payload?.['app_tenant_id'] ?? payload?.['tenant_id']
+  return typeof tenantId === 'string' ? tenantId : null
+}

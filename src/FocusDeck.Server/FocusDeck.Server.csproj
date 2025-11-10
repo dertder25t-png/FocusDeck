@@ -49,7 +49,7 @@
   </ItemGroup>
 
   <Target Name="BuildSpa" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release'">
-    <Exec WorkingDirectory="$(ProjectDir)../FocusDeck.WebApp" Command="npm ci" />
+    <Exec WorkingDirectory="$(ProjectDir)../FocusDeck.WebApp" Command="npm ci --legacy-peer-deps" />
     <Exec WorkingDirectory="$(ProjectDir)../FocusDeck.WebApp" Command="npm run build" />
     <RemoveDir Directories="$(ProjectDir)wwwroot" />
     <MakeDir Directories="$(ProjectDir)wwwroot" />

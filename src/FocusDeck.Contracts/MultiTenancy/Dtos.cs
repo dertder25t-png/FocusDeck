@@ -11,6 +11,14 @@ public record TenantDto(
     string UserRole
 );
 
+public record CurrentTenantDto(
+    Guid Id,
+    string Name,
+    string Slug,
+    string UserRole,
+    int MemberCount
+);
+
 public record TenantMemberDto(
     string UserId,
     string Email,

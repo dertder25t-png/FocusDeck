@@ -10,7 +10,8 @@
         MinHeight="600"
         MinWidth="900"
         Background="{DynamicResource BackgroundBrush}"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        Loaded="ShellWindow_Loaded">
 
     <Window.InputBindings>
         <!-- Ctrl+K for Command Palette -->
@@ -71,7 +72,7 @@
                 </Border>
 
                 <!-- Theme Toggle & Settings -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Content="🌙" 
                             Click="ThemeToggle_Click"
                             ToolTip="Toggle Theme"
@@ -80,6 +81,17 @@
                             Background="Transparent"
                             BorderThickness="0"
                             Cursor="Hand"/>
+                    <TextBlock x:Name="TenantBadgeText"
+                               Text="Resolving tenant…"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               VerticalAlignment="Center"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               Visibility="Collapsed"
+                               Padding="4,2"
+                               Background="{DynamicResource Surface2Brush}"
+                               TextWrapping="NoWrap"
+                               Margin="0,0,8,0"
+                               />
                     <Button Content="⚙" 
                             Command="{Binding OpenSettingsCommand}"
                             ToolTip="Settings"

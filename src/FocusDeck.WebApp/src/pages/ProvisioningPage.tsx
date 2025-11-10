@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
-import { QrReader } from 'react-qr-reader'
-import { QRCode } from 'qrcode.react'
+import { useState } from 'react'
+import QrReader from 'react-qr-reader'
+import QRCode from 'qrcode.react'
 
 export function ProvisioningPage() {
   const [mode, setMode] = useState<'scan' | 'display'>('display');

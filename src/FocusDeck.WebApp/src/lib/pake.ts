@@ -107,7 +107,8 @@ function pad(value: bigint): Uint8Array {
 
 async function sha256(data: Uint8Array): Promise<Uint8Array> {
   ensureWebCrypto()
-  const digest = await crypto.subtle.digest('SHA-256', data)
+  const bufferSlice = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer
+  const digest = await crypto.subtle.digest('SHA-256', bufferSlice)
   return new Uint8Array(digest)
 }
 

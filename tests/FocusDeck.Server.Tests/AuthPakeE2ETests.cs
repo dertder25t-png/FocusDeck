@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Text.Json;
+using System.Threading.Tasks;
 using FocusDeck.Persistence;
 using FocusDeck.Server.Controllers.v1;
 using FocusDeck.Server.Services.Auth;
@@ -12,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Threading;
 using Xunit;
 
 namespace FocusDeck.Server.Tests;
@@ -54,7 +56,7 @@ public class AuthPakeE2ETests
         var srpCache = new SrpSessionCache(new MemoryCache(new MemoryCacheOptions()));
         var limiter = new AuthAttemptLimiter(memoryCache: new MemoryCache(new MemoryCacheOptions()));
 
-        var controller = new AuthPakeController(db, logger, tokenService, srpCache, CreateConfig(), limiter)
+        var controller = new AuthPakeController(db, logger, tokenService, srpCache, CreateConfig(), limiter, new StubTenantMembershipService())
         {
             ControllerContext = new ControllerContext
             {
@@ -123,3 +125,10 @@ public class AuthPakeE2ETests
     }
 }
 
+internal sealed class StubTenantMembershipService : FocusDeck.Server.Services.Tenancy.ITenantMembershipService
+{
+    public Task<Guid> EnsureTenantAsync(string userId, string? email, string? displayName, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(Guid.NewGuid());
+    }
+}

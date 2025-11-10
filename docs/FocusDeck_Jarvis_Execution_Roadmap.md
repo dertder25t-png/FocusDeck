@@ -7,6 +7,19 @@
 
 ---
 
+## Status Snapshot
+
+- [x] Phase 0.1: Legacy SPA route work is ready—Vite base `/` plus `BuildSpa` hook exist and old `wwwroot/app` assets were removed (placeholder `.gitkeep` holds the root while release builds copy `dist`).
+- [x] Phase 0.2: `AutomationDbContext` owns the schema, migrations point to `InitialCanonicalSchema`, and there is no manual DDL in `Program.cs`.
+- [x] Phase 0.3: Desktop, Web dev proxy, and MAUI clients all target `http://localhost:5000` and `.NET 9` where applicable.
+- [ ] Phase 0.4: CI still needs to stitch WebApp output and server builds into a single artifact.
+- [ ] Phase 1: Foundations are ready—multi-tenant plumbing is wired (null tenant default, factory coverage, stubbed tenant membership for auth tests) so focus can shift to tenant-aware APIs/UI and the `/` SPA launch on Linux.
+
+## Verifications
+
+- [x] `npm run build` (WebApp) succeeds with the new QR/canvas types; Vite reports a large chunk warning but finishes.
+- [x] `dotnet build FocusDeck.sln -c Release` (passes with the known warnings in LectureIntegrationTests, RemoteControlIntegrationTests, and AssetIntegrationTests).
+
 ## Phase 0 — Stabilize & Unify (Sprint 1–2)
 
 **Goal:** One clean build that runs everywhere; no legacy UI; schema owned by EF; consistent ports.
@@ -15,9 +28,9 @@
 
 **Why:** The current `wwwroot/app` + SPA base causes `http://localhost:5000/app/app/notes`. We want `/ →` SPA and a single history fallback.
 
-- [ ] Move SPA output to root: set Vite base: "/"; copy `dist` → `src/FocusDeck.Server/wwwroot/`
-- [ ] Delete legacy files: `src/FocusDeck.Server/wwwroot/app/**`, any `index.html`, `app.js`, `styles.css` left from old UI
-- [ ] Server routing (`Program.cs`):
+- [x] Move SPA output to root: set Vite base: "/" (already configured); release `BuildSpa` copies `dist` → `src/FocusDeck.Server/wwwroot/`
+- [x] Delete legacy files: `src/FocusDeck.Server/wwwroot/app/**`, any `index.html`, `app.js`, `styles.css` left from old UI (the `app` tree is gone and `.gitkeep` holds the root directory)
+- [x] Server routing (`Program.cs`):
 
   ```csharp
   app.UseDefaultFiles();
@@ -28,7 +41,8 @@
                      && !Path.HasExtension(ctx.Request.Path.Value),
     spa => spa.Run(async c => await c.Response.SendFileAsync("wwwroot/index.html")));
   ```
-- [ ] Build hook (Server `.csproj`): restore `BuildSpa` target to run `npm ci && npm run build` in `src/FocusDeck.WebApp`, output → `wwwroot/`
+
+- [x] Build hook (Server `.csproj`): restore `BuildSpa` target to run `npm ci && npm run build` in `src/FocusDeck.WebApp`, output → `wwwroot/` (the target already exists)
 - [ ] Verify: `http://localhost:5000/` loads SPA; deep-links like `/notes` refresh correctly
 
 **Files to touch**
@@ -42,9 +56,9 @@
 
 **Why:** Manual `CREATE TABLE IF NOT EXISTS` drifts from EF; breakage later.
 
-- [ ] Remove any manual schema DDL in `src/FocusDeck.Server/Program.cs`
-- [ ] Ensure `DbSets` exist in `AutomationDbContext` for auth/sync/refresh-tokens/etc.
-- [ ] Reset migrations (create a single clean `InitialCanonicalSchema`)
+- [x] Remove any manual schema DDL in `src/FocusDeck.Server/Program.cs` (no raw SQL remains)
+- [x] Ensure `DbSets` exist in `AutomationDbContext` for auth/sync/refresh-tokens/etc.
+- [x] Reset migrations (create a single clean `InitialCanonicalSchema`)
 - [ ] Apply: `dotnet ef database update`
 - [ ] Health check: server boots; basic endpoints respond 401/200 (not 500)
 
@@ -58,9 +72,9 @@
 
 **Why:** Desktop was pointed to `:5239`. Standardize on `:5000`.
 
-- [ ] Desktop `App.xaml.cs` → base API `http://localhost:5000`
-- [ ] WebApp dev proxy → `5000`
-- [ ] MAUI targets .NET 9
+- [x] Desktop `App.xaml.cs` → base API `http://localhost:5000`
+- [x] WebApp dev proxy → `5000`
+- [x] MAUI targets .NET 9
 
 **Files**
 
@@ -93,6 +107,10 @@
 - [ ] JWT: include `app_tenant_id` claim
 - [ ] Global query filter (reads `app_tenant_id`)
 - [ ] Stamp `TenantId` on writes in `SaveChangesAsync`
+- [ ] Audit every `IMustHaveTenant` entity (review EF configs/migrations) to prove `TenantId` is auto-set and logs capture tenant+user for tenant switches.
+- [x] Tenant audit table now logs operations for every `IMustHaveTenant` entity when the context saves changes, so you can inspect writes by tenant.
+- [ ] Capture Linux `/` routing + audit (Nginx/Cloudflare configs, history fallback) with a doc snippet showing how to verify deep links.
+- [x] `/v1/tenants/current` summary + `/v1/tenants/{id}/switch` APIs so clients can refresh tenant context and request new tokens without re-login
 
 **Files**
 
@@ -110,10 +128,15 @@
   - `src/FocusDeck.WebApp/src/pages/ProvisioningPage.tsx`
   - `src/FocusDeck.WebApp/src/pages/PairingPage.tsx`
   - `src/FocusDeck.WebApp/src/lib/pake.ts`
+  - `src/FocusDeck.WebApp/src/hooks/useCurrentTenant.ts`
+  - [x] Surface tenant context in the web shell via `/v1/tenants/current` so users can see the active workspace and jump to the Tenants page.
+  - [x] Allow switching tenants directly from the Tenants page (`/v1/tenants/{id}/switch`) to refresh tokens and tenant context.
 
 **Desktop/Mobile**
 
 - [ ] Desktop: `OnboardingWindow` → `KeyProvisioningService` (same endpoints)
+- [x] Desktop: `KeyProvisioningService` now exposes tenant context (`CurrentTenantDto`) and raises updates so the shell can show the current workspace after login.
+- [x] Mobile: provisioning page now subscribes to tenant summary updates exposed by `IMobileAuthService`, so the active tenant name/slug appears on-device after login.
 - [ ] Mobile: Provisioning + QR pairing (claim code → tokens)
 - [ ] Files:
   - `src/FocusDeck.Desktop/Views/OnboardingWindow.xaml(.cs)`
@@ -138,6 +161,24 @@
 - [ ] Desktop: onboarding flow (auth), main shell nav, status bar for connection/JWT/tenant
 - [ ] Web: clean top-nav, Notes/Lectures/Courses list pages wired; empty states
 - [ ] Mobile: login & "quick actions" (Start Note, Pair Device)
+
+### Phase 1 execution focus
+
+Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stable.
+
+1. **Multi-tenant infrastructure**  
+   - Add `TenantId` to every `IMustHaveTenant` entity and persist it on `SaveChangesAsync` so writes are annotated automatically (`AutomationDbContext` + `domain entities`).  
+   - Inject `app_tenant_id` into JWTs while also reading it in the global query filter so every API call scopes data (`TokenService`, `AutomationDbContext`).  
+   - Build tenant bootstrapping stories in `TenantMembershipService` so onboarding/login tracks a `Tenant`/`UserTenant` pair for every user or device.
+
+2. **Authentication surfaces**  
+   - Wire `/login`, `/register`, `/pair` in the WebApp with PAKE flows and a `ProtectedRoute` wrapper; share the `pake.ts` logic between desktop/mobile to minimize duplication.  
+   - Update Desktop `OnboardingWindow` + `KeyProvisioningService` and Mobile provisioning view model to hit the new endpoints and store tenant-scoped tokens.  
+   - Surface tenant information (name, slug) in the UI status bars/sidebars once authentication succeeds.
+
+3. **Linux SPA deployment readiness**  
+   - Confirm Linux/Nginx routes `/` → Kestrel `:5000`, remove `/app` assets, and verify deep-link refreshes using the existing history fallback.  
+   - Document the Linux host configuration (Nginx, Cloudflare rules, ports) in an infra note so the team can reproduce the `/` behavior.
 
 ---
 
@@ -431,19 +472,19 @@
 
 ## “Quick-add” Issue Titles (copy these)
 
-- `[WEB] Serve SPA at root (fix /app duplication)`
-- `[SERVER] History fallback for SPA routes`
-- `[SERVER] Canonical EF migration; remove manual DDL`
-- `[DESKTOP] BaseAddress = http://localhost:5000`
-- `[MOBILE] Target .NET 9`
-- `[OBS] OTLP+Prom+Serilog production pipeline`
-- `[MCP] FocusDeck MCP server + gateway`
-- `[JARVIS] Contextual learning loop (privacy, snapshots, suggest API)`
-- `[JARVIS] API + Hangfire runner + SignalR dispatch`
-- `[CAL] Google Calendar warm sync + resolver`
-- `[AGENT] Windows agent skeleton + skills`
-- `[BRIDGE] Browser extension + memory vault`
-- `[WORKSPACE] Mental save state + adaptive layouts`
+- [ ] `[WEB] Serve SPA at root (fix /app duplication)`
+- [ ] `[SERVER] History fallback for SPA routes`
+- [ ] `[SERVER] Canonical EF migration; remove manual DDL`
+- [ ] `[DESKTOP] BaseAddress = http://localhost:5000`
+- [ ] `[MOBILE] Target .NET 9`
+- [ ] `[OBS] OTLP+Prom+Serilog production pipeline`
+- [ ] `[MCP] FocusDeck MCP server + gateway`
+- [ ] `[JARVIS] Contextual learning loop (privacy, snapshots, suggest API)`
+- [ ] `[JARVIS] API + Hangfire runner + SignalR dispatch`
+- [ ] `[CAL] Google Calendar warm sync + resolver`
+- [ ] `[AGENT] Windows agent skeleton + skills`
+- [ ] `[BRIDGE] Browser extension + memory vault`
+- [ ] `[WORKSPACE] Mental save state + adaptive layouts`
 
 ---
 

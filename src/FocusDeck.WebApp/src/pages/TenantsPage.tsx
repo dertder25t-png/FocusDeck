@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { apiFetch } from '../lib/utils'
+import { apiFetch, storeTokens } from '../lib/utils'
+import { useCurrentTenant } from '../hooks/useCurrentTenant'
 
 interface TenantDto {
   id: string
@@ -17,10 +18,16 @@ export function TenantsPage() {
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
+  const [switchingTenantId, setSwitchingTenantId] = useState<string | null>(null)
+  const { tenant: currentTenant, refresh: refreshTenant } = useCurrentTenant()
 
-  const sortedTenants = useMemo(() =>
-    [...tenants].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
-  [tenants])
+  const sortedTenants = useMemo(
+    () =>
+      [...tenants].sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      ),
+    [tenants]
+  )
 
   useEffect(() => {
     const load = async () => {
@@ -40,7 +47,7 @@ export function TenantsPage() {
       }
     }
 
-    load()
+    void load()
   }, [])
 
   const resetForm = () => {
@@ -67,11 +74,30 @@ export function TenantsPage() {
       if (!response.ok || !body) {
         throw new Error((body as any)?.message || 'Failed to create tenant')
       }
-      const created = body as TenantDto
-      setTenants(prev => [...prev, created])
+      setTenants(prev => [...prev, body as TenantDto])
       resetForm()
     } catch (err: any) {
       setError(err?.message || 'Unable to create tenant')
+    }
+  }
+
+  const switchTenant = async (tenantId: string) => {
+    setSwitchingTenantId(tenantId)
+    setError(null)
+    try {
+      const response = await apiFetch(`/v1/tenants/${tenantId}/switch`, {
+        method: 'POST',
+      })
+      const body = await response.json().catch(() => null)
+      if (!response.ok || !body?.accessToken) {
+        throw new Error((body as any)?.message || 'Failed to switch tenant')
+      }
+      storeTokens(body.accessToken, body.refreshToken)
+      await refreshTenant()
+    } catch (err: any) {
+      setError(err?.message || 'Unable to switch tenant')
+    } finally {
+      setSwitchingTenantId(null)
     }
   }
 
@@ -140,21 +166,42 @@ export function TenantsPage() {
         </div>
       ) : (
         <div className="grid gap-4">
-          {sortedTenants.map(tenant => (
-            <div key={tenant.id} className="rounded-lg border border-gray-800 bg-surface-100 p-4">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold text-white">{tenant.name}</h2>
-                  <p className="text-sm text-gray-400">/{tenant.slug}</p>
+          {sortedTenants.map(tenant => {
+            const isActive = currentTenant?.id === tenant.id
+            return (
+              <div key={tenant.id} className="rounded-lg border border-gray-800 bg-surface-100 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">{tenant.name}</h2>
+                    <p className="text-sm text-gray-400">/{tenant.slug}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isActive && (
+                      <span className="rounded-full border border-primary/70 px-2 py-1 text-xs text-primary">
+                        Active
+                      </span>
+                    )}
+                    <span className="rounded bg-gray-800 px-2 py-1 text-xs text-gray-300">
+                      {tenant.memberCount} members
+                    </span>
+                  </div>
                 </div>
-                <span className="rounded bg-gray-800 px-2 py-1 text-xs text-gray-300">{tenant.memberCount} members</span>
+                <div className="mt-3 text-sm text-gray-400">Your role: {tenant.userRole}</div>
+                <div className="mt-2 text-xs text-gray-500">Created {new Date(tenant.createdAt).toLocaleString()}</div>
+                {!isActive && (
+                  <div className="mt-4">
+                    <button
+                      onClick={() => switchTenant(tenant.id)}
+                      disabled={switchingTenantId === tenant.id}
+                      className="rounded bg-primary px-3 py-2 text-xs font-medium text-white hover:bg-primary/90"
+                    >
+                      {switchingTenantId === tenant.id ? 'Switching…' : 'Switch tenant'}
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="mt-3 text-sm text-gray-400">Your role: {tenant.userRole}</div>
-              <div className="mt-2 text-xs text-gray-500">
-                Created {new Date(tenant.createdAt).toLocaleString()}
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

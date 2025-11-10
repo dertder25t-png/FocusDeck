@@ -14,10 +14,10 @@ public class AutomationDbContext : DbContext
 {
     private readonly ICurrentTenant _currentTenant;
 
-    public AutomationDbContext(DbContextOptions<AutomationDbContext> options, ICurrentTenant currentTenant)
+    public AutomationDbContext(DbContextOptions<AutomationDbContext> options, ICurrentTenant? currentTenant = null)
         : base(options)
     {
-        _currentTenant = currentTenant;
+        _currentTenant = currentTenant ?? NullCurrentTenant.Instance;
     }
 
     public DbSet<Automation> Automations { get; set; }
@@ -70,6 +70,7 @@ public class AutomationDbContext : DbContext
     public DbSet<FocusDeck.Domain.Entities.Auth.PairingSession> PairingSessions { get; set; }
     public DbSet<FocusDeck.Domain.Entities.Auth.RevokedAccessToken> RevokedAccessTokens { get; set; }
     public DbSet<FocusDeck.Domain.Entities.Auth.AuthEventLog> AuthEventLogs { get; set; }
+    public DbSet<TenantAudit> TenantAudits { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -84,12 +85,14 @@ public class AutomationDbContext : DbContext
     public override int SaveChanges()
     {
         ApplyTenantStamps();
+        AuditTenantEntries();
         return base.SaveChanges();
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         ApplyTenantStamps();
+        AuditTenantEntries();
         return base.SaveChangesAsync(cancellationToken);
     }
 
@@ -107,6 +110,44 @@ public class AutomationDbContext : DbContext
                 entry.Entity.TenantId = _currentTenant.TenantId!.Value;
             }
         }
+    }
+    private void AuditTenantEntries()
+    {
+        var entries = ChangeTracker.Entries()
+            .Where(e => e.Entity is IMustHaveTenant && e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .ToList();
+
+        foreach (var entry in entries)
+        {
+            var tenantEntry = (IMustHaveTenant)entry.Entity;
+            var entityId = entry.Properties.FirstOrDefault(p => p.Metadata.IsPrimaryKey())?.CurrentValue?.ToString() ?? Guid.NewGuid().ToString();
+
+            var audit = new TenantAudit
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantEntry.TenantId,
+                EntityType = entry.Entity.GetType().Name,
+                EntityId = entityId,
+                Action = entry.State switch
+                {
+                    EntityState.Added => "Created",
+                    EntityState.Modified => "Updated",
+                    EntityState.Deleted => "Deleted",
+                    _ => "Unknown"
+                },
+                Timestamp = DateTime.UtcNow,
+                ActorId = null
+            };
+
+            TenantAudits.Add(audit);
+        }
+    }
+
+    private string? GetActorId()
+    {
+        return _currentTenant is HttpContextCurrentTenant httpTenant
+            ? httpTenant.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            : null;
     }
 
     private void ApplyTenantQueryFilters(ModelBuilder modelBuilder)

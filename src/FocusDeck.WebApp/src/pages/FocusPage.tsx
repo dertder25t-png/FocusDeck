@@ -37,14 +37,6 @@ interface FocusPolicyTemplate {
   targetDurationMinutes: number | null
 }
 
-interface Distraction {
-  reason: string
-  at: string
-}
-
-// Simulated distractions array for demo purposes
-const mockDistractions: Distraction[] = []
-
 export function FocusPage() {
   const [activeSession, setActiveSession] = useState<FocusSession | null>(null)
   const [sessions, setSessions] = useState<FocusSession[]>([])
