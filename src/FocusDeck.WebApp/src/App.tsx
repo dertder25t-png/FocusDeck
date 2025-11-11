@@ -178,8 +178,15 @@ function App() {
     <ToastProvider>
       <BrowserRouter>
         <Routes>
+          {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          
+          {/* Legacy /app/* paths - redirect to root equivalents */}
+          <Route path="/app" element={<Navigate to="/" replace />} />
+          <Route path="/app/*" element={<Navigate to="/" replace />} />
+          
+          {/* Protected routes */}
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route index element={<DashboardPage />} />
@@ -196,6 +203,8 @@ function App() {
               <Route path="jobs" element={<JobsPage />} />
             </Route>
           </Route>
+          
+          {/* Catch-all: redirect unknown paths to root (which will trigger ProtectedRoute → /login) */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <ToastViewport />
