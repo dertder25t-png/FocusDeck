@@ -178,33 +178,36 @@ function App() {
     <ToastProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public routes */}
+          {/* Public Routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           
-          {/* Legacy /app/* paths - redirect to root equivalents */}
-          <Route path="/app" element={<Navigate to="/" replace />} />
-          <Route path="/app/*" element={<Navigate to="/" replace />} />
-          
-          {/* Protected routes */}
+          {/* Protected Routes - All require authentication */}
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
+              {/* Dashboard */}
               <Route index element={<DashboardPage />} />
+              
+              {/* Main Features */}
               <Route path="lectures" element={<LecturesPage />} />
               <Route path="focus" element={<FocusPage />} />
               <Route path="notes" element={<NotesPage />} />
               <Route path="design" element={<DesignPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
+              
+              {/* Settings & Management */}
               <Route path="settings" element={<SettingsPage />} />
               <Route path="devices" element={<DevicesPage />} />
               <Route path="pairing" element={<PairingPage />} />
               <Route path="provisioning" element={<ProvisioningPage />} />
+              
+              {/* Admin Routes */}
               <Route path="tenants" element={<TenantsPage />} />
               <Route path="jobs" element={<JobsPage />} />
             </Route>
           </Route>
           
-          {/* Catch-all: redirect unknown paths to root (which will trigger ProtectedRoute → /login) */}
+          {/* Fallback: Redirect unknown paths to home */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <ToastViewport />

@@ -14,15 +14,16 @@ export function ProtectedRoute() {
     setChecking(false)
     
     if (!isValid) {
-      console.warn('No valid authentication token found')
+      console.info('No valid authentication token found, will redirect to login')
     }
-  }, [location.pathname, location.search, location.hash])
+  }, [])
 
   if (checking) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-950 text-gray-400">
+      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-surface via-surface-100 to-surface text-gray-400">
         <div className="text-center">
-          <div className="mb-4">Verifying your session…</div>
+          <div className="text-4xl mb-4">🎯</div>
+          <div className="mb-4 font-medium">Verifying your session…</div>
           <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
         </div>
       </div>
@@ -30,26 +31,50 @@ export function ProtectedRoute() {
   }
 
   if (!isAuthed) {
-    // Redirect to login with the requested path so we can return them after auth
+    // Redirect to login with the requested path as a query parameter
     const redirectTo = location.pathname + location.search + location.hash
-    console.log(`Not authenticated. Redirecting from ${location.pathname} to /login`)
-    return <Navigate to="/login" state={{ from: redirectTo }} replace />
+    
+    // Only redirect if not already on a public page
+    if (location.pathname !== '/login' && location.pathname !== '/register') {
+      console.info(`Unauthenticated. Redirecting to /login from ${location.pathname}`)
+      return <Navigate to={`/login?redirectUrl=${encodeURIComponent(redirectTo)}`} replace />
+    }
   }
 
   return <Outlet />
 }
 
-// Helper to check if JWT token is expired
+/**
+ * Helper to check if JWT token is expired
+ * Verifies the token structure and compares expiration time
+ */
 function isTokenExpired(token: string): boolean {
   try {
     // JWT format: header.payload.signature
     const parts = token.split('.')
-    if (parts.length !== 3) return true
+    if (parts.length !== 3) {
+      console.warn('Invalid token format')
+      return true
+    }
     
     const payload = JSON.parse(atob(parts[1]))
+    
+    // Check if exp claim exists
+    if (!payload.exp) {
+      console.warn('Token missing exp claim')
+      return true
+    }
+    
     const expiryTime = payload.exp * 1000 // exp is in seconds, convert to ms
-    return Date.now() >= expiryTime
-  } catch {
+    const isExpired = Date.now() >= expiryTime
+    
+    if (isExpired) {
+      console.info('Token has expired')
+    }
+    
+    return isExpired
+  } catch (error) {
+    console.error('Error checking token expiration:', error)
     return true
   }
 }

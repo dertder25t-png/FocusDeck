@@ -556,6 +556,9 @@ try
     // AuthN/Z
     app.UseAuthentication();
     app.UseAuthorization();
+    
+    // Custom authentication middleware for SPA protection
+    app.UseAuthenticationMiddleware();
 
     // Hangfire Dashboard (protected by authorization) - only if using PostgreSQL
     if (hangfireConnection.Contains("Host=") || hangfireConnection.Contains("Server="))
