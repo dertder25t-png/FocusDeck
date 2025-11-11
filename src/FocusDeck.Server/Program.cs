@@ -494,14 +494,19 @@ try
         app.MapOpenApi();
     }
 
-    app.UseDefaultFiles();
     app.UseStaticFiles(new StaticFileOptions
     {
         OnPrepareResponse = ctx =>
         {
-            if (!ctx.File.Name.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+            if (ctx.File.Name.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
             {
-                ctx.Context.Response.Headers.Append("Cache-Control", "public,max-age=604800");
+                ctx.Context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+                ctx.Context.Response.Headers["Pragma"] = "no-cache";
+                ctx.Context.Response.Headers["Expires"] = "0";
+            }
+            else
+            {
+                ctx.Context.Response.Headers["Cache-Control"] = "public,max-age=604800";
             }
         }
     });
@@ -519,6 +524,9 @@ try
             }
 
             context.Response.ContentType = "text/html";
+            context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+            context.Response.Headers["Pragma"] = "no-cache";
+            context.Response.Headers["Expires"] = "0";
             await context.Response.SendFileAsync(indexFile);
         }));
 
