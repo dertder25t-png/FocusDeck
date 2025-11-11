@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useEffect, useMemo, useState } from 'react'
-import { LoginPage } from './pages/LoginPage'
-import { RegisterPage } from './pages/RegisterPage'
+import { useEffect, useMemo } from 'react'
+import { LoginPage } from './pages/Auth/LoginPage'
+import { RegisterPage } from './pages/Auth/RegisterPage'
 import { ToastProvider, ToastViewport } from './components/Toast'
 import { DashboardPage } from './pages/DashboardPage'
 import { LecturesPage } from './pages/LecturesPage'
@@ -15,9 +15,10 @@ import { JobsPage } from './pages/JobsPage'
 import { cn } from './lib/utils'
 import { DevicesPage } from './pages/DevicesPage'
 import { logout } from './lib/utils'
-import { PairingPage } from './pages/PairingPage'
+import { PairingPage } from './pages/Auth/PairingPage'
 import { ProvisioningPage } from './pages/ProvisioningPage'
 import { useCurrentTenant } from './hooks/useCurrentTenant'
+import { ProtectedRoute } from './pages/Auth/ProtectedRoute'
 
 type NavigationItem = { name: string; path: string; icon: string; exact?: boolean }
 
@@ -170,33 +171,6 @@ function AppLayout() {
       </main>
     </div>
   )
-}
-
-function ProtectedRoute() {
-  const location = useLocation()
-  const [checking, setChecking] = useState(true)
-  const [isAuthed, setIsAuthed] = useState(false)
-
-  useEffect(() => {
-    const token = localStorage.getItem('focusdeck_access_token')
-    setIsAuthed(!!token)
-    setChecking(false)
-  }, [location.pathname, location.search, location.hash])
-
-  if (checking) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-surface text-gray-400">
-        Checking session…
-      </div>
-    )
-  }
-
-  if (!isAuthed) {
-    const redirectTo = location.pathname + location.search + location.hash
-    return <Navigate to="/login" state={{ from: redirectTo }} replace />
-  }
-
-  return <Outlet />
 }
 
 function App() {

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { pakeRegister, pakeLogin } from '../lib/pake'
-import { storeTokens } from '../lib/utils'
+import { pakeRegister, pakeLogin } from '../../lib/pake'
+import { storeTokens } from '../../lib/utils'
 
 export function RegisterPage() {
   const navigate = useNavigate()

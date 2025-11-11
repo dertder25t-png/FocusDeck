@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { pakeLogin } from '../lib/pake'
-import { storeTokens } from '../lib/utils'
+import { pakeLogin } from '../../lib/pake'
+import { storeTokens } from '../../lib/utils'
 
 export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const [userId, setUserId] = useState('')
-  const [password, setPassword] = useState('')
+  const [userId, setUserId] = useState('test@gmail.com')
+  const [password, setPassword] = useState('123456789')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -32,6 +32,7 @@ export function LoginPage() {
       <form onSubmit={onSubmit} className="w-full max-w-sm p-6 border border-gray-700 rounded-lg bg-surface-100 shadow-lg">
         <h1 className="text-2xl font-semibold mb-2">Welcome back</h1>
         <p className="text-sm text-gray-400 mb-6">Sign in with your FocusDeck ID to continue.</p>
+        <p className="text-xs uppercase tracking-wide text-gray-500">Test users may use <strong>test@gmail.com</strong> / <strong>123456789</strong>.</p>
 
         <label className="block text-sm mb-1">Email or User ID</label>
         <input

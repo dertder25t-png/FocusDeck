@@ -1,3 +1,5 @@
+import { getAuthToken } from './utils'
+
 const SRP_MODULUS_HEX =
   'AC6BDB41324A9A9BF166DE5E1389582FAF72B6651987EE07FC3192943DB56050' +
   'A37329CBB4A099ED8193E0757767A13DD52312AB4B03310DCD7F48A9DA04FD50' +
@@ -348,9 +350,13 @@ export async function pakeLogin(userId: string, password: string, options?: { cl
 }
 
 export async function startPairing() {
+  const token = await getAuthToken()
   const res = await fetch('/v1/auth/pake/pair/start', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify({ sourceDeviceId: navigator.userAgent }),
   })
   if (!res.ok) {
