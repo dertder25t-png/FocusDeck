@@ -9,6 +9,7 @@
     <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
     <InvariantGlobalization>false</InvariantGlobalization>
     <GenerateTargetFrameworkMonikerAttribute>false</GenerateTargetFrameworkMonikerAttribute>
+    <CompressionLevel>never</CompressionLevel>
   </PropertyGroup>
 
   <ItemGroup>
@@ -49,14 +50,15 @@
   </ItemGroup>
 
   <Target Name="BuildSpa" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release'">
-    <Exec WorkingDirectory="$(ProjectDir)../FocusDeck.WebApp" Command="npm ci --legacy-peer-deps" />
-    <Exec WorkingDirectory="$(ProjectDir)../FocusDeck.WebApp" Command="npm run build" />
-    <RemoveDir Directories="$(ProjectDir)wwwroot" />
+    <Exec WorkingDirectory="$(ProjectDir)../FocusDeck.WebApp" Command="npm ci --legacy-peer-deps" ContinueOnError="false" />
+    <Exec WorkingDirectory="$(ProjectDir)../FocusDeck.WebApp" Command="npm run build" ContinueOnError="false" />
+    <RemoveDir Directories="$(ProjectDir)wwwroot" ContinueOnError="true" />
     <MakeDir Directories="$(ProjectDir)wwwroot" />
     <ItemGroup>
       <SpaFiles Include="$(ProjectDir)../FocusDeck.WebApp/dist/**/*" />
     </ItemGroup>
     <Copy SourceFiles="@(SpaFiles)" DestinationFiles="@(SpaFiles->'$(ProjectDir)wwwroot/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Message Text="BuildSpa Target: Successfully copied WebApp dist files to wwwroot" Importance="high" />
   </Target>
 
 </Project>
