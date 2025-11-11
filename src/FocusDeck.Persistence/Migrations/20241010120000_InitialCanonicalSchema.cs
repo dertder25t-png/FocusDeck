@@ -603,6 +603,23 @@ namespace FocusDeck.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "TenantAudits",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    EntityType = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    EntityId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    Action = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    Timestamp = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    ActorId = table.Column<string>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_TenantAudits", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "UserTenants",
                 columns: table => new
                 {
@@ -1033,6 +1050,11 @@ namespace FocusDeck.Persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_TenantAudits_TenantId",
+                table: "TenantAudits",
+                column: "TenantId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_TenantUsers_Email",
                 table: "TenantUsers",
                 column: "Email",
@@ -1066,6 +1088,9 @@ namespace FocusDeck.Persistence.Migrations
         {
             migrationBuilder.DropTable(
                 name: "AutomationExecutions");
+
+            migrationBuilder.DropTable(
+                name: "TenantAudits");
 
             migrationBuilder.DropTable(
                 name: "AuthEventLogs");

@@ -1,14 +1,13 @@
 using System;
 using System.Linq;
 using System.Reflection;
-using System.Security.Claims;
 using System.Threading;
 using FocusDeck.Domain.Entities;
 using FocusDeck.Domain.Entities.Automations;
 using FocusDeck.Domain.Entities.Remote;
 using FocusDeck.Domain.Entities.Sync;
+using FocusDeck.SharedKernel.Auditing;
 using FocusDeck.SharedKernel.Tenancy;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace FocusDeck.Persistence;
@@ -16,13 +15,13 @@ namespace FocusDeck.Persistence;
 public class AutomationDbContext : DbContext
 {
     private readonly ICurrentTenant _currentTenant;
-    private readonly IHttpContextAccessor? _httpContextAccessor;
+    private readonly IAuditActorProvider? _actorProvider;
 
-    public AutomationDbContext(DbContextOptions<AutomationDbContext> options, ICurrentTenant? currentTenant = null, IHttpContextAccessor? httpContextAccessor = null)
+    public AutomationDbContext(DbContextOptions<AutomationDbContext> options, ICurrentTenant? currentTenant = null, IAuditActorProvider? actorProvider = null)
         : base(options)
     {
         _currentTenant = currentTenant ?? NullCurrentTenant.Instance;
-        _httpContextAccessor = httpContextAccessor;
+        _actorProvider = actorProvider;
     }
 
     public DbSet<Automation> Automations { get; set; }
@@ -149,9 +148,7 @@ public class AutomationDbContext : DbContext
     }
 
     private string? GetActorId()
-    {
-        return _httpContextAccessor?.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    }
+        => _actorProvider?.GetActorId();
 
     private void ApplyTenantQueryFilters(ModelBuilder modelBuilder)
     {

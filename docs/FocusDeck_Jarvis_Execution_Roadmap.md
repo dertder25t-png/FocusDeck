@@ -33,17 +33,44 @@
 - [x] Server routing (`Program.cs`):
 
   ```csharp
+  static bool ShouldServeSpa(HttpContext ctx, bool includeRoot)
+  {
+      var path = ctx.Request.Path.Value ?? string.Empty;
+      var isRoot = string.IsNullOrEmpty(path) || string.Equals(path, "/", StringComparison.OrdinalIgnoreCase);
+
+      if (ctx.Request.Path.StartsWithSegments("/v1") ||
+          ctx.Request.Path.StartsWithSegments("/hubs") ||
+          ctx.Request.Path.StartsWithSegments("/swagger") ||
+          ctx.Request.Path.StartsWithSegments("/healthz") ||
+          ctx.Request.Path.StartsWithSegments("/hangfire") ||
+          path.StartsWith("/app", StringComparison.OrdinalIgnoreCase))
+      {
+          return false;
+      }
+
+      if (isRoot)
+      {
+          return includeRoot;
+      }
+
+      return !Path.HasExtension(path);
+  }
+
   app.UseDefaultFiles();
   app.UseStaticFiles();
 
-  app.MapWhen(ctx => !ctx.Request.Path.StartsWithSegments("/v1")
-                     && !ctx.Request.Path.StartsWithSegments("/hubs")
-                     && !Path.HasExtension(ctx.Request.Path.Value),
-    spa => spa.Run(async c => await c.Response.SendFileAsync("wwwroot/index.html")));
+  app.MapWhen(ctx => ShouldServeSpa(ctx, includeRoot: false),
+      spa => spa.Run(async c => await c.Response.SendFileAsync("wwwroot/index.html")));
+
+  app.MapFallback("/app/{*path}", (HttpContext http, string? path) =>
+  {
+      var normalized = (path ?? string.Empty).Trim('/');
+      return Results.Redirect(string.IsNullOrEmpty(normalized) ? "/" : $"/{normalized}", permanent: true);
+  });
   ```
 
 - [x] Build hook (Server `.csproj`): restore `BuildSpa` target to run `npm ci && npm run build` in `src/FocusDeck.WebApp`, output → `wwwroot/` (the target already exists)
-- [ ] Verify: `http://localhost:5000/` loads SPA; deep-links like `/notes` refresh correctly
+- [x] Verify: `http://localhost:5000/` loads SPA; deep-links like `/notes` refresh correctly, and legacy `/app/*` URLs now redirect to `/`.
 
 **Files to touch**
 
@@ -103,13 +130,13 @@
 
 ### 1.1 Multi-Tenancy (backend)
 
-- [ ] Add entities: `Tenant`, `UserTenant`; add `TenantId` to `IMustHaveTenant` models
-- [ ] JWT: include `app_tenant_id` claim
-- [ ] Global query filter (reads `app_tenant_id`)
-- [ ] Stamp `TenantId` on writes in `SaveChangesAsync`
-- [ ] Audit every `IMustHaveTenant` entity (review EF configs/migrations) to prove `TenantId` is auto-set and logs capture tenant+user for tenant switches.
+- [x] Add entities: `Tenant`, `UserTenant`; add `TenantId` to `IMustHaveTenant` models
+- [x] JWT: include `app_tenant_id` claim
+- [x] Global query filter (reads `app_tenant_id`)
+- [x] Stamp `TenantId` on writes in `SaveChangesAsync`
+- [x] Audit every `IMustHaveTenant` entity (review EF configs/migrations) to prove `TenantId` is auto-set and logs capture tenant+user for tenant switches.
 - [x] Tenant audit table now logs operations for every `IMustHaveTenant` entity when the context saves changes, so you can inspect writes by tenant.
-- [ ] Capture Linux `/` routing + audit (Nginx/Cloudflare configs, history fallback) with a doc snippet showing how to verify deep links.
+- [x] Capture Linux `/` routing + audit (Nginx/Cloudflare configs, history fallback) with a doc snippet showing how to verify deep links (`src/FocusDeck.Server/Program.cs`, `docs/CLOUDFLARE_DEPLOYMENT.md`).
 - [x] `/v1/tenants/current` summary + `/v1/tenants/{id}/switch` APIs so clients can refresh tenant context and request new tokens without re-login
 
 **Files**
@@ -122,7 +149,7 @@
 
 **Web**
 
-- [ ] `/login`, `/register`, `/pair` (PAKE start/finish; store tokens; `ProtectedRoute`)
+- [x] `/login`, `/register`, `/pair` (PAKE start/finish; store tokens; `ProtectedRoute`; see `AuthPakeController`, `src/FocusDeck.WebApp/src/lib/pake.ts`, `KeyProvisioningService`)
 - [ ] Files:
   - `src/FocusDeck.WebApp/src/pages/LoginPage.tsx`
   - `src/FocusDeck.WebApp/src/pages/ProvisioningPage.tsx`
@@ -134,10 +161,10 @@
 
 **Desktop/Mobile**
 
-- [ ] Desktop: `OnboardingWindow` → `KeyProvisioningService` (same endpoints)
+- [x] Desktop: `OnboardingWindow` → `KeyProvisioningService` (PAKE flows + tenant refresh wired to `/v1/auth/pake`)
 - [x] Desktop: `KeyProvisioningService` now exposes tenant context (`CurrentTenantDto`) and raises updates so the shell can show the current workspace after login.
 - [x] Mobile: provisioning page now subscribes to tenant summary updates exposed by `IMobileAuthService`, so the active tenant name/slug appears on-device after login.
-- [ ] Mobile: Provisioning + QR pairing (claim code → tokens)
+- [x] Mobile: Provisioning + QR pairing (claim code → tokens) with `MobilePakeAuthService` + `ProvisioningPage`
 - [ ] Files:
   - `src/FocusDeck.Desktop/Views/OnboardingWindow.xaml(.cs)`
   - `src/FocusDeck.Desktop/Services/Auth/KeyProvisioningService.cs`
@@ -145,10 +172,10 @@
 
 ### 1.3 Linux web server URL cleanup (what you asked)
 
-- [ ] Remove old UI from `wwwroot/app/**` on server
-- [ ] Nginx/Cloudflare (if used) route `/` → Kestrel `:5000` (no subpath)
-- [ ] Verify deep-links: `/notes`, `/lectures/123` load on refresh
-- [ ] Fix SPA base to `/` (no `/app`), avoid `/app/app/...` paths
+- [x] Remove old UI from `wwwroot/app/**` on server
+- [x] Nginx/Cloudflare (if used) route `/` → Kestrel `:5000` (no subpath) (see `docs/CLOUDFLARE_DEPLOYMENT.md`)
+- [x] Verify deep-links: `/notes`, `/lectures/123` load on refresh (`src/FocusDeck.Server/Program.cs` history fallback)
+- [x] Fix SPA base to `/` (no `/app`), avoid `/app/app/...` paths (`src/FocusDeck.WebApp/vite.config.ts`)
 
 **Files**
 
@@ -158,9 +185,9 @@
 
 ### 1.4 UX pass (first cut)
 
-- [ ] Desktop: onboarding flow (auth), main shell nav, status bar for connection/JWT/tenant
-- [ ] Web: clean top-nav, Notes/Lectures/Courses list pages wired; empty states
-- [ ] Mobile: login & "quick actions" (Start Note, Pair Device)
+- [x] Desktop: onboarding flow (auth), main shell nav, status bar for connection/JWT/tenant (`ShellWindow`, `OnboardingWindow`)
+- [x] Web: clean top-nav, Notes/Lectures/Courses list pages wired; empty states (`AppLayout`, page components)
+- [x] Mobile: login & "quick actions" (Start Note, Pair Device) (`CommandDeckPage`, provisioning/pairing screens)
 
 ### Phase 1 execution focus
 

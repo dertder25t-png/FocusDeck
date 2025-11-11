@@ -26,6 +26,7 @@ using System.Threading.RateLimiting;
 using StackExchange.Redis;
 using Microsoft.Extensions.Caching.Memory;
 using FocusDeck.Server.Services.Tenancy;
+using FocusDeck.Server.Services.Auditing;
 using FocusDeck.SharedKernel.Tenancy;
 
 // Configure Serilog
@@ -132,6 +133,7 @@ try
     // Add HttpClient for OAuth token exchange
     builder.Services.AddHttpClient();
     builder.Services.AddHttpContextAccessor();
+    builder.Services.AddScoped<IAuditActorProvider, HttpContextAuditActorProvider>();
 
     // Rate limiting for auth endpoints (per-IP)
     builder.Services.AddRateLimiter(options =>
@@ -413,6 +415,33 @@ try
 
     var app = builder.Build();
 
+    static bool ShouldServeSpa(HttpContext context, bool includeRoot)
+    {
+        var path = context.Request.Path.Value ?? string.Empty;
+        var isRoot = string.IsNullOrEmpty(path) || string.Equals(path, "/", StringComparison.OrdinalIgnoreCase);
+
+        if (context.Request.Path.StartsWithSegments("/v1") ||
+            context.Request.Path.StartsWithSegments("/hubs") ||
+            context.Request.Path.StartsWithSegments("/swagger") ||
+            context.Request.Path.StartsWithSegments("/healthz") ||
+            context.Request.Path.StartsWithSegments("/hangfire"))
+        {
+            return false;
+        }
+
+        if (path.StartsWith("/app", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (isRoot)
+        {
+            return includeRoot;
+        }
+
+        return !Path.HasExtension(path);
+    }
+
     // Add Serilog request logging with correlation IDs
     app.UseSerilogRequestLogging(options =>
     {
@@ -477,10 +506,7 @@ try
     });
 
     app.MapWhen(
-        ctx =>
-            !ctx.Request.Path.StartsWithSegments("/v1") &&
-            !ctx.Request.Path.StartsWithSegments("/hubs") &&
-            !Path.HasExtension(ctx.Request.Path.Value ?? string.Empty),
+        ctx => ShouldServeSpa(ctx, includeRoot: false),
         spa => spa.Run(async context =>
         {
             var indexFile = Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "index.html");
@@ -568,10 +594,9 @@ try
     // Add security headers for SPA
     app.Use(async (context, next) =>
     {
-        if (context.Request.Path.StartsWithSegments("/app"))
+        if (ShouldServeSpa(context, includeRoot: true))
         {
-            // Content Security Policy
-            context.Response.Headers["Content-Security-Policy"] = 
+            context.Response.Headers["Content-Security-Policy"] =
                 "default-src 'self'; " +
                 "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
                 "style-src 'self' 'unsafe-inline'; " +
@@ -579,21 +604,20 @@ try
                 "font-src 'self' data:; " +
                 "connect-src 'self' ws: wss:; " +
                 "frame-ancestors 'none';";
-            
-            // Other security headers
+
             context.Response.Headers["X-Content-Type-Options"] = "nosniff";
             context.Response.Headers["X-Frame-Options"] = "DENY";
             context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-            
-            // Cache control for HTML files
-            if (context.Request.Path.Value?.EndsWith("index.html") == true)
+
+            if (string.Equals(context.Request.Path.Value, "/", StringComparison.OrdinalIgnoreCase) ||
+                context.Request.Path.Value?.EndsWith("index.html", StringComparison.OrdinalIgnoreCase) == true)
             {
                 context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
                 context.Response.Headers["Pragma"] = "no-cache";
                 context.Response.Headers["Expires"] = "0";
             }
         }
-        
+
         await next();
     });
 
@@ -622,6 +646,15 @@ try
         
         await context.Response.WriteAsync(indexHtml);
     });
+
+    // Redirect any legacy /app paths to the root SPA
+    app.MapFallback("/app/{*path}", (HttpContext context, string? path) =>
+    {
+        var normalized = (path ?? string.Empty).Trim('/');
+        var redirectTarget = string.IsNullOrEmpty(normalized) ? "/" : $"/{normalized}";
+        var query = context.Request.QueryString.Value ?? string.Empty;
+        return Results.Redirect(string.Concat(redirectTarget, query), permanent: true);
+    }).AllowAnonymous();
 
     app.Run();
 }
