@@ -494,6 +494,9 @@ try
         app.MapOpenApi();
     }
 
+    // Serve index.html as default file (enables SPA routing)
+    app.UseDefaultFiles();
+
     app.UseStaticFiles(new StaticFileOptions
     {
         OnPrepareResponse = ctx =>
