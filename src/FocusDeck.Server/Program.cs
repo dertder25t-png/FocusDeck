@@ -28,6 +28,7 @@ using Microsoft.Extensions.Caching.Memory;
 using FocusDeck.Server.Services.Tenancy;
 using FocusDeck.Server.Services.Auditing;
 using FocusDeck.SharedKernel.Tenancy;
+using FocusDeck.SharedKernel.Auditing;
 
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
