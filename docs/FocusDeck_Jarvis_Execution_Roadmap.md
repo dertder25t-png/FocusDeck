@@ -150,6 +150,7 @@
 **Web**
 
 - [x] `/login`, `/register`, `/pair` (PAKE start/finish; store tokens; `ProtectedRoute`; see `AuthPakeController`, `src/FocusDeck.WebApp/src/lib/pake.ts`, `KeyProvisioningService`)
+- [x] Login system validated end-to-end (fresh DB register + login + tenant claim confirmed)
 - [ ] Files:
   - `src/FocusDeck.WebApp/src/pages/LoginPage.tsx`
   - `src/FocusDeck.WebApp/src/pages/ProvisioningPage.tsx`
