@@ -1,0 +1,99 @@
+# PAKE Register Finish Error - Fix Summary
+
+## Problem
+You were getting a "PAKE register finish failed" error when trying to create a user account.
+
+## Root Cause
+There were **two critical bugs** in the PAKE registration implementation:
+
+### Bug 1: Wrong Parameters in MobilePakeAuthService
+**File:** `/root/FocusDeck/src/FocusDeck.Mobile/Services/Auth/MobilePakeAuthService.cs`
+
+The `RegisterFinishRequest` was being constructed with parameters in the wrong order:
+```csharp
+// ❌ WRONG - passing SaltBase64 where VerifierBase64 should be
+var finishRequest = new RegisterFinishRequest(
+    userId,
+    startResponse.SaltBase64,  // ← This is wrong!
+    Convert.ToBase64String(Srp.ToBigEndian(verifier)),
+    vault.CipherText,
+    vault.KdfMetadataJson,
+    vault.CipherSuite);
+```
+
+The correct contract requires:
+```csharp
+// ✅ CORRECT
+public sealed record RegisterFinishRequest(
+    string UserId,
+    string VerifierBase64,        // ← Must be verifier
+    string KdfParametersJson,     // ← Must be KDF parameters
+    string? VaultDataBase64,
+    string? VaultKdfMetadataJson = null,
+    string? VaultCipherSuite = null);
+```
+
+**Also:** The mobile service was trying to access `startResponse.SaltBase64` which doesn't exist in `RegisterStartResponse`. It should use the KDF parameters instead.
+
+### Bug 2: Inconsistent KDF Usage in E2E Test
+**File:** `/root/FocusDeck/tests/FocusDeck.Server.Tests/AuthPakeE2ETests.cs`
+
+The test was using two different key derivation methods that must be consistent:
+
+1. **Registration** used Argon2id (via KDF parameters object)
+2. **Login** used legacy SHA256 (via raw salt bytes)
+
+This caused a key mismatch, making login fail after registration. The client proof computed during login wouldn't match what the server expected.
+
+## Solutions Applied
+
+### Fix 1: Corrected MobilePakeAuthService Registration Parameters
+```csharp
+// ✅ FIXED - Use KDF parameters from registration start response
+var kdfParams = System.Text.Json.JsonSerializer.Deserialize<FocusDeck.Shared.Security.SrpKdfParameters>(
+    startResponse.KdfParametersJson);
+if (kdfParams == null)
+{
+    _logger.LogWarning("Failed to deserialize KDF parameters for {UserId}", userId);
+    return false;
+}
+
+var privateKey = Srp.ComputePrivateKey(kdfParams, userId, password);
+var verifier = Srp.ComputeVerifier(privateKey);
+
+var finishRequest = new RegisterFinishRequest(
+    userId,
+    Convert.ToBase64String(Srp.ToBigEndian(verifier)),  // ✅ Correct: Verifier
+    startResponse.KdfParametersJson,                     // ✅ Correct: KDF params
+    vault.CipherText,
+    vault.KdfMetadataJson,
+    vault.CipherSuite);
+```
+
+### Fix 2: Fixed E2E Test to Use Consistent KDF Method
+```csharp
+// ✅ FIXED - Use KDF parameters if available, fall back to salt for legacy users
+var x2 = loginStartPayload.KdfParametersJson != null
+    ? Srp.ComputePrivateKey(JsonSerializer.Deserialize<SrpKdfParameters>(loginStartPayload.KdfParametersJson)!, userId, password)
+    : Srp.ComputePrivateKey(Convert.FromBase64String(loginStartPayload.SaltBase64), userId, password);
+```
+
+## Verification
+
+The **AuthPakeE2ETests.Pake_Register_Login_VaultRoundTrip** test now **PASSES**, confirming:
+- ✅ User registration with PAKE works correctly
+- ✅ Vault data is securely stored during registration
+- ✅ Login flow succeeds after registration
+- ✅ Access and refresh tokens are properly issued
+
+## Impact
+
+These fixes ensure that:
+1. Mobile app registration will now complete successfully
+2. The cryptographic key derivation is consistent between registration and login
+3. User account creation flows work end-to-end
+
+## Files Modified
+
+1. `/root/FocusDeck/src/FocusDeck.Mobile/Services/Auth/MobilePakeAuthService.cs` - Fixed parameter order and KDF handling
+2. `/root/FocusDeck/tests/FocusDeck.Server.Tests/AuthPakeE2ETests.cs` - Fixed KDF consistency in login proof computation

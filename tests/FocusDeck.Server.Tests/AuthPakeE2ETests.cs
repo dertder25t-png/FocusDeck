@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Text.Json;
 using System.Threading.Tasks;
+using FocusDeck.Domain.Entities.Auth;
 using FocusDeck.Persistence;
 using FocusDeck.Server.Controllers.v1;
 using FocusDeck.Server.Services.Auth;
@@ -51,18 +52,7 @@ public class AuthPakeE2ETests
         using var db = CreateDb(out var conn);
         await using var _ = conn; // dispose with db
 
-        var logger = NullLogger<AuthPakeController>.Instance;
-        var tokenService = new TokenService(CreateConfig(), NullLogger<TokenService>.Instance);
-        var srpCache = new SrpSessionCache(new MemoryCache(new MemoryCacheOptions()));
-        var limiter = new AuthAttemptLimiter(memoryCache: new MemoryCache(new MemoryCacheOptions()));
-
-        var controller = new AuthPakeController(db, logger, tokenService, srpCache, CreateConfig(), limiter, new StubTenantMembershipService())
-        {
-            ControllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext()
-            }
-        };
+        var controller = CreateController(db);
 
         var userId = "user@example.com";
         var password = "CorrectHorseBatteryStaple!";
@@ -103,8 +93,9 @@ public class AuthPakeE2ETests
         var loginStartPayload = Assert.IsType<LoginStartResponse>(loginStartOk.Value);
 
         // 4) Compute client proof
-        var salt = Convert.FromBase64String(loginStartPayload.SaltBase64);
-        var x2 = Srp.ComputePrivateKey(salt, userId, password);
+        var x2 = loginStartPayload.KdfParametersJson != null
+            ? Srp.ComputePrivateKey(JsonSerializer.Deserialize<SrpKdfParameters>(loginStartPayload.KdfParametersJson)!, userId, password)
+            : Srp.ComputePrivateKey(Convert.FromBase64String(loginStartPayload.SaltBase64), userId, password);
         var B = Srp.FromBigEndian(Convert.FromBase64String(loginStartPayload.ServerPublicEphemeralBase64));
         var u = Srp.ComputeScramble(A, B);
         var Sc = Srp.ComputeClientSession(B, x2, a, u);
@@ -122,6 +113,84 @@ public class AuthPakeE2ETests
         Assert.True(loginFinishPayload.HasVault); // vault was stored at registration
         Assert.False(string.IsNullOrWhiteSpace(loginFinishPayload.AccessToken));
         Assert.False(string.IsNullOrWhiteSpace(loginFinishPayload.RefreshToken));
+    }
+
+    [Fact]
+    public async Task Pake_Login_Uses_Legacy_Kdf_For_PreCutover_Credentials()
+    {
+        using var db = CreateDb(out var conn);
+        await using var _ = conn;
+
+        var controller = CreateController(db);
+        var userId = "legacy-user@example.com";
+        var password = "OldPassword!123";
+        var legacySalt = Convert.ToBase64String(Srp.GenerateSalt());
+
+        var legacyPrivateKey = Srp.ComputePrivateKey(Convert.FromBase64String(legacySalt), userId, password);
+        var verifier = Srp.ComputeVerifier(legacyPrivateKey);
+        var legacyVerifierB64 = Convert.ToBase64String(Srp.ToBigEndian(verifier));
+
+        var staleKdf = new SrpKdfParameters("argon2id", legacySalt, degreeOfParallelism: 2, iterations: 3, memorySizeKiB: 65536, aad: true);
+
+        db.PakeCredentials.Add(new PakeCredential
+        {
+            UserId = userId,
+            SaltBase64 = legacySalt,
+            VerifierBase64 = legacyVerifierB64,
+            Algorithm = Srp.Algorithm,
+            ModulusHex = Srp.ModulusHex,
+            Generator = (int)Srp.G,
+            KdfParametersJson = JsonSerializer.Serialize(staleKdf),
+            CreatedAt = new DateTime(2025, 11, 1, 0, 0, 0, DateTimeKind.Utc),
+            UpdatedAt = new DateTime(2025, 11, 1, 0, 0, 0, DateTimeKind.Utc)
+        });
+        await db.SaveChangesAsync();
+
+        var (a, A) = Srp.GenerateClientEphemeral();
+        var loginStart = await controller.LoginStart(new LoginStartRequest(
+            userId,
+            Convert.ToBase64String(Srp.ToBigEndian(A))));
+        var loginStartOk = Assert.IsType<OkObjectResult>(loginStart);
+        var loginStartPayload = Assert.IsType<LoginStartResponse>(loginStartOk.Value);
+
+        Assert.NotNull(loginStartPayload.KdfParametersJson);
+        var normalizedKdf = JsonSerializer.Deserialize<SrpKdfParameters>(loginStartPayload.KdfParametersJson!);
+        Assert.NotNull(normalizedKdf);
+        Assert.Equal("sha256", normalizedKdf!.Algorithm, System.StringComparer.OrdinalIgnoreCase);
+
+        // Legacy derivation path: use fallback salt bytes
+        var xLegacy = Srp.ComputePrivateKey(Convert.FromBase64String(loginStartPayload.SaltBase64), userId, password);
+        var B = Srp.FromBigEndian(Convert.FromBase64String(loginStartPayload.ServerPublicEphemeralBase64));
+        var u = Srp.ComputeScramble(A, B);
+        var Sc = Srp.ComputeClientSession(B, xLegacy, a, u);
+        var Kc = Srp.ComputeSessionKey(Sc);
+        var M1 = Srp.ComputeClientProof(A, B, Kc);
+
+        var loginFinish = await controller.LoginFinish(new LoginFinishRequest(
+            userId,
+            loginStartPayload.SessionId,
+            Convert.ToBase64String(M1)));
+        var loginFinishOk = Assert.IsType<OkObjectResult>(loginFinish);
+        var loginFinishPayload = Assert.IsType<LoginFinishResponse>(loginFinishOk.Value);
+        Assert.True(loginFinishPayload.Success);
+    }
+
+    private static AuthPakeController CreateController(AutomationDbContext db)
+    {
+        var logger = NullLogger<AuthPakeController>.Instance;
+        var tokenService = new TokenService(CreateConfig(), NullLogger<TokenService>.Instance);
+        var srpCache = new SrpSessionCache(new MemoryCache(new MemoryCacheOptions()));
+        var limiter = new AuthAttemptLimiter(memoryCache: new MemoryCache(new MemoryCacheOptions()));
+
+        var controller = new AuthPakeController(db, logger, tokenService, srpCache, CreateConfig(), limiter, new StubTenantMembershipService())
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        return controller;
     }
 }
 

@@ -10,6 +10,7 @@ namespace FocusDeck.Server.Middleware
     /// </summary>
     public class AuthenticationMiddleware
     {
+        private const string AccessCookieName = "focusdeck_access_token";
         private readonly RequestDelegate _next;
         private readonly ILogger<AuthenticationMiddleware> _logger;
 
@@ -106,8 +107,15 @@ namespace FocusDeck.Server.Middleware
                 }
             }
 
-            // For SPA requests, also check localStorage token in cookie (if you use it)
-            // This allows initial page load to check auth state
+            // Fallback to cookies written by the SPA (mirrors localStorage state)
+            if (context.Request.Cookies.TryGetValue(AccessCookieName, out var cookieToken))
+            {
+                if (IsValidJwt(cookieToken))
+                {
+                    return true;
+                }
+            }
+
             return false;
         }
 

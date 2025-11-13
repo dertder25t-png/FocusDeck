@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm run copy-to-server",
+    "copy-to-server": "node scripts/copy-to-server.js",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -16,6 +17,7 @@
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-toast": "^1.2.15",
+    "argon2-browser": "^1.18.0",
     "clsx": "^2.1.1",
     "qrcode": "^1.5.4",
     "qrcode.react": "^3.1.0",
@@ -29,6 +31,7 @@
     "@playwright/test": "^1.56.1",
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/postcss": "^4.1.16",
+    "@types/argon2-browser": "^1.18.4",
     "@types/node": "^24.10.0",
     "@types/qrcode": "^1.5.6",
     "@types/qrcode.react": "^1.0.5",

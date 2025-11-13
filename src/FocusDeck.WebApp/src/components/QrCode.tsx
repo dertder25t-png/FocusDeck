@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
-import QRCode from 'qrcode'
+// @ts-ignore
+import * as QRCode from 'qrcode'
 
 type QrCodeProps = {
   value: string

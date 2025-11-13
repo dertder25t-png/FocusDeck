@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -11,37 +11,6 @@ namespace FocusDeck.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.CreateTable(
-                name: "Tenants",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Slug = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Tenants", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "TenantUsers",
-                columns: table => new
-                {
-                    Id = table.Column<string>(type: "TEXT", nullable: false),
-                    Email = table.Column<string>(type: "TEXT", maxLength: 255, nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Picture = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    LastLoginAt = table.Column<DateTime>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_TenantUsers", x => x.Id);
-                });
-
             migrationBuilder.CreateTable(
                 name: "Assets",
                 columns: table => new
@@ -60,6 +29,47 @@ namespace FocusDeck.Persistence.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Assets", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AuthEventLogs",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    EventType = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
+                    UserId = table.Column<string>(type: "TEXT", maxLength: 320, nullable: true),
+                    OccurredAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    IsSuccess = table.Column<bool>(type: "INTEGER", nullable: false),
+                    FailureReason = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
+                    RemoteIp = table.Column<string>(type: "TEXT", maxLength: 64, nullable: true),
+                    DeviceId = table.Column<string>(type: "TEXT", maxLength: 128, nullable: true),
+                    DeviceName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
+                    UserAgent = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
+                    MetadataJson = table.Column<string>(type: "TEXT", nullable: true),
+                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AuthEventLogs", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AutomationExecutions",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    AutomationId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    ExecutedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    Success = table.Column<bool>(type: "INTEGER", nullable: false),
+                    ErrorMessage = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: true),
+                    DurationMs = table.Column<long>(type: "INTEGER", nullable: false),
+                    TriggerData = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true),
+                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AutomationExecutions", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -142,14 +152,32 @@ namespace FocusDeck.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "DeviceLinks",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    UserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    DeviceType = table.Column<int>(type: "INTEGER", nullable: false),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    CapabilitiesJson = table.Column<string>(type: "TEXT", nullable: false),
+                    LastSeenUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DeviceLinks", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "DeviceRegistrations",
                 columns: table => new
                 {
-                    Id = table.Column<string>(type: "TEXT", nullable: false),
-                    DeviceId = table.Column<string>(type: "TEXT", maxLength: 128, nullable: false),
-                    DeviceName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    DeviceId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    DeviceName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
                     Platform = table.Column<int>(type: "INTEGER", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 320, nullable: false),
+                    UserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
                     RegisteredAt = table.Column<DateTime>(type: "TEXT", nullable: false),
                     LastSyncAt = table.Column<DateTime>(type: "TEXT", nullable: false),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
@@ -166,11 +194,15 @@ namespace FocusDeck.Persistence.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Description = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true),
-                    RulesJson = table.Column<string>(type: "TEXT", nullable: false),
+                    UserId = table.Column<string>(type: "TEXT", nullable: false),
+                    Name = table.Column<string>(type: "TEXT", nullable: false),
+                    Strict = table.Column<bool>(type: "INTEGER", nullable: false),
+                    AutoBreak = table.Column<bool>(type: "INTEGER", nullable: false),
+                    AutoDim = table.Column<bool>(type: "INTEGER", nullable: false),
+                    NotifyPhone = table.Column<bool>(type: "INTEGER", nullable: false),
+                    TargetDurationMinutes = table.Column<int>(type: "INTEGER", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
                     TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
@@ -199,6 +231,7 @@ namespace FocusDeck.Persistence.Migrations
                 {
                     table.PrimaryKey("PK_FocusSessions", x => x.Id);
                 });
+
             migrationBuilder.CreateTable(
                 name: "KeyVaults",
                 columns: table => new
@@ -224,17 +257,39 @@ namespace FocusDeck.Persistence.Migrations
                     Id = table.Column<string>(type: "TEXT", nullable: false),
                     Title = table.Column<string>(type: "TEXT", maxLength: 300, nullable: false),
                     Content = table.Column<string>(type: "TEXT", nullable: false),
-                    Tags = table.Column<string>(type: "TEXT", nullable: true),
-                    Color = table.Column<string>(type: "TEXT", maxLength: 32, nullable: true),
+                    Tags = table.Column<string>(type: "TEXT", nullable: false),
+                    Color = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
                     IsPinned = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: false),
                     CreatedDate = table.Column<DateTime>(type: "TEXT", nullable: false),
                     LastModified = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    Bookmarks = table.Column<string>(type: "TEXT", nullable: true),
+                    Bookmarks = table.Column<string>(type: "TEXT", nullable: false),
                     TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Notes", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PairingSessions",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    UserId = table.Column<string>(type: "TEXT", maxLength: 320, nullable: false),
+                    Code = table.Column<string>(type: "TEXT", maxLength: 12, nullable: false),
+                    Status = table.Column<int>(type: "INTEGER", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    ExpiresAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    SourceDeviceId = table.Column<string>(type: "TEXT", nullable: true),
+                    TargetDeviceId = table.Column<string>(type: "TEXT", nullable: true),
+                    VaultDataBase64 = table.Column<string>(type: "TEXT", nullable: true),
+                    VaultKdfMetadataJson = table.Column<string>(type: "TEXT", nullable: true),
+                    VaultCipherSuite = table.Column<string>(type: "TEXT", maxLength: 64, nullable: true),
+                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PairingSessions", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -258,43 +313,21 @@ namespace FocusDeck.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "PairingSessions",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 320, nullable: false),
-                    Code = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    ExpiresAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    SourceDeviceId = table.Column<string>(type: "TEXT", maxLength: 128, nullable: true),
-                    TargetDeviceId = table.Column<string>(type: "TEXT", maxLength: 128, nullable: true),
-                    VaultDataBase64 = table.Column<string>(type: "TEXT", nullable: true),
-                    VaultKdfMetadataJson = table.Column<string>(type: "TEXT", nullable: true),
-                    VaultCipherSuite = table.Column<string>(type: "TEXT", maxLength: 64, nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_PairingSessions", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "RefreshTokens",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 320, nullable: false),
-                    TokenHash = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
-                    ClientFingerprint = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
-                    DeviceId = table.Column<string>(type: "TEXT", maxLength: 128, nullable: true),
-                    DeviceName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
-                    DevicePlatform = table.Column<string>(type: "TEXT", maxLength: 128, nullable: true),
+                    UserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    TokenHash = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
+                    ClientFingerprint = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
+                    DeviceId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
+                    DeviceName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
+                    DevicePlatform = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
                     IssuedUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
                     ExpiresUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
                     LastAccessUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
                     RevokedUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ReplacedByTokenHash = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
+                    ReplacedByTokenHash = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
                     TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
@@ -341,14 +374,33 @@ namespace FocusDeck.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "RevokedAccessTokens",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Jti = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    UserId = table.Column<string>(type: "TEXT", maxLength: 320, nullable: false),
+                    RevokedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    ExpiresUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RevokedAccessTokens", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ServiceConfigurations",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ServiceType = table.Column<int>(type: "INTEGER", nullable: false),
-                    ConfigJson = table.Column<string>(type: "TEXT", nullable: false),
+                    ServiceName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    ClientId = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
+                    ClientSecret = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
+                    ApiKey = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
+                    AdditionalConfig = table.Column<string>(type: "TEXT", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
                     TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
@@ -361,9 +413,13 @@ namespace FocusDeck.Persistence.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    StudentId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    ContextJson = table.Column<string>(type: "TEXT", nullable: false),
-                    CapturedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    UserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    Timestamp = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    FocusedAppName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
+                    FocusedWindowTitle = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
+                    ActivityIntensity = table.Column<int>(type: "INTEGER", nullable: false),
+                    IsIdle = table.Column<bool>(type: "INTEGER", nullable: false),
+                    OpenContextsJson = table.Column<string>(type: "TEXT", nullable: true),
                     TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
@@ -375,7 +431,7 @@ namespace FocusDeck.Persistence.Migrations
                 name: "StudySessions",
                 columns: table => new
                 {
-                    SessionId = table.Column<string>(type: "TEXT", nullable: false),
+                    SessionId = table.Column<Guid>(type: "TEXT", nullable: false),
                     StartTime = table.Column<DateTime>(type: "TEXT", nullable: false),
                     EndTime = table.Column<DateTime>(type: "TEXT", nullable: true),
                     DurationMinutes = table.Column<int>(type: "INTEGER", nullable: false),
@@ -386,76 +442,125 @@ namespace FocusDeck.Persistence.Migrations
                     FocusRate = table.Column<int>(type: "INTEGER", nullable: true),
                     BreaksCount = table.Column<int>(type: "INTEGER", nullable: false, defaultValue: 0),
                     BreakDurationMinutes = table.Column<int>(type: "INTEGER", nullable: false, defaultValue: 0),
-                    Category = table.Column<string>(type: "TEXT", nullable: true),
+                    Category = table.Column<string>(type: "TEXT", maxLength: 120, nullable: true),
                     TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_StudySessions", x => x.SessionId);
                 });
+
             migrationBuilder.CreateTable(
-                name: "AuthEventLogs",
+                name: "SyncChanges",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    EventType = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 320, nullable: true),
-                    OccurredAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    IsSuccess = table.Column<bool>(type: "INTEGER", nullable: false),
-                    FailureReason = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
-                    RemoteIp = table.Column<string>(type: "TEXT", maxLength: 64, nullable: true),
-                    DeviceId = table.Column<string>(type: "TEXT", maxLength: 128, nullable: true),
-                    DeviceName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
-                    UserAgent = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    MetadataJson = table.Column<string>(type: "TEXT", nullable: true),
+                    TransactionId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    EntityType = table.Column<int>(type: "INTEGER", nullable: false),
+                    EntityId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    Operation = table.Column<int>(type: "INTEGER", nullable: false),
+                    DataJson = table.Column<string>(type: "TEXT", nullable: false),
+                    ChangedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    ChangeVersion = table.Column<long>(type: "INTEGER", nullable: false),
                     TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AuthEventLogs", x => x.Id);
+                    table.PrimaryKey("PK_SyncChanges", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
-                name: "DeviceLinks",
+                name: "SyncMetadata",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    DeviceType = table.Column<int>(type: "INTEGER", nullable: false),
+                    DeviceId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    LastSyncVersion = table.Column<long>(type: "INTEGER", nullable: false),
+                    LastSyncTime = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    EntityVersions = table.Column<string>(type: "TEXT", nullable: false),
+                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SyncMetadata", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "SyncTransactions",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    DeviceId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    Timestamp = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    Status = table.Column<int>(type: "INTEGER", nullable: false),
+                    ErrorMessage = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: true),
+                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SyncTransactions", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "SyncVersions",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SyncVersions", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "TenantAudits",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    EntityType = table.Column<string>(type: "TEXT", nullable: false),
+                    EntityId = table.Column<string>(type: "TEXT", nullable: false),
+                    Action = table.Column<string>(type: "TEXT", nullable: false),
+                    Timestamp = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    ActorId = table.Column<string>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_TenantAudits", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Tenants",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    CapabilitiesJson = table.Column<string>(type: "TEXT", nullable: false),
-                    LastSeenUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    Slug = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_DeviceLinks", x => x.Id);
+                    table.PrimaryKey("PK_Tenants", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
-                name: "DesignIdeas",
+                name: "TenantUsers",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ProjectId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Type = table.Column<string>(type: "TEXT", nullable: false),
-                    Content = table.Column<string>(type: "TEXT", nullable: false),
-                    AssetId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    Score = table.Column<double>(type: "REAL", nullable: true),
-                    IsPinned = table.Column<bool>(type: "INTEGER", nullable: false),
+                    Id = table.Column<string>(type: "TEXT", nullable: false),
+                    Email = table.Column<string>(type: "TEXT", maxLength: 255, nullable: false),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    Picture = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    LastLoginAt = table.Column<DateTime>(type: "TEXT", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_DesignIdeas", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_DesignIdeas_DesignProjects_ProjectId",
-                        column: x => x.ProjectId,
-                        principalTable: "DesignProjects",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                    table.PrimaryKey("PK_TenantUsers", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -496,6 +601,31 @@ namespace FocusDeck.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "DesignIdeas",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    ProjectId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Type = table.Column<string>(type: "TEXT", nullable: false),
+                    Content = table.Column<string>(type: "TEXT", nullable: false),
+                    AssetId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    Score = table.Column<double>(type: "REAL", nullable: true),
+                    IsPinned = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DesignIdeas", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_DesignIdeas_DesignProjects_ProjectId",
+                        column: x => x.ProjectId,
+                        principalTable: "DesignProjects",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "NoteSuggestions",
                 columns: table => new
                 {
@@ -503,7 +633,7 @@ namespace FocusDeck.Persistence.Migrations
                     NoteId = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
                     Type = table.Column<int>(type: "INTEGER", nullable: false),
                     ContentMarkdown = table.Column<string>(type: "TEXT", nullable: false),
-                    Source = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
+                    Source = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
                     Confidence = table.Column<double>(type: "REAL", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
                     AcceptedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
@@ -546,38 +676,6 @@ namespace FocusDeck.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "RevokedAccessTokens",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Jti = table.Column<string>(type: "TEXT", maxLength: 128, nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 320, nullable: false),
-                    RevokedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    ExpiresUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_RevokedAccessTokens", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "SyncTransactions",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    DeviceId = table.Column<string>(type: "TEXT", maxLength: 128, nullable: false),
-                    Timestamp = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    ErrorMessage = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_SyncTransactions", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "TenantInvites",
                 columns: table => new
                 {
@@ -600,23 +698,6 @@ namespace FocusDeck.Persistence.Migrations
                         principalTable: "Tenants",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "TenantAudits",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    EntityType = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    EntityId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Action = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    Timestamp = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    ActorId = table.Column<string>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_TenantAudits", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -646,85 +727,6 @@ namespace FocusDeck.Persistence.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
-            migrationBuilder.CreateTable(
-                name: "AutomationExecutions",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "INTEGER", nullable: false)
-                        .Annotation("Sqlite:Autoincrement", true),
-                    AutomationId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ExecutedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    Success = table.Column<bool>(type: "INTEGER", nullable: false),
-                    ErrorMessage = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: true),
-                    DurationMs = table.Column<long>(type: "INTEGER", nullable: false),
-                    TriggerData = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AutomationExecutions", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_AutomationExecutions_Automations_AutomationId",
-                        column: x => x.AutomationId,
-                        principalTable: "Automations",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "SyncChanges",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    TransactionId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    EntityType = table.Column<int>(type: "INTEGER", nullable: false),
-                    EntityId = table.Column<string>(type: "TEXT", nullable: false),
-                    Operation = table.Column<int>(type: "INTEGER", nullable: false),
-                    DataJson = table.Column<string>(type: "TEXT", nullable: false),
-                    ChangedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    ChangeVersion = table.Column<long>(type: "INTEGER", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_SyncChanges", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_SyncChanges_SyncTransactions_TransactionId",
-                        column: x => x.TransactionId,
-                        principalTable: "SyncTransactions",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "SyncMetadata",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    DeviceId = table.Column<string>(type: "TEXT", maxLength: 128, nullable: false),
-                    LastSyncVersion = table.Column<long>(type: "INTEGER", nullable: false),
-                    LastSyncTime = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    EntityVersions = table.Column<string>(type: "TEXT", nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_SyncMetadata", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "SyncVersions",
-                columns: table => new
-                {
-                    Id = table.Column<long>(type: "INTEGER", nullable: false)
-                        .Annotation("Sqlite:Autoincrement", true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_SyncVersions", x => x.Id);
-                });
             migrationBuilder.CreateIndex(
                 name: "IX_Assets_UploadedAt",
                 table: "Assets",
@@ -734,6 +736,21 @@ namespace FocusDeck.Persistence.Migrations
                 name: "IX_Assets_UploadedBy",
                 table: "Assets",
                 column: "UploadedBy");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AuthEventLogs_EventType",
+                table: "AuthEventLogs",
+                column: "EventType");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AuthEventLogs_OccurredAtUtc",
+                table: "AuthEventLogs",
+                column: "OccurredAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AuthEventLogs_UserId",
+                table: "AuthEventLogs",
+                column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AutomationExecutions_AutomationId",
@@ -761,21 +778,6 @@ namespace FocusDeck.Persistence.Migrations
                 column: "IsEnabled");
 
             migrationBuilder.CreateIndex(
-                name: "IX_AuthEventLogs_EventType",
-                table: "AuthEventLogs",
-                column: "EventType");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AuthEventLogs_OccurredAtUtc",
-                table: "AuthEventLogs",
-                column: "OccurredAtUtc");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AuthEventLogs_UserId",
-                table: "AuthEventLogs",
-                column: "UserId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_ConnectedServices_Service",
                 table: "ConnectedServices",
                 column: "Service");
@@ -796,6 +798,11 @@ namespace FocusDeck.Persistence.Migrations
                 column: "CreatedAt");
 
             migrationBuilder.CreateIndex(
+                name: "IX_DesignIdeas_CreatedAt",
+                table: "DesignIdeas",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_DesignIdeas_ProjectId",
                 table: "DesignIdeas",
                 column: "ProjectId");
@@ -804,11 +811,6 @@ namespace FocusDeck.Persistence.Migrations
                 name: "IX_DesignIdeas_ProjectId_IsPinned",
                 table: "DesignIdeas",
                 columns: new[] { "ProjectId", "IsPinned" });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_DesignIdeas_CreatedAt",
-                table: "DesignIdeas",
-                column: "CreatedAt");
 
             migrationBuilder.CreateIndex(
                 name: "IX_DesignProjects_CreatedAt",
@@ -836,14 +838,14 @@ namespace FocusDeck.Persistence.Migrations
                 column: "DeviceId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_DeviceRegistrations_UserId",
-                table: "DeviceRegistrations",
-                column: "UserId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_DeviceRegistrations_DeviceId_UserId",
                 table: "DeviceRegistrations",
                 columns: new[] { "DeviceId", "UserId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DeviceRegistrations_UserId",
+                table: "DeviceRegistrations",
+                column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_FocusSessions_StartTime",
@@ -851,14 +853,14 @@ namespace FocusDeck.Persistence.Migrations
                 column: "StartTime");
 
             migrationBuilder.CreateIndex(
-                name: "IX_FocusSessions_UserId",
-                table: "FocusSessions",
-                column: "UserId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_FocusSessions_Status",
                 table: "FocusSessions",
                 column: "Status");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FocusSessions_UserId",
+                table: "FocusSessions",
+                column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_FocusSessions_UserId_Status",
@@ -886,16 +888,6 @@ namespace FocusDeck.Persistence.Migrations
                 column: "Status");
 
             migrationBuilder.CreateIndex(
-                name: "IX_NoteSuggestions_CreatedAt",
-                table: "NoteSuggestions",
-                column: "CreatedAt");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_NoteSuggestions_NoteId",
-                table: "NoteSuggestions",
-                column: "NoteId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Notes_CreatedDate",
                 table: "Notes",
                 column: "CreatedDate");
@@ -909,6 +901,16 @@ namespace FocusDeck.Persistence.Migrations
                 name: "IX_Notes_LastModified",
                 table: "Notes",
                 column: "LastModified");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_NoteSuggestions_CreatedAt",
+                table: "NoteSuggestions",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_NoteSuggestions_NoteId",
+                table: "NoteSuggestions",
+                column: "NoteId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_PairingSessions_Code",
@@ -1008,19 +1010,45 @@ namespace FocusDeck.Persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_ServiceConfigurations_ServiceType",
+                name: "IX_ServiceConfigurations_ServiceName",
                 table: "ServiceConfigurations",
-                column: "ServiceType");
+                column: "ServiceName",
+                unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_StudentContexts_StudentId",
+                name: "IX_StudentContexts_User_Timestamp",
                 table: "StudentContexts",
-                column: "StudentId");
+                columns: new[] { "UserId", "Timestamp" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudySessions_Category",
+                table: "StudySessions",
+                column: "Category");
 
             migrationBuilder.CreateIndex(
                 name: "IX_StudySessions_StartTime",
                 table: "StudySessions",
                 column: "StartTime");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudySessions_Status",
+                table: "StudySessions",
+                column: "Status");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SyncChanges_ChangeVersion",
+                table: "SyncChanges",
+                column: "ChangeVersion");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SyncChanges_EntityId",
+                table: "SyncChanges",
+                column: "EntityId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SyncChanges_EntityType_EntityId",
+                table: "SyncChanges",
+                columns: new[] { "EntityType", "EntityId" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_SyncChanges_TransactionId",
@@ -1039,6 +1067,11 @@ namespace FocusDeck.Persistence.Migrations
                 column: "DeviceId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_SyncTransactions_Timestamp",
+                table: "SyncTransactions",
+                column: "Timestamp");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_TenantInvites_TenantId",
                 table: "TenantInvites",
                 column: "TenantId");
@@ -1050,9 +1083,10 @@ namespace FocusDeck.Persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_TenantAudits_TenantId",
-                table: "TenantAudits",
-                column: "TenantId");
+                name: "IX_Tenants_Slug",
+                table: "Tenants",
+                column: "Slug",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_TenantUsers_Email",
@@ -1061,39 +1095,31 @@ namespace FocusDeck.Persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Tenants_Slug",
-                table: "Tenants",
-                column: "Slug",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_UserTenants_TenantId",
+                name: "IX_UserTenants_TenantId_UserId",
                 table: "UserTenants",
-                column: "TenantId");
+                columns: new[] { "TenantId", "UserId" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_UserTenants_UserId",
                 table: "UserTenants",
                 column: "UserId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_UserTenants_TenantId_UserId",
-                table: "UserTenants",
-                columns: new[] { "TenantId", "UserId" },
-                unique: true);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
+                name: "AuthEventLogs");
+
+            migrationBuilder.DropTable(
                 name: "AutomationExecutions");
 
             migrationBuilder.DropTable(
-                name: "TenantAudits");
+                name: "Automations");
 
             migrationBuilder.DropTable(
-                name: "AuthEventLogs");
+                name: "ConnectedServices");
 
             migrationBuilder.DropTable(
                 name: "DesignIdeas");
@@ -1120,10 +1146,10 @@ namespace FocusDeck.Persistence.Migrations
                 name: "NoteSuggestions");
 
             migrationBuilder.DropTable(
-                name: "PakeCredentials");
+                name: "PairingSessions");
 
             migrationBuilder.DropTable(
-                name: "PairingSessions");
+                name: "PakeCredentials");
 
             migrationBuilder.DropTable(
                 name: "RefreshTokens");
@@ -1153,7 +1179,13 @@ namespace FocusDeck.Persistence.Migrations
                 name: "SyncMetadata");
 
             migrationBuilder.DropTable(
+                name: "SyncTransactions");
+
+            migrationBuilder.DropTable(
                 name: "SyncVersions");
+
+            migrationBuilder.DropTable(
+                name: "TenantAudits");
 
             migrationBuilder.DropTable(
                 name: "TenantInvites");
@@ -1165,25 +1197,16 @@ namespace FocusDeck.Persistence.Migrations
                 name: "DesignProjects");
 
             migrationBuilder.DropTable(
-                name: "Notes");
-
-            migrationBuilder.DropTable(
-                name: "ReviewPlans");
-
-            migrationBuilder.DropTable(
-                name: "SyncTransactions");
-
-            migrationBuilder.DropTable(
-                name: "Automations");
-
-            migrationBuilder.DropTable(
-                name: "ConnectedServices");
+                name: "Assets");
 
             migrationBuilder.DropTable(
                 name: "Courses");
 
             migrationBuilder.DropTable(
-                name: "Assets");
+                name: "Notes");
+
+            migrationBuilder.DropTable(
+                name: "ReviewPlans");
 
             migrationBuilder.DropTable(
                 name: "TenantUsers");

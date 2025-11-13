@@ -1,3 +1,4 @@
+// const mockDistractions: Distraction[] = []
 import { useState, useEffect } from 'react'
 import { Button } from '../components/Button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/Card'

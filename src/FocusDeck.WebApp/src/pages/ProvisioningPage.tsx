@@ -2,7 +2,7 @@ import { useState } from 'react'
 import QrReader from 'react-qr-reader'
 import QRCode from 'qrcode.react'
 
-export function ProvisioningPage() {
+export default function ProvisioningPage() {
   const [mode, setMode] = useState<'scan' | 'display'>('display');
   const [scannedData, setScannedData] = useState<string | null>(null);
 

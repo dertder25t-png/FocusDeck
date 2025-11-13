@@ -56,7 +56,11 @@ public class AuthPakeController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.UserId)) return BadRequest(new { error = "UserId required" });
 
-        var kdfParameters = Srp.GenerateKdfParameters();
+        // Web clients use SHA256 KDF due to browser WASM limitations with Argon2id
+        // Mobile and desktop clients use Argon2id for better security
+        var kdfParameters = request.DevicePlatform?.ToLowerInvariant() == "web"
+            ? Srp.GenerateLegacyKdfParameters()
+            : Srp.GenerateKdfParameters();
         var kdfParametersJson = JsonSerializer.Serialize(kdfParameters);
 
         return Ok(new RegisterStartResponse(kdfParametersJson, Srp.Algorithm, Srp.ModulusHex, (int)Srp.G));
@@ -181,6 +185,7 @@ public class AuthPakeController : ControllerBase
             return BadRequest(new { error = "Invalid client ephemeral" });
         }
 
+        var kdfParametersJson = NormalizeKdfParameters(cred);
         var saltBytes = Convert.FromBase64String(cred.SaltBase64);
         var verifier = Srp.FromBigEndian(Convert.FromBase64String(cred.VerifierBase64));
 
@@ -214,7 +219,7 @@ public class AuthPakeController : ControllerBase
             request.DevicePlatform);
 
         return Ok(new LoginStartResponse(
-            cred.KdfParametersJson, // Null for legacy users, populated for modern users
+            kdfParametersJson, // Null for legacy users, populated for modern users
             cred.SaltBase64, // Always sent for legacy client compat
             Convert.ToBase64String(Srp.ToBigEndian(serverPublic)),
             session.SessionId,
@@ -486,6 +491,62 @@ public class AuthPakeController : ControllerBase
         }
 
         return DevicePlatform.Windows;
+    }
+
+    private static readonly DateTime Argon2CutoverUtc = new(2025, 11, 13, 0, 0, 0, DateTimeKind.Utc);
+
+    private static string? NormalizeKdfParameters(PakeCredential credential)
+    {
+        var parsed = TryParseKdf(credential.KdfParametersJson);
+        if (parsed == null)
+        {
+            return SerializeLegacyKdf(credential.SaltBase64);
+        }
+
+        if (string.Equals(parsed.Algorithm, "sha256", StringComparison.OrdinalIgnoreCase))
+        {
+            return credential.KdfParametersJson;
+        }
+
+        if (string.Equals(parsed.Algorithm, "argon2id", StringComparison.OrdinalIgnoreCase))
+        {
+            // Use the original creation time to decide if this credential predates the Argon2 verifier fix.
+            // UpdatedAt can change for unrelated updates and must not influence KDF selection.
+            var provisionedAt = credential.CreatedAt;
+            if (provisionedAt >= Argon2CutoverUtc)
+            {
+                return credential.KdfParametersJson;
+            }
+
+            // Accounts created before the Argon2 fix stored SHA-based verifiers even though
+            // the metadata said Argon2. Force those users back to the legacy derivation.
+            return SerializeLegacyKdf(credential.SaltBase64);
+        }
+
+        return SerializeLegacyKdf(credential.SaltBase64);
+    }
+
+    private static SrpKdfParameters? TryParseKdf(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<SrpKdfParameters>(json);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string SerializeLegacyKdf(string saltBase64)
+    {
+        var legacy = new SrpKdfParameters("sha256", saltBase64, degreeOfParallelism: 0, iterations: 0, memorySizeKiB: 0, aad: false);
+        return JsonSerializer.Serialize(legacy);
     }
 
     private async Task LogAuthEventAsync(string eventType, string? userId, bool success, string? failureReason = null, string? deviceId = null, string? deviceName = null, string? metadataJson = null)

@@ -57,15 +57,21 @@ public class MobilePakeAuthService : IMobileAuthService
             return false;
         }
 
-        var saltBytes = Convert.FromBase64String(startResponse.SaltBase64);
-        var privateKey = Srp.ComputePrivateKey(saltBytes, userId, password);
+        var kdfParams = System.Text.Json.JsonSerializer.Deserialize<FocusDeck.Shared.Security.SrpKdfParameters>(startResponse.KdfParametersJson);
+        if (kdfParams == null)
+        {
+            _logger.LogWarning("Failed to deserialize KDF parameters for {UserId}", userId);
+            return false;
+        }
+
+        var privateKey = Srp.ComputePrivateKey(kdfParams, userId, password);
         var verifier = Srp.ComputeVerifier(privateKey);
         var vault = await _vaultService.ExportEncryptedAsync(password);
 
         var finishRequest = new RegisterFinishRequest(
             userId,
-            startResponse.SaltBase64,
             Convert.ToBase64String(Srp.ToBigEndian(verifier)),
+            startResponse.KdfParametersJson,
             vault.CipherText,
             vault.KdfMetadataJson,
             vault.CipherSuite);

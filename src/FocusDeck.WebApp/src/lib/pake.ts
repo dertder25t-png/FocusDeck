@@ -1,4 +1,42 @@
+import argon2WasmUrl from 'argon2-browser/dist/argon2.wasm?url'
 import { getAuthToken } from './utils'
+
+type Argon2Globals = typeof globalThis & {
+  argon2WasmPath?: string
+  loadArgon2WasmBinary?: () => Promise<ArrayBuffer> | ArrayBuffer
+  loadArgon2WasmModule?: () => Promise<any>
+}
+
+const globalScope = globalThis as Argon2Globals
+globalScope.argon2WasmPath = globalScope.argon2WasmPath ?? argon2WasmUrl
+
+let wasmArrayBufferPromise: Promise<ArrayBuffer> | null = null
+
+function fetchArgon2Wasm(): Promise<ArrayBuffer> {
+  return fetch(argon2WasmUrl).then((res) => {
+    if (!res.ok) {
+      throw new Error('Failed to load Argon2 WASM')
+    }
+    return res.arrayBuffer()
+  })
+}
+
+globalScope.loadArgon2WasmBinary = () => {
+  if (!wasmArrayBufferPromise) {
+    wasmArrayBufferPromise = fetchArgon2Wasm()
+  }
+  return wasmArrayBufferPromise
+}
+globalScope.loadArgon2WasmModule = undefined
+
+let argon2ModulePromise: Promise<typeof import('argon2-browser')> | null = null
+
+async function ensureArgon2() {
+  if (!argon2ModulePromise) {
+    argon2ModulePromise = import('argon2-browser')
+  }
+  return argon2ModulePromise
+}
 
 const SRP_MODULUS_HEX =
   'AC6BDB41324A9A9BF166DE5E1389582FAF72B6651987EE07FC3192943DB56050' +
@@ -17,6 +55,7 @@ interface SrpKdfParameters {
   p?: number
   t?: number
   m?: number
+  aad?: boolean
 }
 
 interface LoginStartResponse {
@@ -185,6 +224,47 @@ async function computeLegacyPrivateKey(saltB64: string, userId: string, password
   return bytesToBigInt(digest)
 }
 
+async function computeArgon2idPrivateKey(kdf: SrpKdfParameters, userId: string, password: string): Promise<bigint> {
+  if (!kdf?.salt) {
+    throw new Error('Missing Argon2id salt')
+  }
+
+  console.log('[PAKE] computeArgon2idPrivateKey - userId:', userId)
+  console.log('[PAKE] computeArgon2idPrivateKey - KDF params:', { t: kdf.t, m: kdf.m, p: kdf.p, salt: kdf.salt, aad: kdf.aad })
+
+  const encoder = new TextEncoder()
+  const passwordBytes = encoder.encode(password)
+  const associatedData = kdf.aad === false ? null : encoder.encode(userId)
+  const saltBytes = base64ToBytes(kdf.salt)
+
+  const time = kdf.t ?? 3
+  const mem = kdf.m ?? 65536
+  const parallelism = kdf.p ?? 2
+
+  console.log('[PAKE] AssociatedData will be used:', associatedData !== null)
+  console.log('[PAKE] AssociatedData bytes:', associatedData ? Array.from(associatedData).map(b => b.toString(16).padStart(2, '0')).join('') : 'null')
+
+  console.log('[PAKE] Loading Argon2 WASM module...')
+  const { ArgonType, hash: argon2Hash } = await ensureArgon2()
+  console.log('[PAKE] Argon2 WASM module loaded successfully')
+
+  console.log('[PAKE] Computing Argon2id hash with params:', { time, mem, parallelism, hashLen: 32, hasAD: associatedData !== null })
+  const result = await argon2Hash({
+    pass: passwordBytes,
+    salt: saltBytes,
+    time,
+    mem,
+    parallelism,
+    hashLen: 32,
+    type: ArgonType.id,
+    ...(associatedData ? { associatedData } : {}),
+  })
+  console.log('[PAKE] Argon2id hash computed successfully')
+  console.log('[PAKE] Derived key (hex):', Array.from(new Uint8Array(result.hash)).map(b => b.toString(16).padStart(2, '0')).join(''))
+
+  return bytesToBigInt(new Uint8Array(result.hash))
+}
+
 function parseKdf(json?: string | null): SrpKdfParameters | null {
   if (!json) {
     return null
@@ -197,6 +277,23 @@ function parseKdf(json?: string | null): SrpKdfParameters | null {
 }
 
 async function derivePrivateKey(kdf: SrpKdfParameters | null, saltB64Fallback: string, userId: string, password: string): Promise<bigint> {
+  console.log('[PAKE] derivePrivateKey called with KDF:', kdf)
+  
+  // Use Argon2id if the credential was provisioned with it
+  if (kdf?.alg?.toLowerCase() === 'argon2id') {
+    console.log('[PAKE] Using Argon2id derivation')
+    try {
+      const result = await computeArgon2idPrivateKey(kdf, userId, password)
+      console.log('[PAKE] Argon2id derivation successful')
+      return result
+    } catch (error) {
+      console.error('[PAKE] Argon2id derivation failed:', error)
+      throw error
+    }
+  }
+
+  // Fall back to the legacy SHA256 derivation that older credentials expect
+  console.log('[PAKE] Using legacy SHA256 derivation')
   const salt = kdf?.salt ?? saltB64Fallback
   if (!salt) {
     throw new Error('Missing KDF salt')
@@ -223,7 +320,7 @@ export async function pakeRegister(userId: string, password: string) {
   const startResponse = await fetch('/v1/auth/pake/register/start', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId }),
+    body: JSON.stringify({ userId, devicePlatform: 'web' }),
   })
 
   if (!startResponse.ok) {
@@ -378,5 +475,3 @@ export async function redeemPairing(pairingId: string, code: string) {
   }
   return res.json()
 }
-
-

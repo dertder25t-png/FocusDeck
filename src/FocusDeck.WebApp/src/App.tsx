@@ -16,7 +16,7 @@ import { cn } from './lib/utils'
 import { DevicesPage } from './pages/DevicesPage'
 import { logout } from './lib/utils'
 import { PairingPage } from './pages/Auth/PairingPage'
-import { ProvisioningPage } from './pages/ProvisioningPage'
+import ProvisioningPage from './pages/ProvisioningPage'
 import { useCurrentTenant } from './hooks/useCurrentTenant'
 import { ProtectedRoute } from './pages/Auth/ProtectedRoute'
 

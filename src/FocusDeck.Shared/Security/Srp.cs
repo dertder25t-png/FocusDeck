@@ -10,24 +10,35 @@ namespace FocusDeck.Shared.Security;
 public record SrpKdfParameters
 {
     [JsonPropertyName("alg")]
-    public string Algorithm { get; }
+    public string Algorithm { get; init; } = "";
+    
     [JsonPropertyName("salt")]
-    public string SaltBase64 { get; }
+    public string SaltBase64 { get; init; } = "";
+    
     [JsonPropertyName("p")]
-    public int DegreeOfParallelism { get; }
+    public int DegreeOfParallelism { get; init; }
+    
     [JsonPropertyName("t")]
-    public int Iterations { get; }
+    public int Iterations { get; init; }
+    
     [JsonPropertyName("m")]
-    public int MemorySizeKiB { get; }
+    public int MemorySizeKiB { get; init; }
+    
+    [JsonPropertyName("aad")]
+    public bool UseAssociatedData { get; init; } = true;
 
-    [JsonConstructor]
-    public SrpKdfParameters(string algorithm, string saltBase64, int degreeOfParallelism, int iterations, int memorySizeKiB)
+    public SrpKdfParameters()
+    {
+    }
+
+    public SrpKdfParameters(string algorithm, string saltBase64, int degreeOfParallelism = 0, int iterations = 0, int memorySizeKiB = 0, bool aad = true)
     {
         Algorithm = algorithm;
         SaltBase64 = saltBase64;
         DegreeOfParallelism = degreeOfParallelism;
         Iterations = iterations;
         MemorySizeKiB = memorySizeKiB;
+        UseAssociatedData = aad;
     }
 }
 
@@ -46,7 +57,7 @@ public static class Srp
                                 "2E9F6A4E128E71B9F0C67C8E18CBF4C3BAFE8A31C5CFFFB4E90D54BD45BF37DF" +
                                 "365C1A65E68CFDA76D4DA708DF1FB2BC2E4A4371";
 
-    private static readonly BigInteger NValue = BigInteger.Parse(ModulusHex, System.Globalization.NumberStyles.HexNumber);
+    private static readonly BigInteger NValue = ParsePositiveHex(ModulusHex);
     private static readonly BigInteger GValue = new(2);
     private static readonly int PadLength = (int)(((long)NValue.GetBitLength() + 7L) / 8L);
     private static readonly BigInteger KValue = HashToInteger(Pad(NValue), Pad(GValue));
@@ -73,7 +84,16 @@ public static class Srp
     public static SrpKdfParameters GenerateKdfParameters()
     {
         var salt = GenerateSalt(16);
-        return new SrpKdfParameters("argon2id", Convert.ToBase64String(salt), 2, 3, 65536);
+        return new SrpKdfParameters("argon2id", Convert.ToBase64String(salt), degreeOfParallelism: 2, iterations: 3, memorySizeKiB: 65536, aad: true);
+    }
+
+    /// <summary>
+    /// Generates legacy SHA256-based KDF parameters for browser/web clients.
+    /// </summary>
+    public static SrpKdfParameters GenerateLegacyKdfParameters()
+    {
+        var salt = GenerateSalt(16);
+        return new SrpKdfParameters("sha256", Convert.ToBase64String(salt), degreeOfParallelism: 0, iterations: 0, memorySizeKiB: 0, aad: false);
     }
 
     /// <summary>
@@ -89,9 +109,14 @@ public static class Srp
             Salt = salt,
             DegreeOfParallelism = kdf.DegreeOfParallelism,
             Iterations = kdf.Iterations,
-            MemorySize = kdf.MemorySizeKiB,
-            AssociatedData = Encoding.UTF8.GetBytes(userId)
+            MemorySize = kdf.MemorySizeKiB
         };
+
+        // Only set AssociatedData if the KDF parameters specify it
+        if (kdf.UseAssociatedData)
+        {
+            argon2.AssociatedData = Encoding.UTF8.GetBytes(userId);
+        }
 
         var hash = argon2.GetBytes(32);
         return HashBytesToInteger(hash);
@@ -281,5 +306,17 @@ public static class Srp
     private static BigInteger HashBytesToInteger(byte[] digest)
     {
         return new BigInteger(digest, isUnsigned: true, isBigEndian: true);
+    }
+
+    private static BigInteger ParsePositiveHex(string hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex))
+        {
+            throw new System.ArgumentException("Hex value cannot be null or empty.", nameof(hex));
+        }
+
+        var normalized = (hex.Length & 1) == 1 ? "0" + hex : hex;
+        var bytes = System.Convert.FromHexString(normalized);
+        return new BigInteger(bytes, isUnsigned: true, isBigEndian: true);
     }
 }
