@@ -310,9 +310,17 @@ public sealed class Startup
 
         // JWT configuration
         var jwtSection = _configuration.GetSection("Jwt");
+        Console.WriteLine($"[DEBUG] Jwt section exists: {jwtSection.Exists()}");
+        Console.WriteLine($"[DEBUG] Jwt:Key value: {jwtSection.GetValue<string>("Key")}");
+        Console.WriteLine($"[DEBUG] All config keys: {string.Join(", ", _configuration.AsEnumerable().Take(20).Select(kv => kv.Key))}");
+        Console.WriteLine($"[DEBUG] All config providers: {string.Join(", ", ((IConfigurationRoot)_configuration).Providers.Select(p => p.GetType().Name))}");
+        
         var jwtKey = jwtSection.GetValue<string>("Key") ?? "super_dev_secret_key_change_me_please_32chars";
         var jwtIssuer = jwtSection.GetValue<string>("Issuer") ?? "https://focusdeck.909436.xyz";
         var jwtAudience = jwtSection.GetValue<string>("Audience") ?? "focusdeck-clients";
+
+        Console.WriteLine($"[DEBUG] JWT Key loaded: {(jwtKey != null ? jwtKey.Substring(0, Math.Min(20, jwtKey.Length)) : "null")}... (length: {jwtKey?.Length})");
+        Console.WriteLine($"[DEBUG] Environment: {_environment.EnvironmentName}");
 
         if (!_environment.IsDevelopment())
         {
@@ -345,7 +353,7 @@ public sealed class Startup
             },
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!)),
             ClockSkew = TimeSpan.FromMinutes(2)
         };
 

@@ -3,7 +3,7 @@
 **Timezone:** America/Chicago  \
 **Server:** ASP.NET Core  \
 **UI:** Vite/React  \
-**Clients:** WPF (.NET 9), MAUI (.NET 9)
+**Clients:** WPF (.NET 9)  _(Android/Mobile roadmap is tracked separately in `docs/FocusDeck_Jarvis_Android_Roadmap.md`)_
 
 ---
 
@@ -11,7 +11,7 @@
 
 - [x] Phase 0.1: Legacy SPA route work is ready—Vite base `/` plus `BuildSpa` hook exist and old `wwwroot/app` assets were removed (placeholder `.gitkeep` holds the root while release builds copy `dist`).
 - [x] Phase 0.2: `AutomationDbContext` owns the schema, migrations point to `InitialCanonicalSchema`, and there is no manual DDL in `Program.cs`.
-- [x] Phase 0.3: Desktop, Web dev proxy, and MAUI clients all target `http://localhost:5000` and `.NET 9` where applicable.
+- [x] Phase 0.3: Desktop and Web dev proxy both target `http://localhost:5000` and `.NET 9` where applicable. _(Android/Mobile targeting deferred; see Android roadmap.)_
 - [x] Phase 0.4: CI produces a single `focusdeck-server-with-spa` artifact that stitches WebApp output and server builds into one deployable.
 - [ ] Phase 1: Foundations are ready—multi-tenant plumbing is wired (null tenant default, factory coverage, stubbed tenant membership for auth tests) so focus can shift to tenant-aware APIs/UI and the `/` SPA launch on Linux.
 
@@ -20,11 +20,11 @@
 - [x] `npm run build` (WebApp) succeeds with the new QR/canvas types; Vite reports a large chunk warning but finishes.
 - [x] `dotnet build FocusDeck.sln -c Release` (passes with the known warnings in LectureIntegrationTests, RemoteControlIntegrationTests, and AssetIntegrationTests).
 
-## Execution order — Server → Windows → Android
+## Execution order — Server/Web → Windows (Android in separate roadmap)
 
-- **Step 1: Harden the Linux web server/backend.** Finish all Phase 0 + Phase 1 server tasks first (schema ownership in EF, `/` SPA routing, multi‑tenant plumbing, `/v1/tenants/*` APIs, Linux URL cleanup, CI artifact) so the ASP.NET Core app is rock‑solid and deployable on your Linux host.  
+- **Step 1: Harden the Linux web server + Web UI.** Finish all Phase 0 + Phase 1 server and WebApp tasks first (schema ownership in EF, `/` SPA routing, multi‑tenant plumbing, `/v1/tenants/*` APIs, Jarvis APIs/UI, Linux URL cleanup, CI artifact) so the ASP.NET Core app and web client are rock‑solid and deployable on your Linux host.  
 - **Step 2: Bring the Windows desktop client up to parity.** Once the backend is stable, wire WPF onboarding/PAKE/tenant context in `OnboardingWindow`, `KeyProvisioningService`, and the shell UX against the already‑solid server, keeping changes client‑side only.  
-- **Step 3: Land the Android/Mobile (MAUI) client.** After Windows is green, hook up MAUI provisioning, QR pairing, and tenant display using the same PAKE endpoints and tokens, focusing on platform‑specific UX and connectivity (emulator/physical device networking) without touching server logic again.
+- **Android/Mobile:** Defer to `docs/FocusDeck_Jarvis_Android_Roadmap.md` and only start once the server + Windows client are in production and stable.
 
 ## Phase 0 — Stabilize & Unify (Sprint 1–2)
 
@@ -107,13 +107,11 @@
 
 - [x] Desktop `App.xaml.cs` → base API `http://localhost:5000`
 - [x] WebApp dev proxy → `5000`
-- [x] MAUI targets .NET 9
 
 **Files**
 
 - `src/FocusDeck.Desktop/App.xaml.cs`
 - `src/FocusDeck.WebApp/vite.config.ts`
-- `src/FocusDeck.Mobile/FocusDeck.Mobile.csproj`
 
 ### 0.4 CI builds a single deployable
 
@@ -128,7 +126,7 @@
 - `.github/workflows/build-server.yml`
 - `src/FocusDeck.Server/FocusDeck.Server.csproj`
 
-### Phase 0 platform breakdown (Server → Windows → Android)
+### Phase 0 platform breakdown (Server → Windows)
 
 **Server (Linux / ASP.NET Core)**
 
@@ -141,16 +139,13 @@
 - Point the desktop app at the canonical dev API URL by updating `src/FocusDeck.Desktop/App.xaml.cs` to use `http://localhost:5000`, matching the server and WebApp dev proxy.  
 - No major desktop‑only features land in Phase 0; the key work is verifying the app can still boot and talk to the unified server after ports and schema are stabilized.
 
-**Android / Mobile (MAUI client)**
-
-- Align the MAUI project with the new stack by targeting .NET 9 in `src/FocusDeck.Mobile/FocusDeck.Mobile.csproj` and confirming its base API URL is also `http://10.0.2.2:5000` (emulator) / `http://<dev-machine>:5000` for physical devices.  
-- This ensures that once auth and tenancy are wired in Phase 1, the mobile client can immediately reuse the same backend without extra infrastructure work.
+> Android/Mobile (MAUI client) setup for Phase 0 (ports, .NET 9, base URLs) is tracked separately in `docs/FocusDeck_Jarvis_Android_Roadmap.md`.
 
 ---
 
 ## Phase 1 — SaaS Foundation + Auth UI + URL Fixes (Sprint 3–4)
 
-**Goal:** Multi-tenancy; PAKE login/registration/pairing UIs on Web/Desktop/Mobile; SPA serves at `/` in Linux; Cloud/Tunnel ingress stable.
+**Goal:** Multi-tenancy; PAKE login/registration/pairing UIs on Web/Desktop; SPA serves at `/` in Linux; Cloud/Tunnel ingress stable. _(Android/Mobile auth is deferred to the Android roadmap.)_
 
 ### 1.1 Multi-Tenancy (backend)
 
@@ -169,9 +164,9 @@
 - `src/FocusDeck.Persistence/AutomationDbContext.cs`
 - `src/FocusDeck.Server/Services/Auth/TokenService.cs`
 
-### 1.2 Authentication UI (sequenced: Web → Windows → Android)
+### 1.2 Authentication UI (sequenced: Web → Windows)
 
-_Sequence: build and validate PAKE + tenant flows on Web first, then port those flows to the Windows desktop client, and finally to Android/Mobile, reusing the same endpoints and contracts._
+_Sequence: build and validate PAKE + tenant flows on Web first, then port those flows to the Windows desktop client. Android/Mobile follows later in the Android roadmap, reusing the same endpoints and contracts._
 
 **Web (first)**
 
@@ -190,14 +185,9 @@ _Sequence: build and validate PAKE + tenant flows on Web first, then port those 
 
 - [x] Desktop: `OnboardingWindow` → `KeyProvisioningService` (PAKE flows + tenant refresh wired to `/v1/auth/pake`)
 - [x] Desktop: `KeyProvisioningService` now exposes tenant context (`CurrentTenantDto`) and raises updates so the shell can show the current workspace after login.
-**Android / Mobile (third)**
-
-- [x] Mobile: provisioning page now subscribes to tenant summary updates exposed by `IMobileAuthService`, so the active tenant name/slug appears on-device after login.
-- [x] Mobile: Provisioning + QR pairing (claim code → tokens) with `MobilePakeAuthService` + `ProvisioningPage`
 - [ ] Files:
   - `src/FocusDeck.Desktop/Views/OnboardingWindow.xaml(.cs)`
   - `src/FocusDeck.Desktop/Services/Auth/KeyProvisioningService.cs`
-  - `src/FocusDeck.Mobile/.../ProvisioningViewModel.cs`
 
 ### 1.3 Linux web server URL cleanup (what you asked)
 
@@ -212,7 +202,7 @@ _Sequence: build and validate PAKE + tenant flows on Web first, then port those 
 - `src/FocusDeck.WebApp/vite.config.ts`
 - Infra (nginx/cloudflared) config in your Linux host
 
-### Phase 1 platform breakdown (Server → Windows → Android)
+### Phase 1 platform breakdown (Server → Windows)
 
 **Server (backend + Linux web host)**
 
@@ -226,17 +216,12 @@ _Sequence: build and validate PAKE + tenant flows on Web first, then port those 
 - Surface the current tenant (name/slug) and auth status in the shell window so users can see which workspace they are in after login.  
 - Ensure desktop UX basics are in place (auth wizard, main shell nav, connection/JWT/tenant status bar) so Jarvis and multi‑tenant features make sense to users on Windows.
 
-**Android / Mobile (MAUI client)**
-
-- Connect the provisioning and pairing screens’ view models to `MobilePakeAuthService` so mobile users can scan the QR/claim code, complete the PAKE flow, and save tokens tied to the active tenant.  
-- Subscribe to tenant summary updates (via `IMobileAuthService`/SignalR) so the active workspace name/slug appears in the app after login, mirroring the desktop and web experience.  
-- Implement the basic “quick actions” UX (e.g., Start Note, Pair Device) so Android/MAUI is ready to participate in future Jarvis workflows once backend and tenancy are solid.
+> Android/Mobile (MAUI client) platform work for Phase 1 is tracked in `docs/FocusDeck_Jarvis_Android_Roadmap.md`.
 
 ### 1.4 UX pass (first cut)
 
 - [x] Desktop: onboarding flow (auth), main shell nav, status bar for connection/JWT/tenant (`ShellWindow`, `OnboardingWindow`)
 - [x] Web: clean top-nav, Notes/Lectures/Courses list pages wired; empty states (`AppLayout`, page components)
-- [x] Mobile: login & "quick actions" (Start Note, Pair Device) (`CommandDeckPage`, provisioning/pairing screens)
 
 ### Phase 1 execution focus
 
@@ -248,8 +233,8 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
    - Build tenant bootstrapping stories in `TenantMembershipService` so onboarding/login tracks a `Tenant`/`UserTenant` pair for every user or device.
 
 2. **Authentication surfaces**  
-   - Wire `/login`, `/register`, `/pair` in the WebApp with PAKE flows and a `ProtectedRoute` wrapper; share the `pake.ts` logic between desktop/mobile to minimize duplication.  
-   - Update Desktop `OnboardingWindow` + `KeyProvisioningService` and Mobile provisioning view model to hit the new endpoints and store tenant-scoped tokens.  
+   - Wire `/login`, `/register`, `/pair` in the WebApp with PAKE flows and a `ProtectedRoute` wrapper; share the `pake.ts` logic so the Windows client (and later Android) can reuse it.  
+   - Update Desktop `OnboardingWindow` + `KeyProvisioningService` to hit the new endpoints and store tenant-scoped tokens.  
    - Surface tenant information (name, slug) in the UI status bars/sidebars once authentication succeeds.
 
 3. **Linux SPA deployment readiness**  
@@ -358,11 +343,26 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - `tools/mcp/gateway/docker-compose.yml`
 - `docs/MCP_TOOLS.md` (contract examples, auth rules)
 
+### 2.3 Core Integrations (Email, Code, Files)
+
+**Goal:** Give Jarvis safe, first-class access to email, code hosts, and cloud files so it can plan around assignments, repos, and lecture materials—all via the server and MCP.
+
+- **Email (Gmail / Outlook)** — Connect accounts (OAuth) so Jarvis can parse assignment/meeting emails into calendar events and FocusDeck tasks, and surface “incoming work” on the dashboard.  
+- **GitHub / GitLab** — Link notes to repos/issues; allow Jarvis to surface TODOs, open PRs, and recent commits relevant to a note, course, or project context.  
+- **Google Drive / OneDrive** — Attach files from Drive/OneDrive to notes, auto-save note exports, and let Jarvis pull referenced slides/docs when summarizing or prepping sessions.
+
+**Files**
+
+- `src/FocusDeck.Server/Services/Integrations/Email/**`
+- `src/FocusDeck.Server/Services/Integrations/CodeHosts/**`
+- `src/FocusDeck.Server/Services/Integrations/CloudFiles/**`
+- `docs/INTEGRATIONS_EMAIL_CODE_FILES.md`
+
 ---
 
 ## Phase 3 — Jarvis (API + Runner + SignalR Bus) (Sprint 6–7)
 
-**Goal:** End-to-end Jarvis slice, feature-gated, tenant-aware.
+**Goal:** End-to-end Jarvis slice on the Linux server + Web UI first, feature-gated and tenant-aware; Windows and Android clients hook into these same workflows later.
 
 ### 3.1 Jarvis API & registry
 
@@ -381,7 +381,7 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - [x] Job `JarvisWorkflowJob` runs Jarvis workflows via a Hangfire job and updates status/logs (Phase 3.2 stub – external script invocation can be extended in later phases).
 - [x] Persist `JarvisWorkflowRun` entity; update status/logs
 - [x] Parse workflow outputs → dispatch via `NotificationsHub` (Phase 3.2 uses `JarvisRunUpdated` notifications; richer remote actions can follow in later phases).
-- [x] Clients (Desktop/Mobile) implement the listener and perform actions (show toast, start/pause, open URL, etc.)
+- [x] Desktop clients implement the listener and perform actions (show toast, start/pause, open URL, etc.). _(Android/Mobile listener is specified in the Android roadmap.)_
 
 **Files**
 
@@ -394,6 +394,25 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 - [x] `/jarvis` page: list workflows, run, see run status/logs
 - [x] Feature flag `"Features:Jarvis"`: false by default; enable canary
+
+### 3.4 Initial Jarvis workflows (server + Web, before Windows/Android)
+
+- **Smart Start Note for Current Class** — Workflow that calls the calendar resolver and `/v1/notes/start` to create a new note already attached to the “current” class, with a structured title/sections (built on top of Phase 4 auto-tag logic but exposed first via the Web UI).  
+- **Summarize and Quiz This Note** — Given a single note (or lecture transcript), produce a concise summary plus 5–10 quiz questions and key formulas/definitions; exposed on the note details page and gated by Jarvis feature flags to control token usage.  
+- **Next Session Prep** — On the dashboard, aggregate recent notes + upcoming calendar events and surface a short list of “next steps” (e.g., review these notes, finish these TODOs) using Jarvis context/suggest APIs.  
+- **Extract Tasks and Deadlines from Notes** — Workflow that scans a note to pull tasks, due dates, and project links, then proposes them into a tasks list with a “review & accept” UI.  
+- **Lecture Reflection / Study Plan** — After a lecture, Jarvis turns today’s note into: what you learned, what’s unclear, and a 3–5 step mini study plan for the coming days.
+
+> All of these workflows are designed to run entirely on the server + Web UI first. Once stable, the Windows desktop client can trigger the same workflow IDs without changing Jarvis internals; Android picks them up later via the Android roadmap.
+
+### 3.5 Jarvis Automation Center (server + Web)
+
+- **Automation Library (manage what Jarvis can do)** — Web UI under `/jarvis/automations` that lists all available Jarvis workflows and automations (including those Jarvis proposes himself), with per-automation enable/disable toggles, frequency/trigger settings, and “auto-run vs ask first” flags.  
+- **Safety & Approvals** — Global settings letting users choose which categories of automations Jarvis may run automatically (e.g., layout changes, reminders) and which always require explicit confirmation; all runs are logged with tenant/user, workflow, and evidence.  
+- **Custom Automation Builder** — Simple builder for “If [trigger] and [conditions], then run [Jarvis workflow/action]”, where triggers include note events, calendar events, and activity signals, and actions are existing workflow IDs (e.g., Smart Start Note, Extract Tasks).  
+- **Audit & History View** — Per-automation log showing recent runs, status, and the ability to pause/delete an automation if it behaves unexpectedly.
+
+> This Automation Center ships first on the Web UI and operates entirely on the server workflows; Windows and Android later surface a subset of controls (e.g., toggles, run buttons) without needing their own orchestration logic.
 
 ---
 
@@ -435,7 +454,7 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 **Goal:** Server plans; device acts. Prepare class layouts/jobs on server; execute instantly when laptop/phone connects.
 
-### 5.1 Job schema & agent skeleton (Windows, later Android)
+### 5.1 Job schema & agent skeleton (Windows)
 
 - [ ] JSON job bundle (idempotent steps, `expires_at`, safety preview)
 - [ ] Windows agent: service + WebSocket client; capabilities advertised to server
@@ -545,7 +564,7 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 ## Acceptance Gates (what “done” really means)
 
 - **P0 Gate:** `dotnet build -c Release` produces server + SPA at root; desktop connects to `:5000`; EF canonical migration applies cleanly.
-- **P1 Gate:** Multi-tenant reads/writes; Web/Desktop/Mobile can login/register/pair; Linux deploy serves SPA at `/`.
+- **P1 Gate:** Multi-tenant reads/writes; Web/Desktop can login/register/pair; Linux deploy serves SPA at `/`.
 - **P1.5 Gate:** Privacy dashboard enabled; contextual snapshots captured with consent; `/v1/jarvis/suggest` returns explainable, resource-aware recommendations with feedback loop online.
 - **P2 Gate:** OTLP traces + Prom metrics + central logs visible; MCP tools usable from Copilot/GPT.
 - **P3 Gate:** `/v1/jarvis/*` live; job runs BMAD; clients receive SignalR actions.
@@ -560,11 +579,15 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - [ ] `[SERVER] History fallback for SPA routes`
 - [ ] `[SERVER] Canonical EF migration; remove manual DDL`
 - [ ] `[DESKTOP] BaseAddress = http://localhost:5000`
-- [ ] `[MOBILE] Target .NET 9`
 - [ ] `[OBS] OTLP+Prom+Serilog production pipeline`
 - [ ] `[MCP] FocusDeck MCP server + gateway`
 - [ ] `[JARVIS] Contextual learning loop (privacy, snapshots, suggest API)`
 - [ ] `[JARVIS] API + Hangfire runner + SignalR dispatch`
+- [ ] `[JARVIS] Smart Start Note workflow (current class)`
+- [ ] `[JARVIS] Summarize + quiz note workflow`
+- [ ] `[JARVIS] Extract tasks/deadlines from note`
+- [ ] `[JARVIS] Next Session Prep (dashboard suggestions)`
+- [ ] `[JARVIS] Automation Center UI (manage & create automations)`
 - [ ] `[CAL] Google Calendar warm sync + resolver`
 - [ ] `[AGENT] Windows agent skeleton + skills`
 - [ ] `[BRIDGE] Browser extension + memory vault`
@@ -576,7 +599,6 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 - **Desktop:** Onboarding/login, left nav (Notes/Lectures/Courses), status bar, “Start Note” primary CTA.
 - **Web (Linux server):** Clean top bar, Notes list with course chips, `/jarvis` gated page, deep-link routing tested at root.
-- **Android:** Login + Quick Actions (“Start Note”, “Pair Device”), minimal list screens to verify auth + API.
 
 ---
 
