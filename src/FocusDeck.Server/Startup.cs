@@ -12,6 +12,8 @@ using FocusDeck.Server.Services.Auth;
 using FocusDeck.Server.Services.Tenancy;
 using FocusDeck.Server.Services.Jarvis;
 using FocusDeck.SharedKernel;
+using System.Linq;
+using System.Text.Json;
 using FocusDeck.SharedKernel.Auditing;
 using FocusDeck.SharedKernel.Tenancy;
 using Hangfire;
@@ -446,6 +448,47 @@ public sealed class Startup
             catch (Exception ex)
             {
                 Log.Warning(ex, "Database migration failed; proceeding with best-effort initialization");
+            }
+        }
+
+        // Backfill PAKE credential salts from KDF metadata where the SaltBase64 column is empty.
+        // This helps migrations for older credentials that had KDF JSON but no explicit salt column value.
+        using (var seedScope = services.CreateScope())
+        {
+            var db = seedScope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+            try
+            {
+                var rows = db.PakeCredentials
+                    .Where(p => string.IsNullOrWhiteSpace(p.SaltBase64) && !string.IsNullOrWhiteSpace(p.KdfParametersJson))
+                    .ToListAsync()
+                    .GetAwaiter()
+                    .GetResult();
+
+                if (rows.Count > 0)
+                {
+                    Log.Information("Backfilling {Count} PAKE credential(s) with salt from KDF metadata", rows.Count);
+                    foreach (var row in rows)
+                    {
+                        try
+                        {
+                            var kdf = JsonSerializer.Deserialize<FocusDeck.Shared.Security.SrpKdfParameters>(row.KdfParametersJson!);
+                            if (kdf != null && !string.IsNullOrWhiteSpace(kdf.SaltBase64))
+                            {
+                                row.SaltBase64 = kdf.SaltBase64;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Warning(ex, "Failed to parse KDF parameters for user {UserId}", row.UserId);
+                        }
+                    }
+
+                    db.SaveChangesAsync().GetAwaiter().GetResult();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to backfill PAKE salts from KDF metadata");
             }
         }
 

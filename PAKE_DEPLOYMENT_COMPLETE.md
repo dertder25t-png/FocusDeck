@@ -53,6 +53,17 @@ The "PAKE register finish failed" error on the Linux server has been **FIXED** a
 - Restored backup database with base tables
 - Manually created missing PAKE and auth tables with correct schema
 
+### 5. **Login Start 500 (Missing KDF Salt)** ✅ FIXED
+**File:** `src/FocusDeck.Server/Controllers/v1/AuthPakeController.cs`
+
+**Problem:**
+- Legacy credentials were missing `SaltBase64`, so `Convert.FromBase64String` threw and produced HTTP 500 during `/v1/auth/pake/login/start`.
+
+**Solution:**
+- The controller now prefers `SaltBase64`, falls back to `KdfParametersJson`, and responds with `400 Bad Request` plus structured `missing-salt`/`invalid-salt` logging instead of crashing.
+- Added the `20251114174500_BackfillPakeSaltFromKdf.cs` migration and the startup backfill log (`Backfilling {Count} PAKE credential(s) with salt from KDF metadata`) so the column is populated for every row before login.
+- Verified via `tests/FocusDeck.Server.Tests/AuthPakeE2ETests.cs::Pake_Login_MissingSalt_ReturnsBadRequest` and by rerunning login-start against a credential missing salt.
+
 ## Deployment Steps Taken
 
 1. ✅ Copied fixed source files to `/home/focusdeck/FocusDeck/`
@@ -115,6 +126,24 @@ Users can now:
 2. ✅ Complete registration with PAKE proof
 3. ✅ Login with stored credentials
 4. ✅ Get access and refresh tokens
+
+## Backfill & Migration
+
+To ensure older credentials are compatible after this fix, the server now runs a one-time backfill during startup that will copy the salt embedded in `KdfParametersJson` into the `PakeCredentials.SaltBase64` column for rows where that column is empty. This prevents login failures caused by missing `SaltBase64` values.
+
+If you maintain migrations manually, ensure you have applied database migrations (the repository includes `20251114174500_BackfillPakeSaltFromKdf.cs` which does the same backfill via SQL on supported providers):
+
+Postgres:
+```bash
+dotnet ef database update
+```
+
+SQLite (if you use the bundled DB file):
+```bash
+dotnet ef database update
+```
+
+Check for migration results in the logs: look for `Backfilling {Count} PAKE credential(s) with salt from KDF metadata`.
 
 ## Known Warnings (Non-Critical)
 

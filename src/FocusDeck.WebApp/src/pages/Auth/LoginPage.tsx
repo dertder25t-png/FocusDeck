@@ -60,8 +60,18 @@ export function LoginPage() {
       // Redirect to original page or dashboard
       navigate(redirectUrl, { replace: true })
     } catch (err: any) {
-      const errorMessage = err?.message || 'Authentication failed'
-      setError(errorMessage)
+      const rawMessage = err?.message || 'Authentication failed'
+      // Map server-side auth errors to friendly UI messages
+      let friendly = rawMessage
+      if (rawMessage === 'Missing KDF salt') {
+        friendly = 'Account needs an upgrade — please reset your password or contact support.'
+      } else if (rawMessage === 'Invalid KDF salt') {
+        friendly = 'Authentication could not proceed due to credential metadata. Please try again or contact support.'
+      } else if (rawMessage === 'User not found') {
+        friendly = 'Account not found. Please check your email or create an account.'
+      }
+
+      setError(friendly)
       console.error('Login error:', err)
     } finally {
       setLoading(false)

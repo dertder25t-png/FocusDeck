@@ -131,6 +131,7 @@ private static BigInteger ParsePositiveHex(string hex)
 | Key mismatch (Argon2id vs SHA256) | Inconsistent KDF methods | ✅ FIXED |
 | SRP initialization overflow | Signed vs unsigned BigInteger parsing | ✅ FIXED |
 | Missing database tables | Incomplete migrations | ✅ FIXED |
+| PAKE login start 500 | Empty `SaltBase64` column triggered `Convert.FromBase64String` failure | ✅ FIXED |
 
 ## Performance Impact
 
@@ -157,3 +158,4 @@ Created comprehensive guides:
 
 - Modern credentials default to Argon2id metadata, while old SHA256 rows still receive salt-based KDF responses in the login flow.
 - Authentication now insists on an `app_tenant_id` claim, and `TenantMembershipService`/`AuthenticationMiddleware` guarantee the SPA only renders with the correct tenancy context.
+- The login start handler now recovers salts from `KdfParametersJson`, logs `missing-salt`/`invalid-salt` failures, and returns `400` instead of crashing; the `20251114174500_BackfillPakeSaltFromKdf` migration plus the startup backfill (`Backfilling {Count} PAKE credential(s) with salt from KDF metadata`) ensure every row has a concrete `SaltBase64` value.

@@ -41,6 +41,12 @@ This confirms:
 - ✅ Login flow succeeds after registration
 - ✅ Tokens are correctly issued
 
+## Migration & Upgrade
+
+If you are upgrading an existing deployment, the server includes a migration and a one-time startup backfill that will populate `PakeCredentials.SaltBase64` from `KdfParametersJson` for legacy users. This ensures `LoginStart` provides a valid `saltBase64` even if the DB column was previously empty.
+
+Check server logs for: `Backfilling {Count} PAKE credential(s) with salt from KDF metadata` to confirm backfill ran.
+
 ## Impact
 Your users can now:
 1. ✅ Create accounts via mobile/web apps

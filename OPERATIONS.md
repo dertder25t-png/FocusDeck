@@ -435,6 +435,19 @@ location /hubs/ {
 }
 ```
 
+
+#### 6. `/v1/auth/pake/login/start` returns HTTP 500
+
+**Symptoms:** The web/mobile client sees `PAKE login start failed` and the server logs `PAKE login start unhandled exception` even though the user has a registered credential.
+
+**Cause:** Legacy `PakeCredentials` rows can have an empty `SaltBase64`. `AuthPakeController.LoginStart` previously called `Convert.FromBase64String(cred.SaltBase64)` without a guard, resulting in a `FormatException` and HTTP 500.
+
+**Solution:**
+- Apply the `20251114174500_BackfillPakeSaltFromKdf` migration (`dotnet ef database update`) so the salt stored in `KdfParametersJson` is copied into `SaltBase64` for any old rows.
+- The runtime backfill (logs `Backfilling {Count} PAKE credential(s) with salt from KDF metadata`) fills any remaining gaps on startup.
+- After backfilling, `/v1/auth/pake/login/start` returns `400 Bad Request` with `error: "Missing KDF salt"` or `"Invalid KDF salt"` for malformed credentials instead of crashing, and the structured logs include the failure reason for follow-up.
+- Query `SELECT "userId" FROM "PakeCredentials" WHERE "SaltBase64" IS NULL OR "SaltBase64" = ''` to inspect affected users before and after the backfill.
+
 ### Debug Mode
 
 Enable detailed logging:

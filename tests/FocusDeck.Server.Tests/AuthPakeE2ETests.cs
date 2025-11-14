@@ -30,6 +30,8 @@ public class AuthPakeE2ETests
             .Options;
         var db = new AutomationDbContext(options);
         db.Database.EnsureCreated();
+        // Tests set up an in-memory database for speed. Do not force migration here so
+        // individual tests can control when migrations run (useful for migration tests).
         return db;
     }
 
@@ -215,6 +217,86 @@ public class AuthPakeE2ETests
         Assert.IsType<UnauthorizedObjectResult>(loginFinish);
     }
 
+    [Fact]
+    public async Task Pake_Login_MissingSalt_ReturnsBadRequest()
+    {
+        using var db = CreateDb(out var conn);
+        await using var _ = conn;
+
+        var controller = CreateController(db);
+        var userId = "no-salt@example.com";
+
+        var verifier = Convert.ToBase64String(Srp.ToBigEndian(Srp.ComputeVerifier(Srp.ComputePrivateKey(Convert.FromBase64String(Convert.ToBase64String(Srp.GenerateSalt())), userId, "pw"))));
+
+        // Insert a credential with empty salt to simulate migration edge-case
+        db.PakeCredentials.Add(new PakeCredential
+        {
+            UserId = userId,
+            SaltBase64 = string.Empty,
+            VerifierBase64 = verifier,
+            Algorithm = Srp.Algorithm,
+            ModulusHex = Srp.ModulusHex,
+            Generator = (int)Srp.G,
+            KdfParametersJson = null,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var (a, A) = Srp.GenerateClientEphemeral();
+        var loginStart = await controller.LoginStart(new LoginStartRequest(
+            userId,
+            Convert.ToBase64String(Srp.ToBigEndian(A))));
+
+        Assert.IsType<BadRequestObjectResult>(loginStart);
+        var badReq = Assert.IsType<BadRequestObjectResult>(loginStart);
+        var payload = badReq.Value!;
+        var errorProp = payload.GetType().GetProperty("error");
+        Assert.NotNull(errorProp);
+        Assert.Equal("Missing KDF salt", errorProp!.GetValue(payload)?.ToString());
+    }
+
+    [Fact]
+    public async Task Pake_Login_ReturnsSaltFromKdfWhenCredSaltMissing()
+    {
+        using var db = CreateDb(out var conn);
+        await using var _ = conn;
+
+        var controller = CreateController(db);
+        var userId = "kdf-salt@example.com";
+        var password = "Password123!";
+
+        var derivedSalt = Convert.ToBase64String(Srp.GenerateSalt());
+
+        var kdf = new SrpKdfParameters("sha256", derivedSalt, degreeOfParallelism: 0, iterations: 1, memorySizeKiB: 0, aad: false);
+
+        // Insert a credential that has an empty `SaltBase64` but the KDF metadata contains the salt.
+        db.PakeCredentials.Add(new PakeCredential
+        {
+            UserId = userId,
+            SaltBase64 = string.Empty,
+            VerifierBase64 = Convert.ToBase64String(Srp.ToBigEndian(Srp.ComputeVerifier(Srp.ComputePrivateKey(Convert.FromBase64String(derivedSalt), userId, password)))),
+            Algorithm = Srp.Algorithm,
+            ModulusHex = Srp.ModulusHex,
+            Generator = (int)Srp.G,
+            KdfParametersJson = JsonSerializer.Serialize(kdf),
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var (a, A) = Srp.GenerateClientEphemeral();
+        var loginStart = await controller.LoginStart(new LoginStartRequest(
+            userId,
+            Convert.ToBase64String(Srp.ToBigEndian(A))));
+
+        var okRes = Assert.IsType<OkObjectResult>(loginStart);
+        var payload = Assert.IsType<LoginStartResponse>(okRes.Value);
+
+        // Expect the salt to come from the KDF metadata and be present on the response
+        Assert.Equal(derivedSalt, payload.SaltBase64, ignoreCase: true);
+    }
+
     private static AuthPakeController CreateController(AutomationDbContext db)
     {
         var logger = NullLogger<AuthPakeController>.Instance;
@@ -231,6 +313,51 @@ public class AuthPakeE2ETests
         };
 
         return controller;
+    }
+
+    [Fact]
+    public async Task Pake_BackfillMigration_FillsSaltFromKdfJson()
+    {
+        using var db = CreateDb(out var conn);
+        await using var _ = conn;
+
+        var userId = "migrate-salt@example.com";
+        var derivedSalt = Convert.ToBase64String(Srp.GenerateSalt());
+        var kdf = new SrpKdfParameters("sha256", derivedSalt, degreeOfParallelism: 0, iterations: 0, memorySizeKiB: 0, aad: false);
+
+        db.PakeCredentials.Add(new PakeCredential
+        {
+            UserId = userId,
+            SaltBase64 = string.Empty,
+            VerifierBase64 = "dummy",
+            Algorithm = Srp.Algorithm,
+            ModulusHex = Srp.ModulusHex,
+            Generator = (int)Srp.G,
+            KdfParametersJson = JsonSerializer.Serialize(kdf),
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        // Run the same backfill logic the server will use (simulates Startup backfill step)
+        var rows = await db.PakeCredentials
+            .Where(p => string.IsNullOrWhiteSpace(p.SaltBase64) && !string.IsNullOrWhiteSpace(p.KdfParametersJson))
+            .ToListAsync();
+        foreach (var row in rows)
+        {
+            var kdfParams = JsonSerializer.Deserialize<SrpKdfParameters>(row.KdfParametersJson!);
+            if (kdfParams != null && !string.IsNullOrWhiteSpace(kdfParams.SaltBase64))
+            {
+                row.SaltBase64 = kdfParams.SaltBase64;
+            }
+        }
+        await db.SaveChangesAsync();
+
+        // Re-query and assert the SaltBase64 was populated by the backfill logic
+        var cred = await db.PakeCredentials.FirstOrDefaultAsync(p => p.UserId == userId);
+        Assert.NotNull(cred);
+        Assert.False(string.IsNullOrWhiteSpace(cred!.SaltBase64));
+        Assert.Equal(derivedSalt, cred.SaltBase64);
     }
 }
 

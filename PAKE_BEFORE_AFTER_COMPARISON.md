@@ -33,43 +33,6 @@ if (kdfParams == null)
     return false;
 }
 
-var privateKey = Srp.ComputePrivateKey(kdfParams, userId, password);  // ✅ Use full KDF params
-var verifier = Srp.ComputeVerifier(privateKey);
-var vault = await _vaultService.ExportEncryptedAsync(password);
-
-var finishRequest = new RegisterFinishRequest(
-    userId,
-    Convert.ToBase64String(Srp.ToBigEndian(verifier)),  // ✅ VerifierBase64 in 2nd position
-    startResponse.KdfParametersJson,                     // ✅ KdfParametersJson in 3rd position
-    vault.CipherText,
-    vault.KdfMetadataJson,
-    vault.CipherSuite);
-```
-
-**Improvements:**
-1. ✅ Correctly deserializes KDF parameters (which includes salt internally)
-2. ✅ Uses full KDF object for proper Argon2id key derivation
-3. ✅ Parameters in correct order matching contract
-4. ✅ Added error handling for KDF deserialization
-
----
-
-## Issue 2: E2E Test - KDF Mismatch
-
-### ❌ BEFORE (Broken)
-```csharp
-// Registration (line 79)
-var x = Srp.ComputePrivateKey(kdf, userId, password);  // ← Uses Argon2id
-
-// ... later during login (line 107)
-var salt = Convert.FromBase64String(loginStartPayload.SaltBase64);
-var x2 = Srp.ComputePrivateKey(salt, userId, password);  // ❌ Uses SHA256!
-```
-
-**Problem:**
-- Registration derives key using Argon2id: `x = H(argon2id(password, salt, userId))`
-- Login derives key using SHA256: `x2 = H(salt | H(userId:password))`
-- Keys don't match → `x != x2` → login fails!
 
 ### ✅ AFTER (Fixed)
 ```csharp
@@ -100,7 +63,6 @@ var x2 = loginStartPayload.KdfParametersJson != null
 1. Client calls /register/start
    → Server sends KdfParametersJson (with salt, iterations, memory, etc.)
 
-2. Client deserializes KDF parameters
    → Uses Argon2id to derive private key x
    → Computes verifier v = g^x mod N
    
@@ -120,7 +82,6 @@ var x2 = loginStartPayload.KdfParametersJson != null
    → Server sends KdfParametersJson (matching what was stored at registration)
 
 2. Client receives KDF parameters
-   → Uses **same** Argon2id to derive private key x2
    → Now x2 == x (matches what was registered!)
    
 3. Client computes proof with matching session key
@@ -147,6 +108,43 @@ Total tests: 1
 Passed: 1
 Time: 3 seconds
 ```
+
+## Issue 3: Login Start 500 (Missing KDF Salt)
+### ❌ BEFORE (Broken)
+```csharp
+var saltBytes = Convert.FromBase64String(cred.SaltBase64);                            // ❌ Throws if SaltBase64 is empty
+var verifier = Srp.FromBigEndian(Convert.FromBase64String(cred.VerifierBase64));
+var session = _srpSessions.Store(..., saltBytes, ...);
+```
+
+When `SaltBase64` was blank, `Convert.FromBase64String` threw `FormatException`, the request bubbled out of `LoginStart`, and the API returned HTTP 500 instead of a structured error.
+
+### ✅ AFTER (Fixed)
+```csharp
+string? saltBase64 = string.IsNullOrWhiteSpace(cred.SaltBase64)
+    ? TryParseKdf(cred.KdfParametersJson)?.SaltBase64
+    : cred.SaltBase64;
+
+if (string.IsNullOrWhiteSpace(saltBase64))
+{
+    return BadRequest(new { error = "Missing KDF salt" });
+}
+
+byte[] saltBytes;
+try
+{
+    saltBytes = Convert.FromBase64String(saltBase64);
+}
+catch
+{
+    return BadRequest(new { error = "Invalid KDF salt" });
+}
+```
+
+### Improvements
+1. ✅ Login now prefers the stored salt and falls back to the `KdfParametersJson` metadata, so the server can always hydrate `saltBytes` without throwing.
+2. ✅ The handler now responds with `400 Bad Request` and logs `missing-salt`/`invalid-salt` failure reasons instead of crashing, making the error visible in telemetry.
+3. ✅ The migration `20251114174500_BackfillPakeSaltFromKdf` plus the startup backfill fill the `SaltBase64` column from the stored JSON so future `login/start` calls work for legacy accounts.
 
 ---
 

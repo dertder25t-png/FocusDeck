@@ -20,6 +20,12 @@
 - [x] `npm run build` (WebApp) succeeds with the new QR/canvas types; Vite reports a large chunk warning but finishes.
 - [x] `dotnet build FocusDeck.sln -c Release` (passes with the known warnings in LectureIntegrationTests, RemoteControlIntegrationTests, and AssetIntegrationTests).
 
+## Execution order — Server → Windows → Android
+
+- **Step 1: Harden the Linux web server/backend.** Finish all Phase 0 + Phase 1 server tasks first (schema ownership in EF, `/` SPA routing, multi‑tenant plumbing, `/v1/tenants/*` APIs, Linux URL cleanup, CI artifact) so the ASP.NET Core app is rock‑solid and deployable on your Linux host.  
+- **Step 2: Bring the Windows desktop client up to parity.** Once the backend is stable, wire WPF onboarding/PAKE/tenant context in `OnboardingWindow`, `KeyProvisioningService`, and the shell UX against the already‑solid server, keeping changes client‑side only.  
+- **Step 3: Land the Android/Mobile (MAUI) client.** After Windows is green, hook up MAUI provisioning, QR pairing, and tenant display using the same PAKE endpoints and tokens, focusing on platform‑specific UX and connectivity (emulator/physical device networking) without touching server logic again.
+
 ## Phase 0 — Stabilize & Unify (Sprint 1–2)
 
 **Goal:** One clean build that runs everywhere; no legacy UI; schema owned by EF; consistent ports.
@@ -122,6 +128,24 @@
 - `.github/workflows/build-server.yml`
 - `src/FocusDeck.Server/FocusDeck.Server.csproj`
 
+### Phase 0 platform breakdown (Server → Windows → Android)
+
+**Server (Linux / ASP.NET Core)**
+
+- Clean up the legacy UI and SPA hosting by updating `src/FocusDeck.Server/Program.cs` and `src/FocusDeck.Server/wwwroot/**` so `/` serves the Vite-built SPA and `/v1/*`/SignalR/health endpoints stay API-only.  
+- Move schema ownership into EF by ensuring `AutomationDbContext` and migrations under `src/FocusDeck.Persistence/**` fully describe the DB (no manual SQL in `Program.cs`).  
+- Make CI build the full server + SPA artifact by wiring the `BuildSpa` target and GitHub Actions workflow so the published `/wwwroot` contains the compiled web assets.
+
+**Windows Desktop (WPF client)**
+
+- Point the desktop app at the canonical dev API URL by updating `src/FocusDeck.Desktop/App.xaml.cs` to use `http://localhost:5000`, matching the server and WebApp dev proxy.  
+- No major desktop‑only features land in Phase 0; the key work is verifying the app can still boot and talk to the unified server after ports and schema are stabilized.
+
+**Android / Mobile (MAUI client)**
+
+- Align the MAUI project with the new stack by targeting .NET 9 in `src/FocusDeck.Mobile/FocusDeck.Mobile.csproj` and confirming its base API URL is also `http://10.0.2.2:5000` (emulator) / `http://<dev-machine>:5000` for physical devices.  
+- This ensures that once auth and tenancy are wired in Phase 1, the mobile client can immediately reuse the same backend without extra infrastructure work.
+
 ---
 
 ## Phase 1 — SaaS Foundation + Auth UI + URL Fixes (Sprint 3–4)
@@ -145,9 +169,11 @@
 - `src/FocusDeck.Persistence/AutomationDbContext.cs`
 - `src/FocusDeck.Server/Services/Auth/TokenService.cs`
 
-### 1.2 Authentication UI (all clients)
+### 1.2 Authentication UI (sequenced: Web → Windows → Android)
 
-**Web**
+_Sequence: build and validate PAKE + tenant flows on Web first, then port those flows to the Windows desktop client, and finally to Android/Mobile, reusing the same endpoints and contracts._
+
+**Web (first)**
 
 - [x] `/login`, `/register`, `/pair` (PAKE start/finish; store tokens; `ProtectedRoute`; see `AuthPakeController`, `src/FocusDeck.WebApp/src/lib/pake.ts`, `KeyProvisioningService`)
 - [x] Login system validated end-to-end (fresh DB register + login + tenant claim confirmed)
@@ -160,10 +186,12 @@
   - [x] Surface tenant context in the web shell via `/v1/tenants/current` so users can see the active workspace and jump to the Tenants page.
   - [x] Allow switching tenants directly from the Tenants page (`/v1/tenants/{id}/switch`) to refresh tokens and tenant context.
 
-**Desktop/Mobile**
+**Windows Desktop (second)**
 
 - [x] Desktop: `OnboardingWindow` → `KeyProvisioningService` (PAKE flows + tenant refresh wired to `/v1/auth/pake`)
 - [x] Desktop: `KeyProvisioningService` now exposes tenant context (`CurrentTenantDto`) and raises updates so the shell can show the current workspace after login.
+**Android / Mobile (third)**
+
 - [x] Mobile: provisioning page now subscribes to tenant summary updates exposed by `IMobileAuthService`, so the active tenant name/slug appears on-device after login.
 - [x] Mobile: Provisioning + QR pairing (claim code → tokens) with `MobilePakeAuthService` + `ProvisioningPage`
 - [ ] Files:
@@ -183,6 +211,26 @@
 - `src/FocusDeck.Server/wwwroot/**`
 - `src/FocusDeck.WebApp/vite.config.ts`
 - Infra (nginx/cloudflared) config in your Linux host
+
+### Phase 1 platform breakdown (Server → Windows → Android)
+
+**Server (backend + Linux web host)**
+
+- Implement full multi‑tenant support on the backend by updating entities under `src/FocusDeck.Domain/Entities/*`, `AutomationDbContext`, and `TokenService` so every request carries an `app_tenant_id` claim and all `IMustHaveTenant` data is automatically stamped with `TenantId`.  
+- Add tenant‑aware APIs like `/v1/tenants/current` and `/v1/tenants/{id}/switch` so all clients can discover and change the active workspace without custom hacks.  
+- Fix Linux URL behavior by cleaning up `src/FocusDeck.Server/wwwroot/**`, setting the Vite base to `/` in `src/FocusDeck.WebApp/vite.config.ts`, and confirming the history fallback in `Program.cs` makes `/notes`, `/lectures/{id}`, etc. refresh correctly behind Nginx/Cloudflare.
+
+**Windows Desktop (WPF client)**
+
+- Wire the onboarding flow in `src/FocusDeck.Desktop/Views/OnboardingWindow.xaml(.cs)` and `Services/Auth/KeyProvisioningService.cs` to call the PAKE endpoints (`/v1/auth/pake`) and store the returned tenant‑scoped tokens.  
+- Surface the current tenant (name/slug) and auth status in the shell window so users can see which workspace they are in after login.  
+- Ensure desktop UX basics are in place (auth wizard, main shell nav, connection/JWT/tenant status bar) so Jarvis and multi‑tenant features make sense to users on Windows.
+
+**Android / Mobile (MAUI client)**
+
+- Connect the provisioning and pairing screens’ view models to `MobilePakeAuthService` so mobile users can scan the QR/claim code, complete the PAKE flow, and save tokens tied to the active tenant.  
+- Subscribe to tenant summary updates (via `IMobileAuthService`/SignalR) so the active workspace name/slug appears in the app after login, mirroring the desktop and web experience.  
+- Implement the basic “quick actions” UX (e.g., Start Note, Pair Device) so Android/MAUI is ready to participate in future Jarvis workflows once backend and tenancy are solid.
 
 ### 1.4 UX pass (first cut)
 

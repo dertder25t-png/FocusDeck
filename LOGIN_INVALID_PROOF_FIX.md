@@ -135,3 +135,10 @@ After fix, users should be able to:
 - ✓ Backward compatible with legacy SHA256 users
 - ✓ Forward compatible with Argon2id users  
 - ✓ No breaking changes
+
+## Related Login Start 500
+
+- **Symptom:** `/v1/auth/pake/login/start` used to throw a `FormatException` and return HTTP 500 when a credential had an empty `SaltBase64` because the controller called `Convert.FromBase64String` unconditionally.
+- **Fix:** `AuthPakeController.LoginStart` now prefers the stored salt, falls back to `KdfParametersJson` when the column is blank, and returns `400 Bad Request` with `"Missing KDF salt"` or `"Invalid KDF salt"` instead of crashing. The handler also emits structured logs for those failure reasons so you can correlate 400 responses with specific users/devices.
+- **Migration:** `20251114174500_BackfillPakeSaltFromKdf.cs` populates the `SaltBase64` column from the stored KDF JSON, and the startup backfill (log line `Backfilling {Count} PAKE credential(s) with salt from KDF metadata`) covers any remaining rows when the app boots.
+- **Verification:** Run `dotnet test tests/FocusDeck.Server.Tests/ --filter Pake_Login_MissingSalt_ReturnsBadRequest` or hit `/v1/auth/pake/login/start` after trimming the `saltBase64` for a test user; you should now receive `400` with the `Missing KDF salt` payload instead of 500.

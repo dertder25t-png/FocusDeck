@@ -82,6 +82,17 @@ var x2 = loginStartPayload.KdfParametersJson != null
 
 The **AuthPakeE2ETests.Pake_Register_Login_VaultRoundTrip** test now **PASSES**, confirming:
 - ✅ User registration with PAKE works correctly
+
+Fix: Login start failing with HTTP 500
+-----------------------------------
+
+Background: Testers reported that calls to `/v1/auth/pake/login/start` were returning HTTP 500 in production when a server-side record existed but the `PakeCredential.SaltBase64` field was empty.
+
+Cause: Older credentials without KDF metadata could result in an empty salt. The server attempted to Base64-decode an empty string which throws a `FormatException` and resulted in a 500 response.
+
+Fix: `AuthPakeController.LoginStart` now defensively checks whether `SaltBase64` is present. If it is missing, the code tries to pull the salt from `KdfParametersJson`. If still missing or invalid, the handler now returns `400 Bad Request` with a clear `error` message (`"Missing KDF salt"` or `"Invalid KDF salt"`) and records the auth failure. This prevents the server from returning 500s and provides better observability.
+
+Unit test added: `Pake_Login_MissingSalt_ReturnsBadRequest` verifies behaviour for the missing salt scenario.
 - ✅ Vault data is securely stored during registration
 - ✅ Login flow succeeds after registration
 - ✅ Access and refresh tokens are properly issued
