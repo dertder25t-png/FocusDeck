@@ -54,6 +54,10 @@ public class AuthPakeController : ControllerBase
     [AllowAnonymous]
     public IActionResult RegisterStart([FromBody] RegisterStartRequest request)
     {
+        var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var maskedUser = AuthTelemetry.MaskIdentifier(request.UserId);
+        _logger.LogInformation("PAKE register start for {UserId} (platform={Platform}) from {RemoteIp}", maskedUser, request.DevicePlatform ?? "unknown", remoteIp);
+
         if (string.IsNullOrWhiteSpace(request.UserId)) return BadRequest(new { error = "UserId required" });
 
         // Web clients use SHA256 KDF due to browser WASM limitations with Argon2id
@@ -70,9 +74,12 @@ public class AuthPakeController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> RegisterFinish([FromBody] RegisterFinishRequest request)
     {
+        var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
         if (string.IsNullOrWhiteSpace(request.UserId) || string.IsNullOrWhiteSpace(request.VerifierBase64) || string.IsNullOrWhiteSpace(request.KdfParametersJson))
         {
             await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "Missing fields");
+            TrackRegisterFailure("missing-fields", request.UserId, null, remoteIp);
             return BadRequest(new { error = "Missing fields" });
         }
 
@@ -80,6 +87,7 @@ public class AuthPakeController : ControllerBase
         if (existing != null)
         {
             await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "User already registered");
+            TrackRegisterFailure("already-registered", request.UserId, null, remoteIp);
             return Conflict(new { error = "User already registered" });
         }
 
@@ -88,6 +96,7 @@ public class AuthPakeController : ControllerBase
         if (verifier.Sign <= 0 || verifier >= Srp.N)
         {
             await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "Invalid verifier");
+            TrackRegisterFailure("invalid-verifier", request.UserId, null, remoteIp);
             return BadRequest(new { error = "Invalid verifier" });
         }
 
@@ -95,6 +104,7 @@ public class AuthPakeController : ControllerBase
         if (kdfParams == null)
         {
             await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "Invalid KDF parameters");
+            TrackRegisterFailure("invalid-kdf", request.UserId, null, remoteIp);
             return BadRequest(new { error = "Invalid KDF parameters" });
         }
 
@@ -128,6 +138,7 @@ public class AuthPakeController : ControllerBase
         await _db.SaveChangesAsync();
         await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, true, deviceName: null, deviceId: null,
             metadataJson: request.KdfParametersJson);
+        TrackRegisterSuccess(request.UserId, !string.IsNullOrWhiteSpace(request.VaultDataBase64), remoteIp);
         return Ok(new RegisterFinishResponse(true));
     }
 
@@ -135,12 +146,16 @@ public class AuthPakeController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> LoginStart([FromBody] LoginStartRequest request)
     {
+        var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var maskedUser = AuthTelemetry.MaskIdentifier(request.UserId);
+        _logger.LogInformation("PAKE login start for {UserId} (client={ClientId}) from {Platform} @ {RemoteIp}", maskedUser, request.ClientId ?? "unknown", request.DevicePlatform ?? "unknown", remoteIp);
+
         var cred = await _db.PakeCredentials.AsNoTracking().FirstOrDefaultAsync(c => c.UserId == request.UserId);
-        var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString();
 
         if (await _authLimiter.IsBlockedAsync(request.UserId, remoteIp))
         {
             await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Too many failed attempts", request.ClientId, request.DeviceName);
+            TrackLoginFailure("blocked", request.UserId, request.ClientId, request.DevicePlatform);
             return StatusCode(StatusCodes.Status429TooManyRequests, new { error = "Too many attempts. Try again later." });
         }
 
@@ -148,6 +163,7 @@ public class AuthPakeController : ControllerBase
         {
             await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "User not found", request.ClientId, request.DeviceName);
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
+            TrackLoginFailure("user-not-found", request.UserId, request.ClientId, request.DevicePlatform);
             return NotFound(new { error = "User not found" });
         }
 
@@ -155,6 +171,7 @@ public class AuthPakeController : ControllerBase
         {
             await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Unsupported algorithm", request.ClientId, request.DeviceName);
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
+            TrackLoginFailure("unsupported-algorithm", request.UserId, request.ClientId, request.DevicePlatform);
             return BadRequest(new { error = "Unsupported credential algorithm" });
         }
 
@@ -163,6 +180,7 @@ public class AuthPakeController : ControllerBase
         {
             await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Unsupported SRP parameters", request.ClientId, request.DeviceName);
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
+            TrackLoginFailure("unsupported-parameters", request.UserId, request.ClientId, request.DevicePlatform);
             return BadRequest(new { error = "Unsupported SRP parameters" });
         }
 
@@ -175,6 +193,7 @@ public class AuthPakeController : ControllerBase
         {
             await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Invalid client ephemeral", request.ClientId, request.DeviceName);
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
+            TrackLoginFailure("invalid-ephemeral", request.UserId, request.ClientId, request.DevicePlatform);
             return BadRequest(new { error = "Invalid client ephemeral" });
         }
 
@@ -182,6 +201,7 @@ public class AuthPakeController : ControllerBase
         {
             await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Invalid client ephemeral", request.ClientId, request.DeviceName);
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
+            TrackLoginFailure("invalid-ephemeral", request.UserId, request.ClientId, request.DevicePlatform);
             return BadRequest(new { error = "Invalid client ephemeral" });
         }
 
@@ -202,6 +222,7 @@ public class AuthPakeController : ControllerBase
             {
                 await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "SRP scramble zero", request.ClientId, request.DeviceName);
                 await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
+                TrackLoginFailure("scramble-zero", request.UserId, request.ClientId, request.DevicePlatform);
                 return BadRequest(new { error = "SRP negotiation failed" });
             }
         } while (scramble.Sign == 0);
@@ -232,11 +253,12 @@ public class AuthPakeController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> LoginFinish([FromBody] LoginFinishRequest request)
     {
-        var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
         if (await _authLimiter.IsBlockedAsync(request.UserId, remoteIp))
         {
             await LogAuthEventAsync("PAKE_LOGIN_FINISH", request.UserId, false, "Too many failed attempts", request.ClientId, request.DeviceName);
+            TrackLoginFailure("blocked", request.UserId, request.ClientId, request.DevicePlatform);
             return StatusCode(StatusCodes.Status429TooManyRequests, new { error = "Too many attempts. Try again later." });
         }
 
@@ -244,6 +266,7 @@ public class AuthPakeController : ControllerBase
         {
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
             await LogAuthEventAsync("PAKE_LOGIN_FINISH", request.UserId, false, "Session expired", request.ClientId, request.DeviceName);
+            TrackLoginFailure("session-expired", request.UserId, request.ClientId, request.DevicePlatform);
             return Unauthorized(new { error = "Session expired" });
         }
 
@@ -252,6 +275,7 @@ public class AuthPakeController : ControllerBase
             _srpSessions.Remove(request.SessionId);
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
             await LogAuthEventAsync("PAKE_LOGIN_FINISH", request.UserId, false, "Session user mismatch", request.ClientId, request.DeviceName);
+            TrackLoginFailure("session-user-mismatch", request.UserId, request.ClientId, request.DevicePlatform);
             return Unauthorized(new { error = "Invalid session" });
         }
 
@@ -268,6 +292,7 @@ public class AuthPakeController : ControllerBase
                 _srpSessions.Remove(request.SessionId);
                 await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
                 await LogAuthEventAsync("PAKE_LOGIN_FINISH", request.UserId, false, "Invalid proof", request.ClientId, request.DeviceName);
+                TrackLoginFailure("invalid-proof", request.UserId, request.ClientId, request.DevicePlatform);
                 return Unauthorized(new { error = "Invalid proof" });
             }
 
@@ -330,6 +355,7 @@ public class AuthPakeController : ControllerBase
 
             await _authLimiter.ResetAsync(session.UserId, remoteIp);
 
+            TrackLoginSuccess(session.UserId, tenantId, deviceId);
             return Ok(new LoginFinishResponse(
                 true,
                 vault != null,
@@ -344,6 +370,7 @@ public class AuthPakeController : ControllerBase
             _logger.LogWarning(ex, "SRP login finish failed");
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
             await LogAuthEventAsync("PAKE_LOGIN_FINISH", request.UserId, false, "Exception", request.ClientId, request.DeviceName, metadataJson: JsonSerializer.Serialize(new { exception = ex.Message }));
+            TrackLoginFailure("exception", request.UserId, request.ClientId, request.DevicePlatform);
             return Unauthorized(new { error = "Invalid proof" });
         }
     }
@@ -491,6 +518,44 @@ public class AuthPakeController : ControllerBase
         }
 
         return DevicePlatform.Windows;
+    }
+
+    private void TrackRegisterFailure(string reason, string? userId, string? platform, string remoteIp)
+    {
+        AuthTelemetry.RecordRegisterFailure(reason);
+        _logger.LogWarning("PAKE register failure for {UserId} (platform={Platform}) from {RemoteIp}: {Reason}",
+            AuthTelemetry.MaskIdentifier(userId),
+            string.IsNullOrWhiteSpace(platform) ? "unknown" : platform,
+            remoteIp,
+            reason);
+    }
+
+    private void TrackRegisterSuccess(string? userId, bool hasVault, string remoteIp)
+    {
+        AuthTelemetry.RecordRegisterSuccess();
+        _logger.LogInformation("PAKE register succeeded for {UserId} (hasVault={HasVault}) from {RemoteIp}",
+            AuthTelemetry.MaskIdentifier(userId),
+            hasVault,
+            remoteIp);
+    }
+
+    private void TrackLoginFailure(string reason, string? userId, string? clientId, string? platform)
+    {
+        AuthTelemetry.RecordLoginFailure(reason);
+        _logger.LogWarning("PAKE login failure for {UserId} client={ClientId} platform={Platform}: {Reason}",
+            AuthTelemetry.MaskIdentifier(userId),
+            string.IsNullOrWhiteSpace(clientId) ? "unknown" : clientId,
+            string.IsNullOrWhiteSpace(platform) ? "unknown" : platform,
+            reason);
+    }
+
+    private void TrackLoginSuccess(string? userId, Guid tenantId, string? deviceId)
+    {
+        AuthTelemetry.RecordLoginSuccess(tenantId);
+        _logger.LogInformation("PAKE login succeeded for {UserId} tenant={TenantId} device={DeviceId}",
+            AuthTelemetry.MaskIdentifier(userId),
+            tenantId,
+            string.IsNullOrWhiteSpace(deviceId) ? "unknown" : deviceId);
     }
 
     private static readonly DateTime Argon2CutoverUtc = new(2025, 11, 13, 0, 0, 0, DateTimeKind.Utc);

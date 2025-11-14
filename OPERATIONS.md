@@ -348,6 +348,17 @@ builder.Services.AddOpenTelemetry()
 6. **Asset Storage** - Disk usage
 7. **Memory Usage** - Heap size, GC pressure
 
+### Jarvis Operations
+
+For details, see `docs/JARVIS_IMPLEMENTATION_ROADMAP.md` (“Jarvis Operations” section).
+
+- Monitor `FocusDeck.Jarvis` metrics:
+  - `jarvis.runs.started`, `jarvis.runs.succeeded`, `jarvis.runs.failed`
+  - `jarvis.runs.duration.seconds` (watch for long-running or stuck runs)
+- Watch logs from `JarvisWorkflowJob` for frequent `Failed` transitions or SignalR delivery warnings.
+- Check for sustained HTTP 429 responses from `/v1/jarvis/run-workflow` as an indicator that per-user Jarvis run concurrency limits are being hit.
+- Remember that `Features:Jarvis` controls API + `/jarvis` UI exposure; enable it only for canary environments/tenants until metrics look healthy.
+
 ---
 
 ## Troubleshooting

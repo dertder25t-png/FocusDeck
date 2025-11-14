@@ -40,6 +40,7 @@ public class ForcedLogoutPropagationTests
             Last = payload;
             return Task.CompletedTask;
         }
+        public Task JarvisRunUpdated(JarvisRunUpdate payload) => Task.CompletedTask;
     }
 
     private sealed class FakeHubClients : IHubClients<INotificationClient>
@@ -98,4 +99,3 @@ public class ForcedLogoutPropagationTests
         Assert.Equal("dev1", hub.Inner.FakeClientInstance.Last!.DeviceId);
     }
 }
-

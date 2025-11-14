@@ -201,4 +201,5 @@ public interface INotificationClient : INotificationClientContract
     /// Notify clients of aggregated activity/context updates
     /// </summary>
     Task ContextUpdated(FocusDeck.Services.Activity.ActivityState state);
+
 }

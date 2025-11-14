@@ -68,6 +68,12 @@ public class AutomationDbContext : DbContext
     // Context aggregation snapshots
     public DbSet<FocusDeck.Domain.Entities.StudentContext> StudentContexts { get; set; }
 
+    // Activity signals (Phase 4 – Activity Detection)
+    public DbSet<ActivitySignal> ActivitySignals { get; set; }
+
+    // Jarvis workflow runs
+    public DbSet<JarvisWorkflowRun> JarvisWorkflowRuns { get; set; }
+
     // Auth / PAKE
     public DbSet<FocusDeck.Domain.Entities.Auth.PakeCredential> PakeCredentials { get; set; }
     public DbSet<FocusDeck.Domain.Entities.Auth.KeyVault> KeyVaults { get; set; }

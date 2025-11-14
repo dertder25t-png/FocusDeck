@@ -10,4 +10,8 @@
     <GenerateTargetFrameworkMonikerAttribute>false</GenerateTargetFrameworkMonikerAttribute>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\FocusDeck.SharedKernel\FocusDeck.SharedKernel.csproj" />
+  </ItemGroup>
+
 </Project>

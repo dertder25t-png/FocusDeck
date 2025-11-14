@@ -187,6 +187,21 @@ Database: SQLite at src/FocusDeck.Server/focusdeck.db
 
 ### Linux Server (Production)
 ```
+
+##  PHASE 0.4 ARTIFACT VERIFICATION (PENDING)
+
+- The `focusdeck-server-with-spa` artifact still needs verification on the next CI run so we can confirm `wwwroot/` contains the built SPA and a deployment from that artifact serves `/` and the PAKE flows (register → login → tenant switch) end-to-end.
+
+## INTEGRATION TEST LIMITATIONS
+
+- The integration suites `ReviewPlanIntegrationTests.*` and `RemoteControlIntegrationTests.*` currently still fail because `WebApplicationFactory` cannot build an `IHost` (error: “entry point exited without ever building an IHost”), even after adding a classic host pattern.
+- Host wiring changes made:
+  - `src/FocusDeck.Server/Startup.cs` now encapsulates the full DI + middleware pipeline (controllers, PAKE/tenant auth, SPA routing, health checks, Hangfire, etc.).
+  - `src/FocusDeck.Server/Program.cs` remains the minimal-host entry point for production but now delegates to `Startup` and exposes `Program.CreateHostBuilder(string[] args)` for generic-host scenarios.
+  - `tests/FocusDeck.Server.Tests/TestServerProgram.cs` and `tests/FocusDeck.Server.Tests/FocusDeckWebApplicationFactory.cs` provide a dedicated test host (`CreateHostBuilder` + `UseStartup<Startup>()`) so future integration tests can use `IClassFixture<FocusDeckWebApplicationFactory>` instead of relying directly on the entry assembly.
+- Despite these changes, `WebApplicationFactory` in ASP.NET Core 9.0 continues to route through its internal `HostFactoryResolver` path when bootstrapping, and still throws the same “entry point exited without ever building an IHost” error for the ReviewPlan/RemoteControl suites. This appears to be a framework-level limitation rather than an app-level configuration bug.
+- PAKE/tenant auth E2E tests (`AuthPakeE2ETests.*`) still pass and do not depend on the new host wiring.
+- Remaining work on these failing suites should be tracked as a separate tech-debt item (e.g., evaluate upgrading/downgrading `Microsoft.AspNetCore.Mvc.Testing` or introducing a fully custom test host bootstrap), not as part of the PAKE/Phase 0.4 deliverable.
 Host: 192.168.1.110
 SSH User: focusdeck (or root)
 SSH Port: 22

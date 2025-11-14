@@ -55,11 +55,11 @@ Web App does: SHA256(salt || SHA256(userId:password))
 
 ### Fix 1: Add Argon2id Support to Web App
 
-Add `argon2-browser` or `argon2-wasm` package which provides Argon2 in WebAssembly format.
+Argon2 is now available via the existing `argon2-browser` dependency and the derivation helpers are shared between registration/login.
 
 ### Fix 2: Implement Argon2id Derivation
 
-Update `derivePrivateKey` function to use Argon2id when KDF parameters are provided:
+`derivePrivateKey` now uses Argon2id when the server provides KDF metadata and falls back to SHA256 only when `alg` equals `sha256`, so the computed proofs always match the server-side verifiers:
 
 ```typescript
 async function derivePrivateKey(kdf: SrpKdfParameters | null, saltB64Fallback: string, userId: string, password: string): Promise<bigint> {
@@ -99,11 +99,16 @@ async function computeArgon2idPrivateKey(kdf: SrpKdfParameters, userId: string, 
 ## Implementation Steps
 
 1. ✅ Diagnose the issue (DONE - see this document)
-2. ⬜ Add `argon2-browser` dependency to `package.json`
-3. ⬜ Implement `computeArgon2idPrivateKey` function
-4. ⬜ Update `derivePrivateKey` to use Argon2id when provided
-5. ⬜ Test registration and login flow
-6. ⬜ Deploy to production
+2. ✅ Add `argon2-browser` dependency to `package.json`
+3. ✅ Implement `computeArgon2idPrivateKey` function
+4. ✅ Update `derivePrivateKey` to use Argon2id when provided
+5. ✅ Test registration and login flow
+6. ✅ Deploy to production
+
+## Current Status
+
+- Modern registrations use Argon2id metadata; older accounts continue to receive SHA256 salts that match their stored verifiers.
+- JWTs issued after login present an `app_tenant_id` claim, `AuthenticationMiddleware` validates the token+tenant claim, and `TenantMembershipService` ensures every user/device maps to a tenant before the SPA renders.
 
 ## Impact
 

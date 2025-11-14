@@ -172,6 +172,31 @@ curl -X POST https://focusdeck.909436.xyz/v1/auth/pake/login/start
 
 ---
 
+## 🧠 PAKE Flow in a Nutshell
+
+### Registration (`/v1/auth/pake/register/*`)
+- `register/start` returns SRP metadata plus Argon2id KDF parameters for modern clients; legacy web accounts still get SHA256 salts.
+- `register/finish` saves verifiers + KDF metadata to `PakeCredentials`, records optional vault blobs in `KeyVaults`, and logs the attempt in `AuthEventLogs`.
+
+### Login (`/v1/auth/pake/login/*`)
+- `login/start` mirrors the stored KDF (Argon2 metadata first, salt fallback for legacy accounts) and returns server ephemerals plus the session ID.
+- `login/finish` validates the proof, issues a JWT with `app_tenant_id`, persists refresh tokens/fingerprints to `RefreshTokens`, and writes successes/failures to `AuthEventLogs`. `RevokedAccessTokens` holds retired JWT IDs, while `PairingSessions` manages QR/device handoffs.
+
+## 🧭 Tenant Flow
+
+- `TenantMembershipService` makes sure every identity maps to a `Tenant` + `UserTenant`; first logins bootstrap a tenant (e.g., `user@example.com's Space`) and keep `TenantUser` metadata in sync.
+- Use `/v1/tenants/current` to read the active tenant, `/v1/tenants` to list memberships, and `/v1/tenants/{id}/switch` to mint new tokens scoped to the selected `app_tenant_id`.
+- `AuthenticationMiddleware` validates JWTs (header or SPA cookie) before serving protected routes and forbids requests that lack the `app_tenant_id` claim.
+
+## 🧾 Auth Storage Snapshot
+
+- `PakeCredentials`: SRP verifiers + KDF blobs per user.
+- `KeyVaults`: Encrypted vault payloads + cipher/KDF metadata for restoration.
+- `AuthEventLogs`: Structured audit of every register/login/pair/tenant event.
+- `PairingSessions`: QR/device pairing workflow state.
+- `RevokedAccessTokens`: Blacklisted `jti`s for logout/rotation.
+- `RefreshTokens`: Client fingerprints, device info, expiration, tenant association for refresh flows.
+
 ## ⚙️ Server Configuration
 
 ### Enable Authentication Middleware

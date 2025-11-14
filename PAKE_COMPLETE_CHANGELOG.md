@@ -152,3 +152,8 @@ Created comprehensive guides:
 - `PAKE_FIX_QUICK_REFERENCE.md` - Quick reference
 - `PAKE_BEFORE_AFTER_COMPARISON.md` - Before/after code
 - `PAKE_DEPLOYMENT_COMPLETE.md` - Deployment report
+
+## Post-Deployment Notes
+
+- Modern credentials default to Argon2id metadata, while old SHA256 rows still receive salt-based KDF responses in the login flow.
+- Authentication now insists on an `app_tenant_id` claim, and `TenantMembershipService`/`AuthenticationMiddleware` guarantee the SPA only renders with the correct tenancy context.

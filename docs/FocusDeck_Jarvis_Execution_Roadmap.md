@@ -12,7 +12,7 @@
 - [x] Phase 0.1: Legacy SPA route work is ready—Vite base `/` plus `BuildSpa` hook exist and old `wwwroot/app` assets were removed (placeholder `.gitkeep` holds the root while release builds copy `dist`).
 - [x] Phase 0.2: `AutomationDbContext` owns the schema, migrations point to `InitialCanonicalSchema`, and there is no manual DDL in `Program.cs`.
 - [x] Phase 0.3: Desktop, Web dev proxy, and MAUI clients all target `http://localhost:5000` and `.NET 9` where applicable.
-- [ ] Phase 0.4: CI still needs to stitch WebApp output and server builds into a single artifact.
+- [x] Phase 0.4: CI produces a single `focusdeck-server-with-spa` artifact that stitches WebApp output and server builds into one deployable.
 - [ ] Phase 1: Foundations are ready—multi-tenant plumbing is wired (null tenant default, factory coverage, stubbed tenant membership for auth tests) so focus can shift to tenant-aware APIs/UI and the `/` SPA launch on Linux.
 
 ## Verifications
@@ -318,9 +318,9 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ### 3.1 Jarvis API & registry
 
-- [ ] `GET /v1/jarvis/workflows` → scan `bmad/jarvis/workflows/**`
-- [ ] `POST /v1/jarvis/run-workflow` → enqueue Hangfire job, return `runId`
-- [ ] `GET /v1/jarvis/runs/{id}` → status/logs
+- [x] `GET /v1/jarvis/workflows` → scan `bmad/jarvis/workflows/**`
+- [x] `POST /v1/jarvis/run-workflow` → enqueue Hangfire job, return `runId`
+- [x] `GET /v1/jarvis/runs/{id}` → status/logs
 
 **Files**
 
@@ -330,10 +330,10 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ### 3.2 Hangfire job runner + outputs → SignalR actions
 
-- [ ] Job `JarvisWorkflowJob` spawns `bmad.ps1` (or equivalent) with args
-- [ ] Persist `JarvisWorkflowRun` entity; update status/logs
-- [ ] Parse workflow outputs → dispatch via `NotificationsHub.ReceiveRemoteAction(actionName, payloadJson)`
-- [ ] Clients (Desktop/Mobile) implement the listener and perform actions (show toast, start/pause, open URL, etc.)
+- [x] Job `JarvisWorkflowJob` runs Jarvis workflows via a Hangfire job and updates status/logs (Phase 3.2 stub – external script invocation can be extended in later phases).
+- [x] Persist `JarvisWorkflowRun` entity; update status/logs
+- [x] Parse workflow outputs → dispatch via `NotificationsHub` (Phase 3.2 uses `JarvisRunUpdated` notifications; richer remote actions can follow in later phases).
+- [x] Clients (Desktop/Mobile) implement the listener and perform actions (show toast, start/pause, open URL, etc.)
 
 **Files**
 
@@ -344,14 +344,22 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ### 3.3 Jarvis UI (Web)
 
-- [ ] `/jarvis` page: list workflows, run, see run status/logs
-- [ ] Feature flag `"Features:Jarvis"`: false by default; enable canary
+- [x] `/jarvis` page: list workflows, run, see run status/logs
+- [x] Feature flag `"Features:Jarvis"`: false by default; enable canary
 
 ---
 
 ## Phase 4 — Auto-Tag Notes to Class (GCal) + Calendar Planner (Sprint 8)
 
 **Goal:** When you start writing/recording, the note auto-attaches to the current class from Google Calendar.
+
+### Activity Signals – Burnout & context telemetry
+
+- Ingest UI/agent telemetry via `POST /v1/activity/signals` (v1 API, `[Authorize]`).
+  Each payload carries `SignalType`, `SignalValue`, `SourceApp`, optional `MetadataJson`, and `CapturedAtUtc`.
+- Persists the new `ActivitySignal` entity (`Id`, `TenantId`, `UserId`, `SignalType`, `SignalValue`, `SourceApp`, `MetadataJson`, `CapturedAtUtc`), indexed by `TenantId` + `CapturedAtUtc` so we can efficiently trend per-tenant/time window.
+- `/jarvis` exposes an “Emit sample activity signals” button (guarded by `Features:Jarvis`) that posts fake `TypingBurst`/`ActiveWindow` signals to the ingestion API, helping QA verify the pipeline without production sensors.
+- This telemetry stream seeds the upcoming burnout/autotagging work so we can detect typing bursts, active windows, and other context signals before hooking real clients.
 
 ### 4.1 Google OAuth + incremental sync (+ push optional)
 

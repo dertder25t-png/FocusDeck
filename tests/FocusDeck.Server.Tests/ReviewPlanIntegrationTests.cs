@@ -12,11 +12,11 @@ using Xunit;
 
 namespace FocusDeck.Server.Tests;
 
-public class ReviewPlanIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class ReviewPlanIntegrationTests : IClassFixture<FocusDeckWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly WebApplicationFactory<TestServerProgram> _factory;
 
-    public ReviewPlanIntegrationTests(WebApplicationFactory<Program> factory)
+    public ReviewPlanIntegrationTests(FocusDeckWebApplicationFactory factory)
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
@@ -219,11 +219,11 @@ public class ReviewPlanIntegrationTests : IClassFixture<WebApplicationFactory<Pr
     }
 }
 
-public class GenerateLectureNoteJobTests : IClassFixture<WebApplicationFactory<Program>>
+public class GenerateLectureNoteJobTests : IClassFixture<FocusDeckWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly WebApplicationFactory<TestServerProgram> _factory;
 
-    public GenerateLectureNoteJobTests(WebApplicationFactory<Program> factory)
+    public GenerateLectureNoteJobTests(FocusDeckWebApplicationFactory factory)
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {

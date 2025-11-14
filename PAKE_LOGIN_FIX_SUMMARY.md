@@ -144,6 +144,12 @@ If you're still experiencing issues:
    - Screenshot of console error
    - Approximate date of account creation
 
+## Current Status
+
+- Argon2id is the default derivation for new credentials, while legacy SHA256 rows receive salt-based responses when `KdfParametersJson` indicates `alg: "sha256"`.
+- JWTs created after login now include the `app_tenant_id` claim and pass through `AuthenticationMiddleware`, which rejects tokens missing tenant context.
+- `TenantMembershipService` guarantees every login maps to a `Tenant`/`UserTenant`, enabling `/v1/tenants/{id}/switch` to issue new tokens bound to the requested tenant.
+
 ---
 **Fix Date**: November 13, 2025  
 **Issue**: Invalid proof error during PAKE login  

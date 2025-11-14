@@ -93,6 +93,12 @@ These fixes ensure that:
 2. The cryptographic key derivation is consistent between registration and login
 3. User account creation flows work end-to-end
 
+## Current State
+
+- Registration persists verifiers/KDF metadata in `PakeCredentials`, vault blobs (when provided) in `KeyVaults`, and audit data in `AuthEventLogs`.
+- The mobile/desktop clients send their `DevicePlatform` so the server records Argon2id credentials for modern clients while keeping SHA256 compatibility for older browsers.
+- `TenantMembershipService` on login ensures every user owns a tenant/`UserTenant` pair before the SPA displays protected routes.
+
 ## Files Modified
 
 1. `/root/FocusDeck/src/FocusDeck.Mobile/Services/Auth/MobilePakeAuthService.cs` - Fixed parameter order and KDF handling

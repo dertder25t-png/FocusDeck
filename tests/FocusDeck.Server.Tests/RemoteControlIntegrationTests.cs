@@ -8,12 +8,12 @@ using Xunit;
 
 namespace FocusDeck.Server.Tests;
 
-public class RemoteControlIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class RemoteControlIntegrationTests : IClassFixture<FocusDeckWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly WebApplicationFactory<TestServerProgram> _factory;
     private readonly HttpClient _client;
 
-    public RemoteControlIntegrationTests(WebApplicationFactory<Program> factory)
+    public RemoteControlIntegrationTests(FocusDeckWebApplicationFactory factory)
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {

@@ -9,6 +9,7 @@ import { FocusPage } from './pages/FocusPage'
 import { NotesPage } from './pages/NotesPage'
 import { DesignPage } from './pages/DesignPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
+import { JarvisPage } from './pages/JarvisPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { TenantsPage } from './pages/TenantsPage'
 import { JobsPage } from './pages/JobsPage'
@@ -35,6 +36,7 @@ function AppLayout() {
     { name: 'Notes', path: '/notes', icon: '📝' },
     { name: 'Design', path: '/design', icon: '🎨' },
     { name: 'Analytics', path: '/analytics', icon: '📈' },
+    { name: 'Jarvis', path: '/jarvis', icon: '🤖' },
     { name: 'Devices', path: '/devices', icon: '💻' },
     { name: 'Pairing', path: '/pairing', icon: '🔗' },
     { name: 'Provisioning', path: '/provisioning', icon: '📱' },
@@ -194,6 +196,7 @@ function App() {
               <Route path="notes" element={<NotesPage />} />
               <Route path="design" element={<DesignPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
+              <Route path="jarvis" element={<JarvisPage />} />
               
               {/* Settings & Management */}
               <Route path="settings" element={<SettingsPage />} />

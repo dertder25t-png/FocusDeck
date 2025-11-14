@@ -175,6 +175,46 @@ public class AuthPakeE2ETests
         Assert.True(loginFinishPayload.Success);
     }
 
+    [Fact]
+    public async Task Pake_Login_InvalidProof_ReturnsUnauthorized()
+    {
+        using var db = CreateDb(out var conn);
+        await using var _ = conn;
+
+        var controller = CreateController(db);
+        var userId = "invalid-proof@example.com";
+        var password = "InvalidProof123!";
+
+        var startResult = controller.RegisterStart(new RegisterStartRequest(userId)) as OkObjectResult;
+        Assert.NotNull(startResult);
+        var startPayload = Assert.IsType<RegisterStartResponse>(startResult!.Value);
+        var kdf = JsonSerializer.Deserialize<SrpKdfParameters>(startPayload.KdfParametersJson)!;
+        var verifier = Srp.ComputeVerifier(Srp.ComputePrivateKey(kdf, userId, password));
+        var verifierB64 = Convert.ToBase64String(Srp.ToBigEndian(verifier));
+
+        var finishResponse = await controller.RegisterFinish(new RegisterFinishRequest(
+            userId,
+            verifierB64,
+            startPayload.KdfParametersJson,
+            null));
+        Assert.IsType<OkObjectResult>(finishResponse);
+
+        var (clientSecret, clientPublic) = Srp.GenerateClientEphemeral();
+        var loginStart = await controller.LoginStart(new LoginStartRequest(
+            userId,
+            Convert.ToBase64String(Srp.ToBigEndian(clientPublic))));
+        var loginStartOk = Assert.IsType<OkObjectResult>(loginStart);
+        var loginStartPayload = Assert.IsType<LoginStartResponse>(loginStartOk.Value);
+
+        var invalidProof = Convert.ToBase64String(new byte[] { 0x05, 0x0A, 0x10, 0x20 });
+        var loginFinish = await controller.LoginFinish(new LoginFinishRequest(
+            userId,
+            loginStartPayload.SessionId,
+            invalidProof));
+
+        Assert.IsType<UnauthorizedObjectResult>(loginFinish);
+    }
+
     private static AuthPakeController CreateController(AutomationDbContext db)
     {
         var logger = NullLogger<AuthPakeController>.Instance;

@@ -119,6 +119,7 @@ public class FocusSessionTests : IDisposable
         public Task ContextUpdated(FocusDeck.Services.Activity.ActivityState state) => Task.CompletedTask;
         public Task RemoteTelemetry(TelemetryUpdate payload) => Task.CompletedTask;
         public Task ForceLogout(ForceLogoutMessage payload) => Task.CompletedTask;
+        public Task JarvisRunUpdated(JarvisRunUpdate payload) => Task.CompletedTask;
     }
 
     [Fact]

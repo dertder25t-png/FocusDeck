@@ -192,6 +192,33 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
 
 ---
 
+## 🔐 KDF Reality
+
+- The shared `Srp` helper serves both Argon2id and legacy SHA256 derivation paths. New registrations capture Argon2 KDF blobs (`alg: "argon2id", t:3, m:65536, p:2, aad:true`) in `PakeCredentials`, while `NormalizeKdfParameters` forces SHA256 for accounts created before the Argon2 cutover so login routes always send viable metadata back to clients.
+- Clients honor the returned metadata: desktop/mobile uses Argon2, browsers or legacy rows fall back to SHA256, and the `aad` flag keeps client/server private keys aligned so the "Invalid proof" error goes away.
+
+## 🧾 Auth Data Tables
+
+- `PakeCredentials`: SRP verifier, salt, modulus, generator, and serialized KDF parameters per user.
+- `KeyVaults`: Encrypted vault payloads with cipher suite + KDF metadata attached.
+- `AuthEventLogs`: Structured records capturing every PAKE register/login attempt, upgrade, tenant switch, and pairing flow.
+- `PairingSessions`: QR/device pairing sessions with codes, vault blobs, and statuses tracked.
+- `RefreshTokens`: Hashed refresh tokens with client fingerprints, device metadata, tenant ID, and expiration for `/v1/auth/refresh`.
+- `RevokedAccessTokens`: Blacklisted JWT IDs (`jti`) for logout/rotation cases.
+
+## 🧭 Tenant & Token Routing
+
+- `TenantMembershipService` makes sure every authenticated identity maps to a `Tenant` + `UserTenant`; it updates existing memberships and only creates a new tenant/owner when no relationship exists.
+- `/v1/tenants` triples (`/`, `/current`, `/\{id\}/switch`) let clients list memberships, read the active tenant, and rotate the `app_tenant_id` claim via a fresh JWT + refresh token pair.
+- `AuthenticationMiddleware` shares the same `TokenValidationParameters` as the JWT bearer scheme, enforces the `app_tenant_id` claim for SPA requests, and redirects to `/login` whenever validation fails so the SPA always knows the user/tenant context.
+
+## 🔍 Auth Observability Playbook
+
+- **Check the counters**: monitor `auth.pake.register.failure`, `auth.pake.login.failure`, and `auth.jwt.validation.failure`. Each counter carries a `tenant_id` tag and (on failures) a `reason` tag such as `invalid-proof`, `missing-tenant`, or `blocked`, so you can correlate spikes with tenant-specific issues.
+- **Use the log templates**: search Seq/your log store for `PAKE login finish`, `PAKE register finish`, or `Tenant switch` entries. These include masked user IDs, device metadata, and the upstream reason strings logged via `Track*` helpers.
+- **Diagnose JWT problems**: if protected SPA routes keep redirecting, inspect `auth.jwt.validation.failure` along with log lines that read `JWT validation failed ({Reason}) for path {Path}`; the middleware emits the remote IP and tenant/claim context to guide triage.
+- **Wire metrics to production stack**: ensure the `FocusDeck.Authentication` meter surfaces to your Prometheus/OpenTelemetry exporter so the counters above are visible on dashboards and alerting rules.
+
 ## 🚀 Deployment
 
 ### Prerequisites

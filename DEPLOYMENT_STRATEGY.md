@@ -156,6 +156,12 @@ dotnet test
 6. Squash and merge when approved
 ```
 
+### 4. Phase 0.4 CI Artifact Output
+
+- The `.github/workflows/build-server.yml` job now restores `FocusDeck.sln`, builds the solution in Release, and runs analyzers before any packaging step.
+- Node.js is installed inside the job to run `npm ci` and `npm run build` inside `src/FocusDeck.WebApp` exactly once per run. The resulting `dist` files are copied into `src/FocusDeck.Server/wwwroot` via the `BuildSpa` MSBuild target before publishing.
+- The publish step (`dotnet publish src/FocusDeck.Server/FocusDeck.Server.csproj -c Release -o ./publish`) now includes the SPA assets, and GitHub Actions uploads the entire `publish` directory as the `focusdeck-server-with-spa` artifact. Any failure in the .NET or SPA build phases fails the job so we never ship a partial deployable.
+
 ---
 
 ## Phase 6: API & Backend Setup

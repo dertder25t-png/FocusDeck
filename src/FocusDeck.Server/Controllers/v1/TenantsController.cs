@@ -236,6 +236,7 @@ public class TenantsController : ControllerBase
         var refreshToken = _tokenService.GenerateRefreshToken();
 
         _currentTenant.SetTenant(id);
+        _logger.LogInformation("Tenant switch: {UserId} moved to {TenantId}", AuthTelemetry.MaskIdentifier(userId), id);
 
         return Ok(new { accessToken, refreshToken });
     }

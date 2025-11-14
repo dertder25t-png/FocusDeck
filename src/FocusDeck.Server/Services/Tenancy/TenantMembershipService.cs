@@ -3,7 +3,9 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using FocusDeck.Domain.Entities;
 using FocusDeck.Persistence;
+using FocusDeck.Server.Services.Auth;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace FocusDeck.Server.Services.Tenancy;
 
@@ -15,10 +17,12 @@ public interface ITenantMembershipService
 public class TenantMembershipService : ITenantMembershipService
 {
     private readonly AutomationDbContext _db;
+    private readonly ILogger<TenantMembershipService> _logger;
 
-    public TenantMembershipService(AutomationDbContext db)
+    public TenantMembershipService(AutomationDbContext db, ILogger<TenantMembershipService> logger)
     {
         _db = db;
+        _logger = logger;
     }
 
     public async Task<Guid> EnsureTenantAsync(string userId, string? email, string? displayName, CancellationToken cancellationToken = default)
@@ -27,8 +31,10 @@ public class TenantMembershipService : ITenantMembershipService
             .Include(ut => ut.User)
             .FirstOrDefaultAsync(ut => ut.UserId == userId, cancellationToken);
 
+        var maskedUserId = AuthTelemetry.MaskIdentifier(userId);
         if (membership != null)
         {
+            _logger.LogInformation("Reusing tenant {TenantId} for {UserId}", membership.TenantId, maskedUserId);
             if (membership.User != null)
             {
                 membership.User.LastLoginAt = DateTime.UtcNow;
@@ -94,6 +100,7 @@ public class TenantMembershipService : ITenantMembershipService
             JoinedAt = DateTime.UtcNow
         };
         await _db.UserTenants.AddAsync(userTenant, cancellationToken);
+        _logger.LogInformation("Created tenant {TenantId} for {UserId}", tenant.Id, maskedUserId);
 
         return tenant.Id;
     }

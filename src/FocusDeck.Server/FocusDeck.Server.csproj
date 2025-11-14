@@ -49,16 +49,23 @@
     <ProjectReference Include="..\FocusDeck.Services\FocusDeck.Services.csproj" />
   </ItemGroup>
 
-  <Target Name="BuildSpa" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release'">
-    <Exec WorkingDirectory="$(ProjectDir)../FocusDeck.WebApp" Command="npm ci --legacy-peer-deps" ContinueOnError="false" />
-    <Exec WorkingDirectory="$(ProjectDir)../FocusDeck.WebApp" Command="npm run build" ContinueOnError="false" />
-    <RemoveDir Directories="$(ProjectDir)wwwroot" ContinueOnError="true" />
-    <MakeDir Directories="$(ProjectDir)wwwroot" />
+  <Target Name="BuildSpa" BeforeTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <PropertyGroup>
+      <SpaSourceDir>$(ProjectDir)../FocusDeck.WebApp/dist</SpaSourceDir>
+      <SpaDestinationDir>$(ProjectDir)wwwroot</SpaDestinationDir>
+    </PropertyGroup>
+
+    <Error Condition="!Exists('$(SpaSourceDir)')" Text="SPA dist directory not found. Run 'npm run build' in src/FocusDeck.WebApp before publishing." />
+
+    <RemoveDir Directories="$(SpaDestinationDir)" ContinueOnError="true" />
+    <MakeDir Directories="$(SpaDestinationDir)" />
+
     <ItemGroup>
-      <SpaFiles Include="$(ProjectDir)../FocusDeck.WebApp/dist/**/*" />
+      <SpaFiles Include="$(SpaSourceDir)/**/*" />
     </ItemGroup>
-    <Copy SourceFiles="@(SpaFiles)" DestinationFiles="@(SpaFiles->'$(ProjectDir)wwwroot/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
-    <Message Text="BuildSpa Target: Successfully copied WebApp dist files to wwwroot" Importance="high" />
+
+    <Copy SourceFiles="@(SpaFiles)" DestinationFiles="@(SpaFiles->'$(SpaDestinationDir)/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Message Text="BuildSpa Target: Copied SPA dist files to wwwroot for publish" Importance="high" />
   </Target>
 
 </Project>

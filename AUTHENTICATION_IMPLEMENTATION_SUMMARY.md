@@ -256,6 +256,32 @@ Test scenarios documented: 20+
 
 ---
 
+## 🔐 KDF Behavior (Argon2 + Legacy)
+
+- Registration uses Argon2id parameters for desktop/mobile clients while web accounts continue to fall back to SHA256 salts until their credentials are re-created. `AuthPakeController.NormalizeKdfParameters` inspects the stored `PakeCredentials` metadata so the server tells clients which derivation to apply.
+- The shared `Srp` helper exposes explicit Argon2 and legacy SHA256 paths (`GenerateKdfParameters`, `GenerateLegacyKdfParameters`, and matching `ComputePrivateKey` overloads) so the proofs are computed consistently.
+
+## 🧾 Auth Storage Surface
+
+- `PakeCredentials`: SRP verifiers + serialized KDF metadata per user.
+- `KeyVaults`: Encrypted vault payloads with cipher/KDF metadata for device sync/pairing.
+- `AuthEventLogs`: Structured audit trail for every register/login, tenant switch, and upgrade event.
+- `PairingSessions`: QR/device pairing lifecycle data (codes, vault blobs, statuses).
+- `RevokedAccessTokens`: Blacklisted JWT `jti`s for logouts and token rotation.
+- `RefreshTokens`: Hashed refresh tokens tied to client fingerprints, device data, tenant ID, and expiration.
+
+## 🧭 Tenant Management
+
+- `TenantMembershipService` guarantees each login resolves to a `Tenant` + `UserTenant` pair; the service updates `TenantUser` metadata on every sign-in and creates a tenant (e.g., `user@example.com's Space`) when a membership does not already exist.
+- `TenantsController` drives `/v1/tenants`, `/v1/tenants/current`, and `/v1/tenants/{id}/switch` so clients can list memberships, inspect the active tenant, and rotate into another tenant (new JWT + refresh token always carry the requested `app_tenant_id`).
+- `AuthenticationMiddleware` validates the JWT signature, enforces the presence of `app_tenant_id`, and redirects to `/login` whenever the token is missing/expired or lacks the tenant context so the SPA never renders without a tenant.
+
+## 🔍 Auth Observability
+
+- **Structured logs**: watch for `PAKE register start`, `PAKE register finish`, `PAKE login start`, `PAKE login finish`, and tenant switch entries. Each log includes a masked user identifier, device/platform metadata, and human-readable failure reasons such as `invalid-proof`, `session-expired`, or `unsupported-algorithm`.
+- **Counters**: the new `auth.pake.register.success/failure`, `auth.pake.login.success/failure`, and `auth.jwt.validation.failure` metrics are instrumented with `tenant_id` tags (and `reason` tags for the failure counters) so you can rapidly spot regressions tied to specific tenants or proof failures.
+- These combined observability signals surface PAKE proof mismatches, legacy KDF fallbacks, tenant switch issues, and JWT validation errors before they impact users.
+
 ## 🚀 Deployment
 
 ### Build Steps
