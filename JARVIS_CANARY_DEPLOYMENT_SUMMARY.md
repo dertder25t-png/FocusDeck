@@ -1,8 +1,27 @@
 # JARVIS Canary Deployment - Summary
 
 **Date**: November 14, 2025  
-**Status**: ✅ DEPLOYED TO PRODUCTION  
+**Status**: 🔴 BLOCKED - Infrastructure Provisioning Required  
 **Canary Tenant**: FD86A760-06C6-4310-BEBB-4B2DC33295C6 (dertder25t@gmail.com)
+
+---
+
+## ⚠️ DEPLOYMENT BLOCKED
+
+**Current State**: Code deployed but running on SQLite (development database)  
+**Blocker**: PostgreSQL infrastructure not provisioned  
+**Required Actions**: See `JARVIS_INFRASTRUCTURE_BLOCKERS.md`
+
+### Critical Blockers
+1. ❌ PostgreSQL databases (`focusdeck`, `focusdeck_jobs`) not provisioned
+2. ❌ Environment variables for PostgreSQL not configured
+3. ❌ Database migrations not applied to PostgreSQL
+4. ❌ E2E validation not completed
+5. ❌ 24-hour monitoring campaign not started
+
+**Action Required**: Operations must complete infrastructure provisioning before canary testing can proceed.
+
+**See**: `JARVIS_INFRASTRUCTURE_BLOCKERS.md` for complete checklist and setup instructions.
 
 ---
 

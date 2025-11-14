@@ -2,14 +2,13 @@
 
 **Date**: November 14, 2025  
 **Canary Tenant**: `FD86A760-06C6-4310-BEBB-4B2DC33295C6` (dertder25t@gmail.com)  
-**Status**: ✅ Jarvis feature enabled in production
+**Status**: ⚠️ Jarvis feature disabled pending PostgreSQL alignment
 
 ---
 
 ## 1. Feature Flag Status
-
 ### Configuration
-- **Server Config**: `appsettings.Production.json` → `Features:Jarvis: true`
+- **Server Config**: `appsettings.Production.json` → `Features:Jarvis: false` (halt canary until the stack uses PostgreSQL per `OPERATIONS.md`)
 - **Tenant ID**: `FD86A760-06C6-4310-BEBB-4B2DC33295C6`
 - **Enabled At**: November 14, 2025
 
@@ -20,7 +19,7 @@ grep -A 2 "Features" /home/focusdeck/FocusDeck/publish/appsettings.Production.js
 
 # Expected output:
 # "Features": {
-#   "Jarvis": true
+#   "Jarvis": false
 # }
 ```
 
@@ -214,51 +213,35 @@ journalctl -u focusdeck -f | grep "429\|rate limit\|Run limit exceeded"
 
 ### Database Monitoring
 
-#### Check workflow run history
+Production uses PostgreSQL for both the primary `focusdeck` database and the Hangfire `focusdeck_jobs` database (see `OPERATIONS.md#database-management`). Mirror the `ConnectionStrings__DefaultConnection` and `ConnectionStrings__HangfireConnection` values when you run these commands so the queries target the live Postgres hosts. Set `PGPASSWORD` (or populate `~/.pgpass`) before running the CLI snippets below.
+
 ```bash
-sqlite3 /home/focusdeck/FocusDeck/publish/data/focusdeck.db << 'EOF'
--- Show recent Jarvis workflow runs
-SELECT 
-  Id,
-  WorkflowId,
-  Status,
-  datetime(EnqueuedAtUtc) as Enqueued,
-  datetime(CompletedAtUtc) as Completed
-FROM JarvisWorkflowRuns
-ORDER BY EnqueuedAtUtc DESC
-LIMIT 10;
-EOF
+PG_DEFAULT="${PG_DEFAULT:-"host=localhost port=5432 dbname=focusdeck user=postgres"}"
+PG_HANGFIRE="${PG_HANGFIRE:-"host=localhost port=5432 dbname=focusdeck_jobs user=postgres"}"
+```
+
+#### Check workflow run history
+
+```bash
+PGPASSWORD="${PGPASSWORD:-yourpassword}" psql "$PG_DEFAULT" -c "SELECT Id, WorkflowId, Status, EnqueuedAtUtc, CompletedAtUtc FROM JarvisWorkflowRuns ORDER BY EnqueuedAtUtc DESC LIMIT 10;"
 ```
 
 #### Check activity signal volume
+
 ```bash
-sqlite3 /home/focusdeck/FocusDeck/publish/data/focusdeck.db << 'EOF'
--- Activity signals by type (last hour)
-SELECT 
-  SignalType,
-  COUNT(*) as Count,
-  MIN(datetime(CapturedAtUtc)) as FirstSeen,
-  MAX(datetime(CapturedAtUtc)) as LastSeen
-FROM ActivitySignals
-WHERE CapturedAtUtc > datetime('now', '-1 hour')
-GROUP BY SignalType
-ORDER BY Count DESC;
-EOF
+PGPASSWORD="${PGPASSWORD:-yourpassword}" psql "$PG_DEFAULT" -c "SELECT SignalType, COUNT(*) AS Count, MIN(CapturedAtUtc) AS FirstSeen, MAX(CapturedAtUtc) AS LastSeen FROM ActivitySignals WHERE CapturedAtUtc > NOW() - INTERVAL '1 hour' GROUP BY SignalType ORDER BY Count DESC;"
 ```
 
 #### Check activity signal latency
+
 ```bash
-sqlite3 /home/focusdeck/FocusDeck/publish/data/focusdeck.db << 'EOF'
--- Recent activity signals with latency
-SELECT 
-  SignalType,
-  SignalValue,
-  datetime(CapturedAtUtc) as Captured,
-  SourceApp
-FROM ActivitySignals
-ORDER BY CapturedAtUtc DESC
-LIMIT 20;
-EOF
+PGPASSWORD="${PGPASSWORD:-yourpassword}" psql "$PG_DEFAULT" -c "SELECT SignalType, SignalValue, CapturedAtUtc, SourceApp FROM ActivitySignals ORDER BY CapturedAtUtc DESC LIMIT 20;"
+```
+
+#### Inspect Hangfire queue depth
+
+```bash
+PGPASSWORD="${PGPASSWORD:-yourpassword}" psql "$PG_HANGFIRE" -c "SELECT StateName, COUNT(*) AS Count FROM hangfire.job GROUP BY StateName ORDER BY Count DESC;"
 ```
 
 ### Performance Metrics to Track
@@ -345,8 +328,10 @@ journalctl -u focusdeck -f | grep -E "Jarvis|WorkflowId=$WORKFLOW_ID"
 
 ```bash
 # Check JarvisWorkflowRuns table
-sqlite3 /home/focusdeck/FocusDeck/publish/data/focusdeck.db \
-  "SELECT * FROM JarvisWorkflowRuns WHERE Id = '$RUN_ID';"
+PG_DEFAULT="${PG_DEFAULT:-"host=localhost port=5432 dbname=focusdeck user=postgres"}"
+PGPASSWORD="${PGPASSWORD:-yourpassword}"
+export PGPASSWORD
+psql "$PG_DEFAULT" -c "SELECT * FROM JarvisWorkflowRuns WHERE Id = '$RUN_ID';"
 
 # Check for errors
 journalctl -u focusdeck --since "10 minutes ago" | grep -i "error\|exception" | grep -i "jarvis"
@@ -436,38 +421,48 @@ Create a new entry for each observation period (daily/weekly):
 
 ### Automated Metrics Collection
 
+Instrument this script with PostgreSQL connections that match the production `ConnectionStrings__DefaultConnection` and `ConnectionStrings__HangfireConnection`. Populate `PGPASSWORD` or `~/.pgpass` before running.
+
 ```bash
 #!/bin/bash
 # File: /tmp/jarvis_metrics_collector.sh
-# Run this hourly via cron
+# Run hourly via cron after the stack is aligned with PostgreSQL.
+
+PG_DEFAULT="${PG_DEFAULT:-"host=localhost port=5432 dbname=focusdeck user=postgres"}"
+PG_HANGFIRE="${PG_HANGFIRE:-"host=localhost port=5432 dbname=focusdeck_jobs user=postgres"}"
+PGPASSWORD="${PGPASSWORD:-yourpassword}"
+export PGPASSWORD
 
 REPORT_FILE="/tmp/jarvis_metrics_$(date +%Y%m%d_%H%M).txt"
-DB="/home/focusdeck/FocusDeck/publish/data/focusdeck.db"
 
 {
   echo "=== JARVIS Metrics Report ==="
   echo "Generated: $(date)"
   echo ""
-  
+
   echo "--- Workflow Runs (Last Hour) ---"
-  sqlite3 "$DB" "SELECT Status, COUNT(*) FROM JarvisWorkflowRuns WHERE EnqueuedAtUtc > datetime('now', '-1 hour') GROUP BY Status;"
-  
+  psql "$PG_DEFAULT" -c "SELECT Status, COUNT(*) FROM JarvisWorkflowRuns WHERE EnqueuedAtUtc > NOW() - INTERVAL '1 hour' GROUP BY Status;"
+
   echo ""
   echo "--- Activity Signals (Last Hour) ---"
-  sqlite3 "$DB" "SELECT SignalType, COUNT(*) FROM ActivitySignals WHERE CapturedAtUtc > datetime('now', '-1 hour') GROUP BY SignalType;"
-  
+  psql "$PG_DEFAULT" -c "SELECT SignalType, COUNT(*) FROM ActivitySignals WHERE CapturedAtUtc > NOW() - INTERVAL '1 hour' GROUP BY SignalType;"
+
+  echo ""
+  echo "--- Hangfire Queue State ---"
+  psql "$PG_HANGFIRE" -c "SELECT StateName, COUNT(*) FROM hangfire.job GROUP BY StateName ORDER BY StateName;"
+
   echo ""
   echo "--- Server Resource Usage ---"
-  ps aux | grep FocusDeck.Server | grep -v grep
-  
+  ps aux | grep FocusDeck.Server | grep -v grep || true
+
   echo ""
   echo "--- HTTP 429 Count ---"
   journalctl -u focusdeck --since "1 hour ago" | grep "429" | wc -l
-  
+
   echo ""
   echo "--- Recent Errors ---"
   journalctl -u focusdeck --since "1 hour ago" | grep -i "error\|exception" | tail -5
-  
+
 } > "$REPORT_FILE"
 
 echo "Metrics report saved to: $REPORT_FILE"
@@ -515,32 +510,33 @@ Based on canary feedback, prioritize:
 ## Quick Reference Commands
 
 ```bash
-# Enable Jarvis (already done)
+# Jarvis remains disabled until the stack is on PostgreSQL.
 grep -A 2 "Features" /home/focusdeck/FocusDeck/publish/appsettings.Production.json
 
-# Restart server
+# Restart server if you flip the feature flag.
 sudo systemctl restart focusdeck
 
-# Watch Jarvis logs
-journalctl -u focusdeck -f | grep -i jarvis
+# PostgreSQL smoke checks (align with OPERATIONS.md env var names)
+PG_DEFAULT="${PG_DEFAULT:-"host=localhost port=5432 dbname=focusdeck user=postgres"}"
+PG_HANGFIRE="${PG_HANGFIRE:-"host=localhost port=5432 dbname=focusdeck_jobs user=postgres"}"
+export PGPASSWORD="${PGPASSWORD:-yourpassword}"
 
-# Test workflows endpoint
+psql "$PG_DEFAULT" -c "SELECT 1;"
+psql "$PG_DEFAULT" -c "SELECT WorkflowId, Status, EnqueuedAtUtc FROM JarvisWorkflowRuns ORDER BY EnqueuedAtUtc DESC LIMIT 5;"
+psql "$PG_HANGFIRE" -c "SELECT StateName, COUNT(*) FROM hangfire.job GROUP BY StateName ORDER BY StateName;"
+
+# Watch Jarvis/Hangfire logs
+journalctl -u focusdeck -f | grep -i jarvis
+journalctl -u focusdeck -f | grep -i hangfire
+
+# Test Jarvis endpoints once PostgreSQL is live
 curl -X GET https://focusdeckv1.909436.xyz/v1/jarvis/workflows \
   -H "Authorization: Bearer TOKEN"
 
-# Submit activity signal
 curl -X POST https://focusdeckv1.909436.xyz/v1/activity/signals \
   -H "Authorization: Bearer TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"SignalType":"window_focus","SignalValue":"VSCode","SourceApp":"Test"}'
-
-# Check recent signals
-sqlite3 /home/focusdeck/FocusDeck/publish/data/focusdeck.db \
-  "SELECT * FROM ActivitySignals ORDER BY CapturedAtUtc DESC LIMIT 10;"
-
-# Check workflow runs
-sqlite3 /home/focusdeck/FocusDeck/publish/data/focusdeck.db \
-  "SELECT * FROM JarvisWorkflowRuns ORDER BY EnqueuedAtUtc DESC LIMIT 10;"
 ```
 
 ---
