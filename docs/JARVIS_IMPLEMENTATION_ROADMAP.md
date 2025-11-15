@@ -65,10 +65,10 @@ Transform FocusDeck from a productivity tracker into **JARVIS for Academics**  a
 **Goal:** Protect student wellness by detecting and preventing burnout
 
 #### 2.1 Pattern Recognition
-- [ ] Track work session length and break frequency
-- [ ] Monitor sleep data integration (if available)
-- [ ] Measure output quality trends (declining quality = fatigue signal)
-- [ ] Analyze work intensity variability
+- [x] Track work session length and break frequency
+- [x] Monitor sleep data integration (if available)
+- [x] Measure output quality trends (declining quality = fatigue signal)
+- [x] Analyze work intensity variability
 
 **Deliverables:**
 - IBurnoutAnalysisService - Weekly pattern analysis
@@ -86,6 +86,8 @@ Transform FocusDeck from a productivity tracker into **JARVIS for Academics**  a
 - Background job: BurnoutCheckJob (runs every 2 hours)
 - SignalR notification: Burnout alert with smart recommendations
 - UI: Wellness dashboard + enforcement controls
+
+> Status: BurnoutCheckJob/StudentWellnessMetrics are in place, so interventions can now hook the unsustainable signal.
 
 ---
 

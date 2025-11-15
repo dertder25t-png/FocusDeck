@@ -238,10 +238,25 @@ PGPASSWORD="${PGPASSWORD:-yourpassword}" psql "$PG_DEFAULT" -c "SELECT SignalTyp
 PGPASSWORD="${PGPASSWORD:-yourpassword}" psql "$PG_DEFAULT" -c "SELECT SignalType, SignalValue, CapturedAtUtc, SourceApp FROM ActivitySignals ORDER BY CapturedAtUtc DESC LIMIT 20;"
 ```
 
+#### Check student wellness metrics
+
+```bash
+PGPASSWORD="${PGPASSWORD:-yourpassword}" psql "$PG_DEFAULT" -c "SELECT TenantId, UserId, HoursWorked, BreakFrequency, QualityScore, SleepHours, IsUnsustainable, CapturedAtUtc FROM StudentWellnessMetrics ORDER BY CapturedAtUtc DESC LIMIT 20;"
+```
+
 #### Inspect Hangfire queue depth
 
 ```bash
 PGPASSWORD="${PGPASSWORD:-yourpassword}" psql "$PG_HANGFIRE" -c "SELECT StateName, COUNT(*) AS Count FROM hangfire.job GROUP BY StateName ORDER BY Count DESC;"
+```
+
+#### Monitor BurnoutCheckJob
+
+- The recurring job name is `burnout-check-job` (Cron.HourInterval(2)); look under **Recurring Jobs** in the Hangfire dashboard to verify the next execution.
+- Check the most recent executions with:
+
+```bash
+PGPASSWORD="${PGPASSWORD:-yourpassword}" psql "$PG_HANGFIRE" -c "SELECT Id, StateName, CreatedAt, Arguments FROM hangfire.job WHERE Arguments LIKE '%BurnoutCheckJob%' ORDER BY CreatedAt DESC LIMIT 5;"
 ```
 
 ### Performance Metrics to Track

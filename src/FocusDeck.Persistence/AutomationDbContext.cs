@@ -68,6 +68,9 @@ public class AutomationDbContext : DbContext
     // Context aggregation snapshots
     public DbSet<FocusDeck.Domain.Entities.StudentContext> StudentContexts { get; set; }
 
+    // Wellness metrics / Burnout detection
+    public DbSet<StudentWellnessMetrics> StudentWellnessMetrics { get; set; }
+
     // Activity signals (Phase 4 – Activity Detection)
     public DbSet<ActivitySignal> ActivitySignals { get; set; }
 

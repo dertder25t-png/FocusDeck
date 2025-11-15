@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using System.Threading;
 using System.Threading.RateLimiting;
 using FocusDeck.Persistence;
 using FocusDeck.Server.HealthChecks;
@@ -9,6 +10,7 @@ using FocusDeck.Server.Middleware;
 using FocusDeck.Server.Services;
 using FocusDeck.Server.Services.Auditing;
 using FocusDeck.Server.Services.Auth;
+using FocusDeck.Server.Services.Burnout;
 using FocusDeck.Server.Services.Tenancy;
 using FocusDeck.Server.Services.Jarvis;
 using FocusDeck.SharedKernel;
@@ -204,6 +206,7 @@ public sealed class Startup
         services.AddScoped<ISummarizeLectureJob, SummarizeLectureJob>();
         services.AddScoped<IVerifyNoteJob, VerifyNoteJob>();
         services.AddScoped<IGenerateLectureNoteJob, GenerateLectureNoteJob>();
+        services.AddScoped<BurnoutCheckJob>();
 
         // Sync & automation
         services.AddScoped<ISyncService, SyncService>();
@@ -225,6 +228,7 @@ public sealed class Startup
         services.AddSingleton<FocusDeck.Server.Services.Auth.IUserConnectionTracker, FocusDeck.Server.Services.Auth.UserConnectionTracker>();
         services.AddSingleton<FocusDeck.Server.Services.Context.IContextAggregationService, FocusDeck.Server.Services.Context.ContextAggregationService>();
         services.AddHostedService<FocusDeck.Server.Services.Context.ContextBroadcastService>();
+        services.AddScoped<IBurnoutAnalysisService, BurnoutAnalysisService>();
 
         // Jarvis workflow registry
         services.AddSingleton<IJarvisWorkflowRegistry, JarvisWorkflowRegistry>();
@@ -576,6 +580,10 @@ public sealed class Startup
                 Authorization = new[] { new HangfireAuthorizationFilter() },
                 DashboardTitle = "FocusDeck Background Jobs"
             });
+            RecurringJob.AddOrUpdate<BurnoutCheckJob>(
+                "burnout-check-job",
+                job => job.ExecuteAsync(CancellationToken.None),
+                "0 */2 * * *");
         }
 
         app.UseEndpoints(endpoints =>

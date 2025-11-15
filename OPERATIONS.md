@@ -93,6 +93,12 @@ pg_dump focusdeck > focusdeck_backup_$(date +%Y%m%d_%H%M%S).sql
 psql focusdeck < focusdeck_backup_20250101.sql
 ```
 
+### Student Wellness Metrics
+
+```bash
+PGPASSWORD="${PGPASSWORD:-yourpassword}" psql "host=localhost port=5432 dbname=focusdeck user=postgres" -c "SELECT TenantId, UserId, HoursWorked, BreakFrequency, QualityScore, SleepHours, IsUnsustainable, CapturedAtUtc FROM StudentWellnessMetrics ORDER BY CapturedAtUtc DESC LIMIT 20;"
+```
+
 ### Migrations
 
 The server automatically creates tables on startup using `EnsureCreated()`.
@@ -124,6 +130,7 @@ Access the Hangfire dashboard at: `https://your-domain.com/hangfire`
 2. **SummarizeLectureJob** - Generates lecture summaries using LLM
 3. **GenerateLectureNoteJob** - Creates structured study notes
 4. **VerifyNoteJob** - Verifies note completeness and generates suggestions
+5. **BurnoutCheckJob** - Recurring analysis service (Cron.HourInterval(2)) that feeds `StudentWellnessMetrics` and flags unsustainable work patterns
 
 ### Monitoring Jobs
 
@@ -133,6 +140,15 @@ curl -H "Authorization: Bearer YOUR_TOKEN" https://your-domain.com/hangfire/jobs
 
 # View failed jobs
 curl -H "Authorization: Bearer YOUR_TOKEN" https://your-domain.com/hangfire/jobs/failed
+```
+
+#### Monitor BurnoutCheckJob
+
+- The recurring job name is `burnout-check-job` (Cron.HourInterval(2)). Visit the Hangfire dashboard → **Recurring Jobs** to ensure the next/success runs look healthy.
+- Check the last invocations with:
+
+```bash
+PGPASSWORD="${PGPASSWORD:-yourpassword}" psql "host=localhost port=5432 dbname=focusdeck_jobs user=postgres" -c "SELECT Id, StateName, CreatedAt, Arguments FROM hangfire.job WHERE Arguments LIKE '%BurnoutCheckJob%' ORDER BY CreatedAt DESC LIMIT 5;"
 ```
 
 ### Job Configuration

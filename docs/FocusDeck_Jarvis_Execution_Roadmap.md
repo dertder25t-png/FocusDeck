@@ -427,6 +427,7 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - Persists the new `ActivitySignal` entity (`Id`, `TenantId`, `UserId`, `SignalType`, `SignalValue`, `SourceApp`, `MetadataJson`, `CapturedAtUtc`), indexed by `TenantId` + `CapturedAtUtc` so we can efficiently trend per-tenant/time window.
 - `/jarvis` exposes an “Emit sample activity signals” button (guarded by `Features:Jarvis`) that posts fake `TypingBurst`/`ActiveWindow` signals to the ingestion API, helping QA verify the pipeline without production sensors.
 - This telemetry stream seeds the upcoming burnout/autotagging work so we can detect typing bursts, active windows, and other context signals before hooking real clients.
+- [x] Burnout analysis now persists `StudentWellnessMetrics` (hours_worked, break_frequency, quality_score, sleep_hours, `IsUnsustainable`) and `BurnoutCheckJob` runs every 2 hours via Hangfire to flag 3+ consecutive 12-hour days or >50% break-frequency drops.
 
 ### 4.1 Google OAuth + incremental sync (+ push optional)
 
