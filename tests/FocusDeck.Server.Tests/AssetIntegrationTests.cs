@@ -1,4 +1,5 @@
 using System.Net;
+using System.Linq;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
@@ -9,6 +10,8 @@ using FocusDeck.Persistence;
 using FocusDeck.Server.Services.Storage;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,10 +33,8 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
         {
             builder.ConfigureAppConfiguration((context, config) =>
             {
-                // Set environment to Development for tests
                 context.HostingEnvironment.EnvironmentName = "Development";
                 
-                // Override configuration for tests
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["Storage:Root"] = _testStorageRoot,
@@ -43,6 +44,31 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
                     ["Jwt:Audience"] = "test-audience",
                     ["Cors:AllowedOrigins:0"] = "http://localhost:5173"
                 });
+            });
+
+            builder.ConfigureServices(services =>
+            {
+                var descriptor = services.SingleOrDefault(
+                    d => d.ServiceType == typeof(DbContextOptions<AutomationDbContext>));
+
+                if (descriptor != null)
+                {
+                    services.Remove(descriptor);
+                }
+
+                var connection = new SqliteConnection("DataSource=:memory:");
+                connection.Open();
+                services.AddSingleton(connection);
+
+                services.AddDbContext<AutomationDbContext>(options =>
+                {
+                    options.UseSqlite(connection);
+                });
+
+                var sp = services.BuildServiceProvider();
+                using var scope = sp.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+                db.Database.EnsureCreated();
             });
         });
     }
@@ -235,7 +261,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
 
     private HttpClient CreateAuthenticatedClient()
     {
-        var client = _factory.CreateClient();
+        var client = _factory.CreateAuthenticatedClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateJwtToken());
         return client;
     }

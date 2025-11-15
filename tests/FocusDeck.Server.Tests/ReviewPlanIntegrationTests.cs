@@ -5,6 +5,7 @@ using FocusDeck.Domain.Entities;
 using FocusDeck.Persistence;
 using FocusDeck.Server.Jobs;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,9 +41,13 @@ public class ReviewPlanIntegrationTests : IClassFixture<FocusDeckWebApplicationF
                     services.Remove(descriptor);
                 }
 
+                var connection = new SqliteConnection("DataSource=:memory:");
+                connection.Open();
+                services.AddSingleton(connection);
+
                 services.AddDbContext<AutomationDbContext>(options =>
                 {
-                    options.UseSqlite("DataSource=:memory:");
+                    options.UseSqlite(connection);
                 });
 
                 // Build service provider and create database
@@ -50,7 +55,6 @@ public class ReviewPlanIntegrationTests : IClassFixture<FocusDeckWebApplicationF
                 using var scope = sp.CreateScope();
                 var scopedServices = scope.ServiceProvider;
                 var db = scopedServices.GetRequiredService<AutomationDbContext>();
-                db.Database.OpenConnection();
                 db.Database.EnsureCreated();
             });
         });
@@ -60,7 +64,7 @@ public class ReviewPlanIntegrationTests : IClassFixture<FocusDeckWebApplicationF
     public async Task ComputeSpacedPlan_ReturnsCorrectSchedule()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = _factory.CreateAuthenticatedClient();
         var request = new ComputeSpacedPlanRequest
         {
             TargetEntityId = "lecture-123",
@@ -87,7 +91,7 @@ public class ReviewPlanIntegrationTests : IClassFixture<FocusDeckWebApplicationF
     public async Task CreateReviewPlan_WithValidLecture_Succeeds()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = _factory.CreateAuthenticatedClient();
         
         // Create a lecture first
         using var scope = _factory.Services.CreateScope();
@@ -146,7 +150,7 @@ public class ReviewPlanIntegrationTests : IClassFixture<FocusDeckWebApplicationF
     public async Task UpdateReviewSession_ToCompleted_UpdatesStatus()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = _factory.CreateAuthenticatedClient();
         
         using var scope = _factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
@@ -246,16 +250,19 @@ public class GenerateLectureNoteJobTests : IClassFixture<FocusDeckWebApplication
                     services.Remove(descriptor);
                 }
 
+                var connection = new SqliteConnection("DataSource=:memory:");
+                connection.Open();
+                services.AddSingleton(connection);
+
                 services.AddDbContext<AutomationDbContext>(options =>
                 {
-                    options.UseSqlite("DataSource=:memory:");
+                    options.UseSqlite(connection);
                 });
 
                 var sp = services.BuildServiceProvider();
                 using var scope = sp.CreateScope();
                 var scopedServices = scope.ServiceProvider;
                 var db = scopedServices.GetRequiredService<AutomationDbContext>();
-                db.Database.OpenConnection();
                 db.Database.EnsureCreated();
             });
         });
