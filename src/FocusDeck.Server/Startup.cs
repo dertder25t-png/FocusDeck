@@ -231,7 +231,7 @@ public sealed class Startup
         services.AddScoped<IBurnoutAnalysisService, BurnoutAnalysisService>();
 
         // Jarvis workflow registry
-        services.AddSingleton<IJarvisWorkflowRegistry, JarvisWorkflowRegistry>();
+        services.AddScoped<IJarvisWorkflowRegistry, JarvisWorkflowRegistry>();
 
         // Hangfire
         var hangfireConnection = _configuration.GetConnectionString("HangfireConnection")
