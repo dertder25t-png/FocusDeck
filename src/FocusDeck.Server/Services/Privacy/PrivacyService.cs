@@ -123,12 +123,13 @@ public sealed class PrivacyService : IPrivacyService
 
         var tenantId = _currentTenant.TenantId ?? Guid.Empty;
         var normalized = def.ContextType;
+        var normalizedLower = normalized.ToLowerInvariant();
 
         var existing = await _db.PrivacySettings
             .SingleOrDefaultAsync(x =>
                 x.TenantId == tenantId &&
                 x.UserId == userId &&
-                x.ContextType.Equals(normalized, StringComparison.OrdinalIgnoreCase),
+                x.ContextType.ToLower() == normalizedLower,
                 cancellationToken);
 
         if (existing == null)

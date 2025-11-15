@@ -568,6 +568,7 @@ public sealed class Startup
         app.UseRouting();
 
         app.UseAuthentication();
+        app.UseMiddleware<TenancyMiddleware>();
         app.UseAuthorization();
         app.UseAuthenticationMiddleware();
 

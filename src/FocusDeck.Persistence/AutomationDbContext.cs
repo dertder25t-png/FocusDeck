@@ -1,14 +1,19 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
 using FocusDeck.Domain.Entities;
 using FocusDeck.Domain.Entities.Automations;
+using FocusDeck.Domain.Entities.Auth;
 using FocusDeck.Domain.Entities.Remote;
 using FocusDeck.Domain.Entities.Sync;
 using FocusDeck.SharedKernel.Auditing;
 using FocusDeck.SharedKernel.Tenancy;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace FocusDeck.Persistence;
 
@@ -16,6 +21,16 @@ public class AutomationDbContext : DbContext
 {
     private readonly ICurrentTenant _currentTenant;
     private readonly IAuditActorProvider? _actorProvider;
+    // Tables that persist DateTime values using native timestamp columns in PostgreSQL.
+    private static readonly IReadOnlyDictionary<Type, HashSet<string>> NativeTimestampProperties =
+        new Dictionary<Type, HashSet<string>>
+        {
+            [typeof(PakeCredential)] = new HashSet<string>(StringComparer.Ordinal)
+            {
+                nameof(PakeCredential.CreatedAt),
+                nameof(PakeCredential.UpdatedAt)
+            }
+        };
 
     public AutomationDbContext(DbContextOptions<AutomationDbContext> options, ICurrentTenant? currentTenant = null, IAuditActorProvider? actorProvider = null)
         : base(options)
@@ -95,6 +110,10 @@ public class AutomationDbContext : DbContext
         // Apply all configurations from the Configurations folder
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AutomationDbContext).Assembly);
 
+        if (Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            ApplyLegacyDatabaseCompatibilityConverters(modelBuilder);
+        }
         ApplyTenantQueryFilters(modelBuilder);
     }
 
@@ -182,5 +201,86 @@ public class AutomationDbContext : DbContext
     {
         modelBuilder.Entity<TEntity>()
             .HasQueryFilter(entity => !_currentTenant.HasTenant || entity.TenantId == _currentTenant.TenantId);
+    }
+
+    private static bool ShouldUseNativeTimestamp(IMutableProperty property)
+    {
+        var declaringType = property.DeclaringType?.ClrType;
+        if (declaringType == null)
+        {
+            return false;
+        }
+
+        return NativeTimestampProperties.TryGetValue(declaringType, out var props) && props.Contains(property.Name);
+    }
+
+    private static void ApplyLegacyDatabaseCompatibilityConverters(ModelBuilder modelBuilder)
+    {
+        var boolConverter = new ValueConverter<bool, int>(
+            v => v ? 1 : 0,
+            v => v == 1);
+
+        var nullableBoolConverter = new ValueConverter<bool?, int?>(
+            v => v.HasValue ? (v.Value ? 1 : 0) : null,
+            v => v.HasValue ? v.Value == 1 : (bool?)null);
+
+        var guidConverter = new ValueConverter<Guid, string>(
+            v => v.ToString(),
+            v => string.IsNullOrWhiteSpace(v) ? Guid.Empty : Guid.Parse(v));
+
+        var nullableGuidConverter = new ValueConverter<Guid?, string?>(
+            v => v.HasValue ? v.Value.ToString() : null,
+            v => string.IsNullOrWhiteSpace(v) ? (Guid?)null : Guid.Parse(v));
+
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.ClrType == typeof(bool))
+                {
+                    property.SetValueConverter(boolConverter);
+                    property.SetProviderClrType(typeof(int));
+                }
+                else if (property.ClrType == typeof(bool?))
+                {
+                    property.SetValueConverter(nullableBoolConverter);
+                    property.SetProviderClrType(typeof(int?));
+                }
+                else if (property.ClrType == typeof(Guid))
+                {
+                    property.SetValueConverter(guidConverter);
+                    property.SetProviderClrType(typeof(string));
+                }
+                else if (property.ClrType == typeof(Guid?))
+                {
+                    property.SetValueConverter(nullableGuidConverter);
+                    property.SetProviderClrType(typeof(string));
+                }
+                else if (property.ClrType == typeof(DateTime))
+                {
+                    if (ShouldUseNativeTimestamp(property))
+                    {
+                        continue;
+                    }
+
+                    property.SetValueConverter(new ValueConverter<DateTime, string>(
+                        v => v.ToUniversalTime().ToString("O"),
+                        v => string.IsNullOrWhiteSpace(v) ? DateTime.MinValue : DateTime.Parse(v, null, DateTimeStyles.RoundtripKind)));
+                    property.SetProviderClrType(typeof(string));
+                }
+                else if (property.ClrType == typeof(DateTime?))
+                {
+                    if (ShouldUseNativeTimestamp(property))
+                    {
+                        continue;
+                    }
+
+                    property.SetValueConverter(new ValueConverter<DateTime?, string?>(
+                        v => v.HasValue ? v.Value.ToUniversalTime().ToString("O") : null,
+                        v => string.IsNullOrWhiteSpace(v) ? (DateTime?)null : DateTime.Parse(v, null, DateTimeStyles.RoundtripKind)));
+                    property.SetProviderClrType(typeof(string));
+                }
+            }
+        }
     }
 }
