@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using FocusDeck.Domain.Entities.Auth;
 using FocusDeck.Persistence;
+using FocusDeck.Server.Configuration;
 using FocusDeck.Server.Controllers.v1;
 using FocusDeck.Server.Services.Auth;
 using FocusDeck.Shared.Contracts.Auth;
@@ -14,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using System.Threading;
 using Xunit;
 
@@ -35,17 +37,33 @@ public class AuthPakeE2ETests
         return db;
     }
 
-    private static IConfiguration CreateConfig()
+    private static IConfiguration CreateConfig(JwtSettings jwtSettings)
     {
         var dict = new Dictionary<string, string?>
         {
-            ["Jwt:Key"] = new string('a', 64),
-            ["Jwt:Issuer"] = "FocusDeckDev",
-            ["Jwt:Audience"] = "focusdeck-clients",
-            ["Jwt:AccessTokenExpirationMinutes"] = "60",
-            ["Jwt:RefreshTokenExpirationDays"] = "7"
+            ["Jwt:PrimaryKey"] = jwtSettings.PrimaryKey,
+            ["Jwt:SecondaryKey"] = jwtSettings.SecondaryKey,
+            ["Jwt:Issuer"] = jwtSettings.Issuer,
+            ["Jwt:Audience"] = jwtSettings.Audience,
+            ["Jwt:AccessTokenExpirationMinutes"] = jwtSettings.AccessTokenExpirationMinutes.ToString(),
+            ["Jwt:RefreshTokenExpirationDays"] = jwtSettings.RefreshTokenExpirationDays.ToString()
         };
         return new ConfigurationBuilder().AddInMemoryCollection(dict!).Build();
+    }
+
+    private static JwtSettings CreateJwtSettings()
+    {
+        return new JwtSettings
+        {
+            PrimaryKey = new string('a', 64),
+            SecondaryKey = new string('b', 64),
+            Issuer = "FocusDeckDev",
+            Audience = "focusdeck-clients",
+            AccessTokenExpirationMinutes = 60,
+            RefreshTokenExpirationDays = 7,
+            AllowedIssuers = new[] { "FocusDeckDev" },
+            AllowedAudiences = new[] { "focusdeck-clients" }
+        };
     }
 
     [Fact]
@@ -300,11 +318,26 @@ public class AuthPakeE2ETests
     private static AuthPakeController CreateController(AutomationDbContext db)
     {
         var logger = NullLogger<AuthPakeController>.Instance;
-        var tokenService = new TokenService(CreateConfig(), NullLogger<TokenService>.Instance);
+        var jwtSettings = CreateJwtSettings();
+
+        var keyStore = new InMemoryCryptographicKeyStore(jwtSettings.PrimaryKey, jwtSettings.SecondaryKey);
+        var memoryCache = new MemoryCache(new MemoryCacheOptions());
+        var signingKeyProvider = new JwtSigningKeyProvider(
+            keyStore,
+            Options.Create(jwtSettings),
+            memoryCache,
+            NullLogger<JwtSigningKeyProvider>.Instance);
+
+        var tokenService = new TokenService(
+            keyStore,
+            Options.Create(jwtSettings),
+            signingKeyProvider,
+            NullLogger<TokenService>.Instance,
+            memoryCache);
         var srpCache = new SrpSessionCache(new MemoryCache(new MemoryCacheOptions()));
         var limiter = new AuthAttemptLimiter(memoryCache: new MemoryCache(new MemoryCacheOptions()));
 
-        var controller = new AuthPakeController(db, logger, tokenService, srpCache, CreateConfig(), limiter, new StubTenantMembershipService())
+        var controller = new AuthPakeController(db, logger, tokenService, srpCache, CreateConfig(jwtSettings), jwtSettings, limiter, new StubTenantMembershipService())
         {
             ControllerContext = new ControllerContext
             {

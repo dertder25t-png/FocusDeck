@@ -284,7 +284,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    public void Dispose()
+    private void Dispose()
     {
         // Clean up test storage directory
         if (Directory.Exists(_testStorageRoot))

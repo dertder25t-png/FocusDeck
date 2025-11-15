@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using FocusDeck.Domain.Entities;
 using FocusDeck.Persistence;
+using FocusDeck.Server.Configuration;
 using FocusDeck.Server.Services.Auth;
 using FocusDeck.Domain.Entities.Sync;
 using FocusDeck.Server.Hubs;
@@ -11,6 +12,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System;
+using System.Threading.Tasks;
 using FocusDeck.Server.Services.Tenancy;
 
 namespace FocusDeck.Server.Controllers.v1;
@@ -25,6 +28,7 @@ public class AuthController : ControllerBase
     private readonly AutomationDbContext _db;
     private readonly ILogger<AuthController> _logger;
     private readonly IConfiguration _configuration;
+    private readonly JwtSettings _jwtSettings;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly FocusDeck.Server.Services.Auth.IAccessTokenRevocationService _revocationService;
     private readonly IHubContext<NotificationsHub, INotificationClient> _notifications;
@@ -35,6 +39,7 @@ public class AuthController : ControllerBase
         AutomationDbContext db,
         ILogger<AuthController> logger,
         IConfiguration configuration,
+        JwtSettings jwtSettings,
         IHttpClientFactory httpClientFactory,
         FocusDeck.Server.Services.Auth.IAccessTokenRevocationService revocationService,
         IHubContext<NotificationsHub, INotificationClient> notifications,
@@ -44,6 +49,7 @@ public class AuthController : ControllerBase
         _db = db;
         _logger = logger;
         _configuration = configuration;
+        _jwtSettings = jwtSettings;
         _httpClientFactory = httpClientFactory;
         _revocationService = revocationService;
         _notifications = notifications;
@@ -66,7 +72,7 @@ public class AuthController : ControllerBase
         var roles = new[] { "User" };
 
         var tenantId = await _tenantMembership.EnsureTenantAsync(userId, request.Username, request.Username, HttpContext.RequestAborted);
-        var accessToken = _tokenService.GenerateAccessToken(userId, roles, tenantId);
+        var accessToken = await _tokenService.GenerateAccessTokenAsync(userId, roles, tenantId, HttpContext.RequestAborted);
         var refreshToken = _tokenService.GenerateRefreshToken();
 
         // Compute device context
@@ -85,7 +91,7 @@ public class AuthController : ControllerBase
             TokenHash = _tokenService.ComputeTokenHash(refreshToken),
             ClientFingerprint = clientFingerprint,
             IssuedUtc = DateTime.UtcNow,
-            ExpiresUtc = DateTime.UtcNow.AddDays(_configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7)),
+            ExpiresUtc = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
             DeviceId = deviceId,
             DeviceName = deviceName,
             DevicePlatform = devicePlatform,
@@ -101,7 +107,7 @@ public class AuthController : ControllerBase
         {
             accessToken,
             refreshToken,
-            expiresIn = _configuration.GetValue<int>("Jwt:AccessTokenExpirationMinutes", 60) * 60 // in seconds
+            expiresIn = _jwtSettings.AccessTokenExpirationMinutes * 60 // in seconds
         });
     }
 
@@ -183,7 +189,7 @@ public class AuthController : ControllerBase
             }
 
             // Get user ID from the old access token (even if expired)
-            var principal = _tokenService.GetPrincipalFromExpiredToken(request.AccessToken ?? "");
+            var principal = await _tokenService.GetPrincipalFromExpiredTokenAsync(request.AccessToken ?? "", HttpContext.RequestAborted);
             if (principal == null)
             {
                 await transaction.RollbackAsync();
@@ -212,7 +218,7 @@ public class AuthController : ControllerBase
 
             // Generate new tokens
             var roles = principal.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
-            var newAccessToken = _tokenService.GenerateAccessToken(userId, roles, tenantId);
+                var newAccessToken = await _tokenService.GenerateAccessTokenAsync(userId, roles, tenantId, HttpContext.RequestAborted);
             var newRefreshToken = _tokenService.GenerateRefreshToken();
             var newTokenHash = _tokenService.ComputeTokenHash(newRefreshToken);
 
@@ -229,7 +235,7 @@ public class AuthController : ControllerBase
                 TokenHash = newTokenHash,
                 ClientFingerprint = clientFingerprint,
                 IssuedUtc = DateTime.UtcNow,
-                ExpiresUtc = DateTime.UtcNow.AddDays(_configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7)),
+                ExpiresUtc = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
                 DeviceId = deviceId,
                 DeviceName = deviceName,
                 DevicePlatform = devicePlatform,
@@ -246,7 +252,7 @@ public class AuthController : ControllerBase
             {
                 accessToken = newAccessToken,
                 refreshToken = newRefreshToken,
-                expiresIn = _configuration.GetValue<int>("Jwt:AccessTokenExpirationMinutes", 60) * 60
+                expiresIn = _jwtSettings.AccessTokenExpirationMinutes * 60
             });
         }
         catch (Exception ex)
@@ -336,7 +342,7 @@ public class AuthController : ControllerBase
             var roles = new[] { "User" };
             var tenantId = await _tenantMembership.EnsureTenantAsync(userId, tokenInfo.Email, tokenInfo.Name, HttpContext.RequestAborted);
 
-            var accessToken = _tokenService.GenerateAccessToken(userId, roles, tenantId);
+            var accessToken = await _tokenService.GenerateAccessTokenAsync(userId, roles, tenantId, HttpContext.RequestAborted);
             var refreshToken = _tokenService.GenerateRefreshToken();
 
             var deviceId = request.ClientId ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-device";
@@ -353,7 +359,7 @@ public class AuthController : ControllerBase
                 TokenHash = _tokenService.ComputeTokenHash(refreshToken),
                 ClientFingerprint = clientFingerprint,
                 IssuedUtc = DateTime.UtcNow,
-                ExpiresUtc = DateTime.UtcNow.AddDays(_configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7)),
+                ExpiresUtc = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
                 DeviceId = deviceId,
                 DeviceName = deviceName,
                 DevicePlatform = devicePlatform,
@@ -371,7 +377,7 @@ public class AuthController : ControllerBase
             {
                 accessToken,
                 refreshToken,
-                expiresIn = _configuration.GetValue<int>("Jwt:AccessTokenExpirationMinutes", 60) * 60,
+                expiresIn = _jwtSettings.AccessTokenExpirationMinutes * 60,
                 user = new
                 {
                     id = userId,

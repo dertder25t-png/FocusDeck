@@ -232,7 +232,7 @@ public class TenantsController : ControllerBase
             return NotFound(new { code = "TENANT_NOT_FOUND", message = "Tenant not found or access denied" });
         }
 
-        var accessToken = _tokenService.GenerateAccessToken(userId, new[] { membership.Role.ToString() }, id);
+        var accessToken = await _tokenService.GenerateAccessTokenAsync(userId, new[] { membership.Role.ToString() }, id, HttpContext.RequestAborted);
         var refreshToken = _tokenService.GenerateRefreshToken();
 
         _currentTenant.SetTenant(id);

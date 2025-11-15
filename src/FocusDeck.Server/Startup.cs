@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using System.Threading;
@@ -9,6 +11,7 @@ using FocusDeck.Server.Jobs;
 using FocusDeck.Server.Middleware;
 using FocusDeck.Server.Services;
 using FocusDeck.Server.Services.Auditing;
+using FocusDeck.Server.Configuration;
 using FocusDeck.Server.Services.Auth;
 using FocusDeck.Server.Services.Burnout;
 using FocusDeck.Server.Services.Privacy;
@@ -35,6 +38,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
@@ -262,7 +270,8 @@ public sealed class Startup
         // Health checks
         var healthChecks = services.AddHealthChecks()
             .AddDbContextCheck<AutomationDbContext>("database", tags: new[] { "db", "sql" })
-            .AddCheck("filesystem", new FileSystemWriteHealthCheck(_configuration), tags: new[] { "filesystem" });
+            .AddCheck("filesystem", new FileSystemWriteHealthCheck(_configuration), tags: new[] { "filesystem" })
+            .AddCheck<JwtKeyHealthCheck>("jwt_keys", tags: new[] { "security", "jwt" });
 
         if (!string.IsNullOrWhiteSpace(redisConnection))
         {
@@ -315,102 +324,70 @@ public sealed class Startup
         });
 
         // JWT configuration
-        var jwtSection = _configuration.GetSection("Jwt");
-        Console.WriteLine($"[DEBUG] Jwt section exists: {jwtSection.Exists()}");
-        Console.WriteLine($"[DEBUG] Jwt:Key value: {jwtSection.GetValue<string>("Key")}");
-        Console.WriteLine($"[DEBUG] All config keys: {string.Join(", ", _configuration.AsEnumerable().Take(20).Select(kv => kv.Key))}");
-        Console.WriteLine($"[DEBUG] All config providers: {string.Join(", ", ((IConfigurationRoot)_configuration).Providers.Select(p => p.GetType().Name))}");
-        
-        var jwtKey = jwtSection.GetValue<string>("Key") ?? "super_dev_secret_key_change_me_please_32chars";
-        var jwtIssuer = jwtSection.GetValue<string>("Issuer") ?? "https://focusdeck.909436.xyz";
-        var jwtAudience = jwtSection.GetValue<string>("Audience") ?? "focusdeck-clients";
+        var jwtSection = _configuration.GetSection(JwtSettings.SectionName);
+        var jwtSettings = jwtSection.Get<JwtSettings>() ?? new JwtSettings();
+        jwtSettings.Validate();
+        services.Configure<JwtSettings>(jwtSection);
+        services.AddSingleton(jwtSettings);
 
-        Console.WriteLine($"[DEBUG] JWT Key loaded: {(jwtKey != null ? jwtKey.Substring(0, Math.Min(20, jwtKey.Length)) : "null")}... (length: {jwtKey?.Length})");
-        Console.WriteLine($"[DEBUG] Environment: {_environment.EnvironmentName}");
-
-        if (!_environment.IsDevelopment())
+        if (_environment.IsProduction())
         {
-            if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
+            var vaultUrl = _configuration["Azure:KeyVault:VaultUrl"];
+            if (string.IsNullOrWhiteSpace(vaultUrl))
             {
-                throw new InvalidOperationException("JWT:Key must be configured with at least 32 characters in production.");
+                throw new InvalidOperationException("Azure Key Vault Url must be configured via Azure:KeyVault:VaultUrl in production.");
             }
 
-            if (jwtKey.Contains("super_dev_secret") || jwtKey.Contains("change_me") || jwtKey.Contains("your-"))
-            {
-                throw new InvalidOperationException("JWT:Key appears to be a placeholder. Configure a real secret key.");
-            }
+            services.AddSingleton(sp => new SecretClient(new Uri(vaultUrl), new DefaultAzureCredential()));
+            services.AddSingleton<ICryptographicKeyStore, AzureKeyVaultKeyStore>();
+        }
+        else
+        {
+            services.AddSingleton<EnvironmentVariableKeyStore>(sp => new EnvironmentVariableKeyStore(jwtSettings));
+            services.AddSingleton<ICryptographicKeyStore>(sp => sp.GetRequiredService<EnvironmentVariableKeyStore>());
         }
 
-        var tokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidIssuers = new[]
-            {
-                jwtIssuer,
-                "FocusDeckDev",
-                "http://192.168.1.110:5000"
-            },
-            ValidateAudience = true,
-            ValidAudiences = new[]
-            {
-                jwtAudience,
-                "FocusDeckClients",
-                "local-dev"
-            },
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!)),
-            ClockSkew = TimeSpan.FromMinutes(2)
-        };
+        services.AddSingleton<IJwtSigningKeyProvider>(sp => new JwtSigningKeyProvider(
+            sp.GetRequiredService<ICryptographicKeyStore>(),
+            sp.GetRequiredService<IOptions<JwtSettings>>(),
+            sp.GetRequiredService<IMemoryCache>(),
+            sp.GetRequiredService<ILogger<JwtSigningKeyProvider>>()));
 
-        services.AddSingleton(tokenValidationParameters);
-
-        services.AddAuthentication(options =>
+        services.AddSingleton<TokenValidationParameters>(sp =>
         {
-            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-        }).AddJwtBearer(options =>
-        {
-            options.TokenValidationParameters = tokenValidationParameters;
-            options.Events = new JwtBearerEvents
+            var provider = sp.GetRequiredService<IJwtSigningKeyProvider>();
+            return new TokenValidationParameters
             {
-                OnTokenValidated = async ctx =>
+                ValidateIssuer = true,
+                ValidIssuers = jwtSettings.GetValidIssuers(),
+                ValidateAudience = true,
+                ValidAudiences = jwtSettings.GetValidAudiences(),
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                // NOTE: IssuerSigningKeys will be set dynamically by JwtBearerOptionsConfigurator via IssuerSigningKeyResolver
+                // Do NOT call provider.GetValidationKeys() here as it may not have been properly initialized yet
+                IssuerSigningKeyResolver = (token, securityToken, kid, parameters) =>
                 {
-                    try
-                    {
-                        var revocation = ctx.HttpContext.RequestServices.GetRequiredService<IAccessTokenRevocationService>();
-                        var jti = ctx.Principal?.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti)?.Value;
-                        if (!string.IsNullOrEmpty(jti))
-                        {
-                            if (await revocation.IsRevokedAsync(jti, ctx.HttpContext.RequestAborted))
-                            {
-                                ctx.Fail("Token revoked");
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Warning(ex, "Revocation check failed");
-                    }
+                    // This will be overridden by JwtBearerOptionsConfigurator
+                    return provider.GetValidationKeys();
                 },
-                OnAuthenticationFailed = ctx =>
-                {
-                    var reason = ctx.Exception switch
-                    {
-                        SecurityTokenExpiredException => "expired",
-                        SecurityTokenException => "invalid",
-                        _ => "invalid"
-                    };
-                    AuthTelemetry.RecordJwtValidationFailure(reason);
-                    Log.Warning(ctx.Exception, "JWT authentication failed ({Reason})", reason);
-                    return Task.CompletedTask;
-                }
+                ClockSkew = TimeSpan.FromMinutes(2)
             };
         });
 
+        services.AddSingleton<IConfigureNamedOptions<JwtBearerOptions>, JwtBearerOptionsConfigurator>();
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer();
+
         services.AddAuthorization();
+        services.AddScoped<ITokenService, TokenService>();
         services.AddHostedService<TokenPruningService>();
         services.AddScoped<IAccessTokenRevocationService, AccessTokenRevocationService>();
+
+        if (!_environment.IsEnvironment("Testing"))
+        {
+            services.AddHostedService<JwtKeyRotationService>();
+        }
 
         // HTTP logging
         services.AddHttpLogging(_ => { });
@@ -449,61 +426,6 @@ public sealed class Startup
         if (env.IsDevelopment())
         {
             app.UseHttpLogging();
-        }
-
-        // Initialize database (best-effort)
-        using (var scope = services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
-            try
-            {
-                db.Database.Migrate();
-            }
-            catch (Exception ex)
-            {
-                Log.Warning(ex, "Database migration failed; proceeding with best-effort initialization");
-            }
-        }
-
-        // Backfill PAKE credential salts from KDF metadata where the SaltBase64 column is empty.
-        // This helps migrations for older credentials that had KDF JSON but no explicit salt column value.
-        using (var seedScope = services.CreateScope())
-        {
-            var db = seedScope.ServiceProvider.GetRequiredService<AutomationDbContext>();
-            try
-            {
-                var rows = db.PakeCredentials
-                    .Where(p => string.IsNullOrWhiteSpace(p.SaltBase64) && !string.IsNullOrWhiteSpace(p.KdfParametersJson))
-                    .ToListAsync()
-                    .GetAwaiter()
-                    .GetResult();
-
-                if (rows.Count > 0)
-                {
-                    Log.Information("Backfilling {Count} PAKE credential(s) with salt from KDF metadata", rows.Count);
-                    foreach (var row in rows)
-                    {
-                        try
-                        {
-                            var kdf = JsonSerializer.Deserialize<FocusDeck.Shared.Security.SrpKdfParameters>(row.KdfParametersJson!);
-                            if (kdf != null && !string.IsNullOrWhiteSpace(kdf.SaltBase64))
-                            {
-                                row.SaltBase64 = kdf.SaltBase64;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Log.Warning(ex, "Failed to parse KDF parameters for user {UserId}", row.UserId);
-                        }
-                    }
-
-                    db.SaveChangesAsync().GetAwaiter().GetResult();
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Warning(ex, "Failed to backfill PAKE salts from KDF metadata");
-            }
         }
 
         var webApp = app as WebApplication;

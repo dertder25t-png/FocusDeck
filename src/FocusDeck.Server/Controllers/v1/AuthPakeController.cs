@@ -1,3 +1,4 @@
+using FocusDeck.Server.Configuration;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using Asp.Versioning;
@@ -15,6 +16,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using FocusDeck.Server.Services.Auth;
 using FocusDeck.Server.Services.Tenancy;
+using System.Threading.Tasks;
 
 namespace FocusDeck.Server.Controllers.v1;
 
@@ -29,6 +31,7 @@ public class AuthPakeController : ControllerBase
     private readonly FocusDeck.Server.Services.Auth.ITokenService _tokenService;
     private readonly FocusDeck.Server.Services.Auth.ISrpSessionCache _srpSessions;
     private readonly IConfiguration _configuration;
+    private readonly JwtSettings _jwtSettings;
     private readonly IAuthAttemptLimiter _authLimiter;
     private readonly ITenantMembershipService _tenantMembership;
 
@@ -38,6 +41,7 @@ public class AuthPakeController : ControllerBase
         FocusDeck.Server.Services.Auth.ITokenService tokenService,
         FocusDeck.Server.Services.Auth.ISrpSessionCache srpSessions,
         IConfiguration configuration,
+        JwtSettings jwtSettings,
         IAuthAttemptLimiter authLimiter,
         ITenantMembershipService tenantMembership)
     {
@@ -46,6 +50,7 @@ public class AuthPakeController : ControllerBase
         _tokenService = tokenService;
         _srpSessions = srpSessions;
         _configuration = configuration;
+        _jwtSettings = jwtSettings;
         _authLimiter = authLimiter;
         _tenantMembership = tenantMembership;
     }
@@ -414,7 +419,7 @@ public class AuthPakeController : ControllerBase
 
             var roles = new[] { "User" };
             var tenantId = await _tenantMembership.EnsureTenantAsync(session.UserId, session.UserId, session.UserId, HttpContext.RequestAborted);
-            var accessToken = _tokenService.GenerateAccessToken(session.UserId, roles, tenantId);
+            var accessToken = await _tokenService.GenerateAccessTokenAsync(session.UserId, roles, tenantId, HttpContext.RequestAborted);
             var refreshToken = _tokenService.GenerateRefreshToken();
 
             var deviceId = request.ClientId ?? session.ClientId ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-device";
@@ -431,7 +436,7 @@ public class AuthPakeController : ControllerBase
                 TokenHash = _tokenService.ComputeTokenHash(refreshToken),
                 ClientFingerprint = clientFingerprint,
                 IssuedUtc = DateTime.UtcNow,
-                ExpiresUtc = DateTime.UtcNow.AddDays(_configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7)),
+                ExpiresUtc = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
                 DeviceId = deviceId,
                 DeviceName = deviceName,
                 DevicePlatform = devicePlatform,
@@ -475,7 +480,7 @@ public class AuthPakeController : ControllerBase
                 vault != null,
                 accessToken,
                 refreshToken,
-                _configuration.GetValue<int>("Jwt:AccessTokenExpirationMinutes", 60) * 60,
+                _jwtSettings.AccessTokenExpirationMinutes * 60,
                 Convert.ToBase64String(serverProof)));
         }
         catch (Exception ex)

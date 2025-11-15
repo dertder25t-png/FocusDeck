@@ -42,7 +42,7 @@ internal static class TestAuthExtensions
     {
         using var scope = factory.Services.CreateScope();
         var tokenService = scope.ServiceProvider.GetRequiredService<ITokenService>();
-        return tokenService.GenerateAccessToken(userId, new[] { "User" }, tenantId);
+        return tokenService.GenerateAccessTokenAsync(userId, new[] { "User" }, tenantId).GetAwaiter().GetResult();
     }
 
     private static void EnsureContentRoot()

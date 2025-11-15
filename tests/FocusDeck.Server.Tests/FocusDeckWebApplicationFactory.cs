@@ -1,17 +1,20 @@
-using FocusDeck.Persistence;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Hangfire;
-using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.IO;
 using System.Linq;
+using FocusDeck.Persistence;
+using FocusDeck.Server.Services.Auth;
+using Hangfire;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace FocusDeck.Server.Tests;
 
@@ -32,17 +35,24 @@ public sealed class FocusDeckWebApplicationFactory : WebApplicationFactory<TestS
         }
 
         var builder = TestServerProgram.CreateHostBuilder(Array.Empty<string>());
+        builder.UseEnvironment("Testing");
         var baseDir = AppContext.BaseDirectory ?? Directory.GetCurrentDirectory();
         var contentRoot = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "src", "FocusDeck.Server"));
         builder.UseContentRoot(contentRoot);
-        builder.ConfigureAppConfiguration((_, config) =>
+        builder.ConfigureAppConfiguration((context, config) =>
         {
-            config.AddInMemoryCollection(new Dictionary<string, string?>
+            // IMPORTANT: Add test JWT config with high priority so it overrides any environment-specific config
+            // This includes test overrides that might set a different environment
+            var testConfig = new Dictionary<string, string?>
             {
-                ["Jwt:Key"] = "test-key-for-testing-purposes-min-32-chars-long",
+                ["Jwt:PrimaryKey"] = "test-key-for-testing-purposes-min-32-chars-long",
+                ["Jwt:SecondaryKey"] = "test-secondary-key-for-rotation-debug",
                 ["Jwt:Issuer"] = "FocusDeckDev",
-                ["Jwt:Audience"] = "FocusDeckClients"
-            });
+                ["Jwt:Audience"] = "FocusDeckClients",
+                ["Jwt:KeyRotationInterval"] = "90.00:00:00"
+            };
+            // Add as the last source so it takes precedence
+            config.AddInMemoryCollection(testConfig);
         });
         builder.ConfigureServices(services =>
         {
@@ -68,6 +78,7 @@ public sealed class FocusDeckWebApplicationFactory : WebApplicationFactory<TestS
             }
 
             services.AddSingleton<IBackgroundJobClient, ImmediateBackgroundJobClient>();
+
         });
 
         return builder;
@@ -77,8 +88,36 @@ public sealed class FocusDeckWebApplicationFactory : WebApplicationFactory<TestS
     {
         var host = base.CreateHost(builder);
         using var scope = host.Services.CreateScope();
+        
+        // Migrate database
         var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
         db.Database.Migrate();
+        
+        // Warm up JWT signing key provider to ensure keys are cached before tests run
+        try
+        {
+            var keyProvider = scope.ServiceProvider.GetRequiredService<IJwtSigningKeyProvider>();
+            // Clear any stale cache from previous test instances
+            keyProvider.InvalidateCache();
+            
+            var keys = keyProvider.GetValidationKeys();
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<FocusDeckWebApplicationFactory>>();
+            
+            if (!keys.Any())
+            {
+                logger.LogCritical("CRITICAL: No JWT validation keys were loaded during test initialization!");
+                throw new InvalidOperationException("JWT validation keys are empty. Test configuration may not have been applied.");
+            }
+            
+            logger.LogInformation("Successfully warmed up JWT key provider with {KeyCount} keys", keys.Count());
+        }
+        catch (Exception ex)
+        {
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<FocusDeckWebApplicationFactory>>();
+            logger.LogError(ex, "CRITICAL: Failed to warm up JWT key provider");
+            throw;
+        }
+        
         return host;
     }
 

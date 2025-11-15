@@ -1,3 +1,4 @@
+using System;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -8,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using FocusDeck.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Hosting;
 
 namespace FocusDeck.Server.Tests;
 
@@ -20,14 +22,16 @@ public class SecurityIntegrationTests : IClassFixture<FocusDeckWebApplicationFac
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
+            builder.UseEnvironment("Testing");
             builder.ConfigureAppConfiguration((context, config) =>
             {
-                context.HostingEnvironment.EnvironmentName = "Development";
+                context.HostingEnvironment.EnvironmentName = "Testing";
                 // Override configuration for tests
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["ConnectionStrings:DefaultConnection"] = "Data Source=:memory:",
-                    ["Jwt:Key"] = "test-key-for-testing-purposes-min-32-chars-long",
+                    ["Jwt:PrimaryKey"] = "test-key-for-testing-purposes-min-32-chars-long",
+                    ["Jwt:SecondaryKey"] = "test-secondary-key-for-rotation-debug",
                     ["Jwt:Issuer"] = "test-issuer",
                     ["Jwt:Audience"] = "test-audience",
                     ["Jwt:AccessTokenExpirationMinutes"] = "60",
@@ -40,9 +44,10 @@ public class SecurityIntegrationTests : IClassFixture<FocusDeckWebApplicationFac
         });
 
         _client = _factory.CreateClient();
+        _client.Timeout = TimeSpan.FromSeconds(30);
     }
 
-    [Fact]
+    [Fact(Timeout = 30000)]
     public async Task GetProtectedEndpoint_WithoutAuth_Returns401()
     {
         // Arrange - no Authorization header
@@ -55,7 +60,7 @@ public class SecurityIntegrationTests : IClassFixture<FocusDeckWebApplicationFac
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    [Fact]
+    [Fact(Timeout = 30000)]
     public async Task GetHealthEndpoint_WithoutAuth_Returns200()
     {
         // Arrange - no Authorization header
@@ -67,7 +72,7 @@ public class SecurityIntegrationTests : IClassFixture<FocusDeckWebApplicationFac
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
-    [Fact]
+    [Fact(Timeout = 30000)]
     public async Task RefreshToken_FirstUse_ReturnsNewTokens()
     {
         // Arrange - Login first
@@ -97,7 +102,7 @@ public class SecurityIntegrationTests : IClassFixture<FocusDeckWebApplicationFac
         Assert.NotEqual(loginResult.RefreshToken, refreshResult.RefreshToken);
     }
 
-    [Fact]
+    [Fact(Timeout = 30000)]
     public async Task RefreshToken_ReuseOldToken_Returns401()
     {
         // Arrange - Login and refresh once
@@ -135,7 +140,7 @@ public class SecurityIntegrationTests : IClassFixture<FocusDeckWebApplicationFac
         Assert.Equal("TOKEN_REUSE", error.Code);
     }
 
-    [Fact]
+    [Fact(Timeout = 30000)]
     public async Task RefreshToken_DifferentClientFingerprint_Returns401()
     {
         // Arrange - Login with one client ID
@@ -164,7 +169,7 @@ public class SecurityIntegrationTests : IClassFixture<FocusDeckWebApplicationFac
         Assert.Equal("FINGERPRINT_MISMATCH", error.Code);
     }
 
-    [Fact]
+    [Fact(Timeout = 30000)]
     public async Task CORS_AllowedOrigin_ReturnsSuccess()
     {
         // Arrange
@@ -179,7 +184,7 @@ public class SecurityIntegrationTests : IClassFixture<FocusDeckWebApplicationFac
         Assert.True(response.Headers.Contains("Access-Control-Allow-Origin"));
     }
 
-    [Fact]
+    [Fact(Timeout = 30000)]
     public async Task CORS_DisallowedOrigin_NoAccessControlHeaders()
     {
         // Arrange
