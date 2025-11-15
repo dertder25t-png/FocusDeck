@@ -1,9 +1,11 @@
 using System;
-using System.Net.Http;
-using System.Net.Http.Json;
+using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using FocusDeck.Contracts.DTOs;
+using FocusDeck.Desktop.Services.Privacy;
 using Microsoft.Extensions.Logging;
 using NAudio.Wave;
 
@@ -61,7 +63,8 @@ public class ActivityDetectedEventArgs : EventArgs
 public class ActivityMonitorService : IActivityMonitorService, IDisposable
 {
     private readonly ILogger<ActivityMonitorService> _logger;
-    private readonly IHttpClientFactory? _httpClientFactory;
+    private readonly IApiClient _apiClient;
+    private readonly ISensorPrivacyGate _privacyGate;
     private readonly string _deviceId;
     private CancellationTokenSource? _monitoringCts;
     private Task? _monitoringTask;
@@ -85,10 +88,12 @@ public class ActivityMonitorService : IActivityMonitorService, IDisposable
 
     public ActivityMonitorService(
         ILogger<ActivityMonitorService> logger,
-        IHttpClientFactory? httpClientFactory = null)
+        IApiClient apiClient,
+        ISensorPrivacyGate privacyGate)
     {
         _logger = logger;
-        _httpClientFactory = httpClientFactory;
+        _apiClient = apiClient;
+        _privacyGate = privacyGate;
         _deviceId = Environment.MachineName;
     }
 
@@ -263,70 +268,33 @@ public class ActivityMonitorService : IActivityMonitorService, IDisposable
 
     private async Task SendSignalsToServer(CancellationToken cancellationToken)
     {
-        if (_httpClientFactory == null)
+        var typingValue = GetKeyboardIdleSeconds() == 0 ? "active" : "idle";
+        var mouseValue = GetMouseIdleSeconds() == 0 ? "active" : "idle";
+        var noiseValue = GetAmbientNoiseLevel().ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+
+        await SendSignalAsync("TypingVelocity", typingValue, new { Sensor = "keyboard", DeviceId = _deviceId }, cancellationToken);
+        await SendSignalAsync("MouseEntropy", mouseValue, new { Sensor = "mouse", DeviceId = _deviceId }, cancellationToken);
+        await SendSignalAsync("AmbientNoise", noiseValue, new { Sensor = "microphone", DeviceId = _deviceId }, cancellationToken);
+    }
+
+    private async Task SendSignalAsync(string signalType, string signalValue, object metadata, CancellationToken cancellationToken)
+    {
+        if (!await _privacyGate.IsEnabledAsync(signalType, cancellationToken).ConfigureAwait(false))
         {
-            _logger.LogDebug("No HTTP client factory configured, skipping signal submission");
             return;
         }
 
+        var metadataJson = metadata != null ? JsonSerializer.Serialize(metadata) : null;
+        var signal = new ActivitySignalDto(signalType, signalValue, "FocusDeck.Desktop", DateTime.UtcNow, metadataJson);
+
         try
         {
-            var httpClient = _httpClientFactory.CreateClient("FocusDeckApi");
-
-            var signals = new[]
-            {
-                new
-                {
-                    deviceId = _deviceId,
-                    kind = "Keyboard",
-                    value = GetKeyboardIdleSeconds() == 0 ? 1.0 : 0.0,
-                    timestamp = DateTime.UtcNow
-                },
-                new
-                {
-                    deviceId = _deviceId,
-                    kind = "Mouse",
-                    value = GetMouseIdleSeconds() == 0 ? 1.0 : 0.0,
-                    timestamp = DateTime.UtcNow
-                },
-                new
-                {
-                    deviceId = _deviceId,
-                    kind = "AmbientNoise",
-                    value = GetAmbientNoiseLevel(),
-                    timestamp = DateTime.UtcNow
-                }
-            };
-
-            foreach (var signal in signals)
-            {
-                try
-                {
-                    var response = await httpClient.PostAsJsonAsync(
-                        "/v1/focus/signals",
-                        signal,
-                        cancellationToken
-                    );
-                    
-                    if (response.IsSuccessStatusCode)
-                    {
-                        _logger.LogDebug("Signal {Kind} sent successfully", signal.kind);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Failed to send signal {Kind}: {StatusCode}",
-                            signal.kind, response.StatusCode);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to send signal {Kind}", signal.kind);
-                }
-            }
+            await _apiClient.PostAsync<object>("/v1/activity/signals", signal, cancellationToken).ConfigureAwait(false);
+            _logger.LogDebug("Activity signal {SignalType} sent", signalType);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error sending signals to server");
+            _logger.LogWarning(ex, "Failed to send activity signal {SignalType}", signalType);
         }
     }
 

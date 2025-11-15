@@ -3,6 +3,7 @@ using Asp.Versioning;
 using FocusDeck.Contracts.DTOs;
 using FocusDeck.Domain.Entities;
 using FocusDeck.Persistence;
+using FocusDeck.Server.Services.Privacy;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,11 +17,16 @@ public sealed class ActivitySignalsController : ControllerBase
 {
     private readonly AutomationDbContext _db;
     private readonly ILogger<ActivitySignalsController> _logger;
+    private readonly IPrivacyService _privacyService;
 
-    public ActivitySignalsController(AutomationDbContext db, ILogger<ActivitySignalsController> logger)
+    public ActivitySignalsController(
+        AutomationDbContext db,
+        ILogger<ActivitySignalsController> logger,
+        IPrivacyService privacyService)
     {
         _db = db;
         _logger = logger;
+        _privacyService = privacyService;
     }
 
     [HttpPost]
@@ -43,6 +49,12 @@ public sealed class ActivitySignalsController : ControllerBase
         {
             return Unauthorized(new { error = "User identifier missing." });
         }
+        var signalType = dto.SignalType.Trim();
+        if (!await _privacyService.IsEnabledAsync(userId, signalType, cancellationToken))
+        {
+            _logger.LogWarning("Activity signal {SignalType} blocked because user {UserId} has not consented", signalType, userId);
+            return Forbid();
+        }
 
         var capturedAt = dto.CapturedAtUtc != null && dto.CapturedAtUtc.Value != default
             ? dto.CapturedAtUtc.Value
@@ -52,7 +64,7 @@ public sealed class ActivitySignalsController : ControllerBase
         {
             Id = Guid.NewGuid(),
             UserId = userId,
-            SignalType = dto.SignalType.Trim(),
+            SignalType = signalType,
             SignalValue = dto.SignalValue ?? string.Empty,
             SourceApp = dto.SourceApp ?? "unknown",
             MetadataJson = dto.MetadataJson,

@@ -74,6 +74,9 @@ public class AutomationDbContext : DbContext
     // Activity signals (Phase 4 – Activity Detection)
     public DbSet<ActivitySignal> ActivitySignals { get; set; }
 
+    // Privacy and consent settings
+    public DbSet<PrivacySetting> PrivacySettings { get; set; }
+
     // Jarvis workflow runs
     public DbSet<JarvisWorkflowRun> JarvisWorkflowRuns { get; set; }
 

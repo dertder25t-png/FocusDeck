@@ -11,6 +11,7 @@ using FocusDeck.Server.Services;
 using FocusDeck.Server.Services.Auditing;
 using FocusDeck.Server.Services.Auth;
 using FocusDeck.Server.Services.Burnout;
+using FocusDeck.Server.Services.Privacy;
 using FocusDeck.Server.Services.Tenancy;
 using FocusDeck.Server.Services.Jarvis;
 using FocusDeck.SharedKernel;
@@ -228,6 +229,7 @@ public sealed class Startup
         services.AddSingleton<FocusDeck.Server.Services.Auth.IUserConnectionTracker, FocusDeck.Server.Services.Auth.UserConnectionTracker>();
         services.AddSingleton<FocusDeck.Server.Services.Context.IContextAggregationService, FocusDeck.Server.Services.Context.ContextAggregationService>();
         services.AddHostedService<FocusDeck.Server.Services.Context.ContextBroadcastService>();
+        services.AddScoped<IPrivacyService, PrivacyService>();
         services.AddScoped<IBurnoutAnalysisService, BurnoutAnalysisService>();
 
         // Jarvis workflow registry

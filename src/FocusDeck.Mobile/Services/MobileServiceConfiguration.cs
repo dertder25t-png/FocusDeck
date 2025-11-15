@@ -6,6 +6,7 @@ using FocusDeck.Mobile.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using FocusDeck.Mobile.Services.Auth;
 using Microsoft.Maui.Storage;
+using FocusDeck.Mobile.Services.Privacy;
 
 namespace FocusDeck.Mobile;
 
@@ -66,6 +67,10 @@ public static class MobileServiceConfiguration
         services.AddSingleton<IMobileAudioRecordingService, MobileAudioRecordingService>();
         services.AddSingleton<IMobileNotificationService, MobileNotificationService>();
         services.AddSingleton<IMobileStorageService, MobileStorageService>();
+        services.AddSingleton<IMobileCloudApiClient, MobileCloudApiClient>();
+        services.AddSingleton<IMobilePrivacySettingsClient, MobilePrivacySettingsClient>();
+        services.AddSingleton<IMobileActivitySignalClient, MobileActivitySignalClient>();
+        services.AddSingleton<IMobilePrivacyGate, MobilePrivacyGate>();
         
         return services;
     }

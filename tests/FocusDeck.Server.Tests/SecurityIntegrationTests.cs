@@ -11,12 +11,12 @@ using Microsoft.Extensions.Configuration;
 
 namespace FocusDeck.Server.Tests;
 
-public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class SecurityIntegrationTests : IClassFixture<FocusDeckWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly WebApplicationFactory<TestServerProgram> _factory;
     private readonly HttpClient _client;
 
-    public SecurityIntegrationTests(WebApplicationFactory<Program> factory)
+    public SecurityIntegrationTests(FocusDeckWebApplicationFactory factory)
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
@@ -48,7 +48,8 @@ public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Prog
         // Arrange - no Authorization header
 
         // Act
-        var response = await _client.GetAsync("/v1/uploads/asset");
+        using var content = new MultipartFormDataContent();
+        var response = await _client.PostAsync("/v1/uploads/asset", content);
 
         // Assert
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -285,10 +286,12 @@ public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Prog
                 Generator = (int)FocusDeck.Shared.Security.Srp.G,
                 KdfParametersJson = null, // Explicitly null for legacy user
                 CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                UpdatedAt = DateTime.UtcNow,
+                TenantId = TestTenancy.DefaultTenantId
             });
             await dbContext.SaveChangesAsync();
         }
+        await TestTenancy.EnsureTenantMembershipAsync(_factory.Services, TestTenancy.DefaultTenantId, userId);
 
         // Act I: Legacy Login
         var (clientSecretA, clientPublicA) = FocusDeck.Shared.Security.Srp.GenerateClientEphemeral();
@@ -297,7 +300,10 @@ public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Prog
         loginStartResponse.EnsureSuccessStatusCode();
         var loginStartResult = await loginStartResponse.Content.ReadFromJsonAsync<FocusDeck.Shared.Contracts.Auth.LoginStartResponse>();
         Assert.NotNull(loginStartResult);
-        Assert.Null(loginStartResult.KdfParametersJson); // Assert it's a legacy login
+        Assert.NotNull(loginStartResult.KdfParametersJson); // Legacy credentials now return explicit SHA metadata
+        var legacyKdf = System.Text.Json.JsonSerializer.Deserialize<FocusDeck.Shared.Security.SrpKdfParameters>(loginStartResult.KdfParametersJson);
+        Assert.NotNull(legacyKdf);
+        Assert.Equal("sha256", legacyKdf!.Algorithm, ignoreCase: true);
 
         var serverPublicB = FocusDeck.Shared.Security.Srp.FromBigEndian(Convert.FromBase64String(loginStartResult.ServerPublicEphemeralBase64));
         var scrambleU = FocusDeck.Shared.Security.Srp.ComputeScramble(clientPublicA, serverPublicB);

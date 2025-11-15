@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useMemo } from 'react'
+import { useActivitySignals } from './hooks/useActivitySignals'
 import { LoginPage } from './pages/Auth/LoginPage'
 import { RegisterPage } from './pages/Auth/RegisterPage'
 import { ToastProvider, ToastViewport } from './components/Toast'
@@ -176,6 +177,8 @@ function AppLayout() {
 }
 
 function App() {
+  useActivitySignals()
+
   return (
     <ToastProvider>
       <BrowserRouter>

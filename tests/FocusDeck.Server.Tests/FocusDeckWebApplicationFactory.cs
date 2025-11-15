@@ -1,11 +1,14 @@
 using FocusDeck.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Hangfire;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
+using System.Collections.Generic;
 using System.Data.Common;
 using System.IO;
 using System.Linq;
@@ -32,6 +35,15 @@ public sealed class FocusDeckWebApplicationFactory : WebApplicationFactory<TestS
         var baseDir = AppContext.BaseDirectory ?? Directory.GetCurrentDirectory();
         var contentRoot = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "src", "FocusDeck.Server"));
         builder.UseContentRoot(contentRoot);
+        builder.ConfigureAppConfiguration((_, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:Key"] = "test-key-for-testing-purposes-min-32-chars-long",
+                ["Jwt:Issuer"] = "FocusDeckDev",
+                ["Jwt:Audience"] = "FocusDeckClients"
+            });
+        });
         builder.ConfigureServices(services =>
         {
             var descriptor = services.SingleOrDefault(
@@ -46,6 +58,16 @@ public sealed class FocusDeckWebApplicationFactory : WebApplicationFactory<TestS
             {
                 options.UseSqlite(_connection!);
             });
+
+            var backgroundJobDescriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(IBackgroundJobClient));
+
+            if (backgroundJobDescriptor != null)
+            {
+                services.Remove(backgroundJobDescriptor);
+            }
+
+            services.AddSingleton<IBackgroundJobClient, ImmediateBackgroundJobClient>();
         });
 
         return builder;

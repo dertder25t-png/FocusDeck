@@ -188,12 +188,24 @@
                 <Grid>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel Margin="{StaticResource SpacingXXLarge}">
-                            <TextBlock Text="Content Area" 
-                                      Style="{StaticResource H2TextStyle}"
-                                      Margin="{StaticResource SpacingBottomBase}"/>
-                            <TextBlock Text="This is the main content area where your application content will be displayed." 
-                                      Style="{StaticResource BodyTextStyle}"
-                                      TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="SpaceBetween" Margin="0 0 0 {StaticResource SpacingSmall}">
+                                <TextBlock Text="Privacy & Consent" 
+                                           Style="{StaticResource H2TextStyle}"
+                                           Margin="0 0 {StaticResource SpacingBase} 0"/>
+                                <Button Content="Refresh"
+                                        Click="RefreshPrivacySettings_Click"
+                                        Padding="8,4"
+                                        Margin="Auto 0 0 0"
+                                        Cursor="Hand"/>
+                            </StackPanel>
+                            <TextBlock x:Name="PrivacyStatusText"
+                                       Text="Loading privacy controls…"
+                                       Style="{StaticResource BodyTextStyle}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       Margin="0 0 0 {StaticResource SpacingBase}"/>
+                            <ScrollViewer Height="420" VerticalScrollBarVisibility="Auto">
+                                <StackPanel x:Name="PrivacySettingsPanel" Margin="0" />
+                            </ScrollViewer>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>

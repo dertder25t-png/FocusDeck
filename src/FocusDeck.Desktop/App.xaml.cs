@@ -1,4 +1,5 @@
 using FocusDeck.Desktop.Services;
+using FocusDeck.Desktop.Services.Privacy;
 using FocusDeck.Desktop.Views;
 using Microsoft.Extensions.DependencyInjection;
 using System.Windows;
@@ -73,6 +74,8 @@ public partial class App : Application
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<ICommandPaletteService, CommandPaletteService>();
         services.AddSingleton<IAudioRecorderService, AudioRecorderService>();
+        services.AddSingleton<IPrivacySettingsClient, PrivacySettingsClient>();
+        services.AddSingleton<ISensorPrivacyGate, SensorPrivacyGate>();
         services.AddSingleton<FocusDeck.Services.Implementations.Core.EncryptionService>();
         services.AddSingleton<FocusDeck.Desktop.Services.Auth.IKeyProvisioningService, FocusDeck.Desktop.Services.Auth.KeyProvisioningService>();
         services.AddSingleton<IRemoteControllerService, RemoteControllerService>();
@@ -87,4 +90,3 @@ public partial class App : Application
         base.OnExit(e);
     }
 }
-

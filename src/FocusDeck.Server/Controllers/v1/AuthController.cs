@@ -123,6 +123,7 @@ public class AuthController : ControllerBase
         {
             var storedToken = await _db.RefreshTokens
                 .FirstOrDefaultAsync(t => t.TokenHash == tokenHash);
+            var now = DateTime.UtcNow;
 
             if (storedToken == null)
             {
@@ -138,7 +139,7 @@ public class AuthController : ControllerBase
                 
                 // Revoke all descendant tokens for this user (token family breach)
                 var userTokens = await _db.RefreshTokens
-                    .Where(t => t.UserId == storedToken.UserId && t.IsActive)
+                    .Where(t => t.UserId == storedToken.UserId && t.RevokedUtc == null && t.ExpiresUtc > now)
                     .ToListAsync();
                 
                 foreach (var token in userTokens)
@@ -153,7 +154,7 @@ public class AuthController : ControllerBase
                 return Unauthorized(new { code = "TOKEN_REUSE", message = "Token reuse detected. All tokens revoked.", traceId = HttpContext.TraceIdentifier });
             }
 
-            if (!storedToken.IsActive)
+            if (storedToken.RevokedUtc != null || storedToken.ExpiresUtc <= now)
             {
                 await transaction.RollbackAsync();
                 return Unauthorized(new { code = "EXPIRED_TOKEN", message = "Refresh token expired", traceId = HttpContext.TraceIdentifier });
@@ -498,8 +499,9 @@ public class AuthController : ControllerBase
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
+        var deviceLookupTime = DateTime.UtcNow;
         var tokens = await _db.RefreshTokens
-            .Where(t => t.UserId == userId && t.DeviceId == deviceId && t.IsActive)
+            .Where(t => t.UserId == userId && t.DeviceId == deviceId && t.RevokedUtc == null && t.ExpiresUtc > deviceLookupTime)
             .ToListAsync();
 
         if (tokens.Count == 0)
@@ -532,7 +534,10 @@ public class AuthController : ControllerBase
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
-        var tokens = await _db.RefreshTokens.Where(t => t.UserId == userId && t.IsActive).ToListAsync();
+        var revokeLookupTime = DateTime.UtcNow;
+        var tokens = await _db.RefreshTokens
+            .Where(t => t.UserId == userId && t.RevokedUtc == null && t.ExpiresUtc > revokeLookupTime)
+            .ToListAsync();
         foreach (var t in tokens) t.RevokedUtc = DateTime.UtcNow;
 
         var registrations = await _db.DeviceRegistrations.Where(d => d.UserId == userId && d.IsActive).ToListAsync();

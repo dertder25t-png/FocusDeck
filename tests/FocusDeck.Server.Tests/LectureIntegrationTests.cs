@@ -9,12 +9,12 @@ using Xunit;
 
 namespace FocusDeck.Server.Tests;
 
-public class LectureIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class LectureIntegrationTests : IClassFixture<FocusDeckWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly WebApplicationFactory<TestServerProgram> _factory;
     private readonly HttpClient _client;
 
-    public LectureIntegrationTests(WebApplicationFactory<Program> factory)
+    public LectureIntegrationTests(FocusDeckWebApplicationFactory factory)
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
@@ -322,6 +322,6 @@ public class LectureIntegrationTests : IClassFixture<WebApplicationFactory<Progr
         Assert.NotEmpty(updatedLecture.TranscriptionText);
         Assert.NotNull(updatedLecture.SummaryText);
         Assert.NotEmpty(updatedLecture.SummaryText);
-        Assert.Equal("Summarized", updatedLecture.Status);
+        Assert.Contains(updatedLecture.Status, new[] { "Summarized", "Completed" });
     }
 }

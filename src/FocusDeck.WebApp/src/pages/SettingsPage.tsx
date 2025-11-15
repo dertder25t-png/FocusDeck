@@ -4,10 +4,29 @@ import { Button } from '../components/Button'
 import { Badge } from '../components/Badge'
 import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { usePrivacySettings } from '../contexts/privacySettings'
+import type { PrivacySetting } from '../types/privacy'
 
 export function SettingsPage() {
   const [systemInfo, setSystemInfo] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<'profile' | 'tenant' | 'integrations' | 'system'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'tenant' | 'integrations' | 'privacy' | 'system'>('profile')
+  const { settings: privacySettings, loading: privacyLoading, updateSetting } = usePrivacySettings()
+  const [pendingPrivacy, setPendingPrivacy] = useState<string[]>([])
+
+  const toggleSetting = async (setting: PrivacySetting) => {
+    if (pendingPrivacy.includes(setting.contextType)) {
+      return
+    }
+
+    setPendingPrivacy((prev) => [...prev, setting.contextType])
+    try {
+      await updateSetting(setting.contextType, !setting.isEnabled)
+    } catch (error) {
+      console.error('Unable to update privacy setting', setting.contextType, error)
+    } finally {
+      setPendingPrivacy((prev) => prev.filter((ctx) => ctx !== setting.contextType))
+    }
+  }
 
   useEffect(() => {
     // Fetch system info for system tab
@@ -21,6 +40,7 @@ export function SettingsPage() {
     { id: 'profile' as const, label: 'Profile' },
     { id: 'tenant' as const, label: 'Tenant' },
     { id: 'integrations' as const, label: 'Integrations' },
+    { id: 'privacy' as const, label: 'Privacy & Consent' },
     { id: 'system' as const, label: 'System' }
   ]
 
@@ -243,6 +263,60 @@ export function SettingsPage() {
                 />
                 <p className="text-xs text-gray-500 mt-1">Managed by platform (masked)</p>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Privacy Tab */}
+      {activeTab === 'privacy' && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Privacy & Consent</CardTitle>
+              <CardDescription>Toggle which contextual sensors are allowed to capture data.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {privacyLoading ? (
+                <div className="text-sm text-gray-400">Loading privacy controls…</div>
+              ) : (
+                <>
+                  {privacySettings.map((setting) => (
+                    <div
+                      key={setting.contextType}
+                      className="rounded-lg border border-gray-800 bg-gray-900/40 p-4 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="font-medium text-white">{setting.displayName}</p>
+                          <p className="text-xs text-gray-400">{setting.description}</p>
+                          <div className="text-xs text-gray-500 mt-1">
+                            Tier: <span className="text-primary">{setting.tier}</span> · Default:{' '}
+                            {setting.defaultEnabled ? 'On' : 'Off'}
+                          </div>
+                        </div>
+
+                        <Button
+                          size="sm"
+                          variant={setting.isEnabled ? 'secondary' : 'primary'}
+                          onClick={() => toggleSetting(setting)}
+                          disabled={pendingPrivacy.includes(setting.contextType)}
+                          aria-pressed={setting.isEnabled}
+                        >
+                          {pendingPrivacy.includes(setting.contextType)
+                            ? 'Updating…'
+                            : setting.isEnabled
+                            ? 'Enabled'
+                            : 'Enable'}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {!privacyLoading && privacySettings.length === 0 && (
+                    <p className="text-sm text-gray-400">No privacy controls are available yet.</p>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

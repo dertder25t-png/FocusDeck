@@ -1,7 +1,9 @@
 using System;
-using System.Net.Http.Json;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using FocusDeck.Contracts.DTOs;
+using FocusDeck.Mobile.Services.Privacy;
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Devices.Sensors;
 using Microsoft.Maui.Controls;
@@ -45,7 +47,8 @@ public interface ISensorMonitorService
 public class SensorMonitorService : ISensorMonitorService, IDisposable
 {
     private readonly ILogger<SensorMonitorService> _logger;
-    private readonly IHttpClientFactory? _httpClientFactory;
+    private readonly IMobilePrivacyGate _privacyGate;
+    private readonly IMobileActivitySignalClient _signalClient;
     private CancellationTokenSource? _monitoringCts;
     private Task? _monitoringTask;
     private Guid _currentSessionId;
@@ -56,10 +59,12 @@ public class SensorMonitorService : ISensorMonitorService, IDisposable
 
     public SensorMonitorService(
         ILogger<SensorMonitorService> logger,
-        IHttpClientFactory? httpClientFactory = null)
+        IMobilePrivacyGate privacyGate,
+        IMobileActivitySignalClient signalClient)
     {
         _logger = logger;
-        _httpClientFactory = httpClientFactory;
+        _privacyGate = privacyGate;
+        _signalClient = signalClient;
     }
 
     public Task StartMonitoringAsync(Guid sessionId, CancellationToken cancellationToken = default)
@@ -222,64 +227,52 @@ public class SensorMonitorService : ISensorMonitorService, IDisposable
 
     private async Task SendSignalsToServer(CancellationToken cancellationToken)
     {
-        if (_httpClientFactory == null)
+        var deviceId = DeviceInfo.Current.Name;
+        var signals = new[]
         {
-            _logger.LogDebug("No HTTP client factory configured, skipping signal submission");
+            new
+            {
+                Type = "DeviceMotion",
+                Value = GetMotionLevel().ToString("0.00", CultureInfo.InvariantCulture),
+                Metadata = new { deviceId, Level = _motionLevel }
+            },
+            new
+            {
+                Type = "ScreenState",
+                Value = GetScreenState() ? "on" : "off",
+                Metadata = new { deviceId, On = _screenState }
+            }
+        };
+
+        foreach (var signal in signals)
+        {
+            await SendSignalAsync(signal.Type, signal.Value, signal.Metadata, cancellationToken);
+        }
+    }
+
+    private async Task SendSignalAsync(string signalType, string signalValue, object metadata, CancellationToken cancellationToken)
+    {
+        if (!await _privacyGate.IsEnabledAsync(signalType, cancellationToken).ConfigureAwait(false))
+        {
             return;
         }
 
+        var dto = new ActivitySignalDto(
+            signalType,
+            signalValue,
+            "FocusDeck.Mobile",
+            DateTime.UtcNow,
+            JsonSerializer.Serialize(metadata)
+        );
+
         try
         {
-            var httpClient = _httpClientFactory.CreateClient("FocusDeckApi");
-            var deviceId = DeviceInfo.Current.Name;
-
-            var signals = new[]
-            {
-                new
-                {
-                    deviceId,
-                    kind = "PhoneMotion",
-                    value = GetMotionLevel(),
-                    timestamp = DateTime.UtcNow
-                },
-                new
-                {
-                    deviceId,
-                    kind = "PhoneScreen",
-                    value = GetScreenState() ? 1.0 : 0.0,
-                    timestamp = DateTime.UtcNow
-                }
-            };
-
-            foreach (var signal in signals)
-            {
-                try
-                {
-                    var response = await httpClient.PostAsJsonAsync(
-                        "/v1/focus/signals",
-                        signal,
-                        cancellationToken
-                    );
-
-                    if (response.IsSuccessStatusCode)
-                    {
-                        _logger.LogDebug("Signal {Kind} sent successfully", signal.kind);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Failed to send signal {Kind}: {StatusCode}",
-                            signal.kind, response.StatusCode);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to send signal {Kind}", signal.kind);
-                }
-            }
+            await _signalClient.SendActivitySignalAsync(dto, cancellationToken).ConfigureAwait(false);
+            _logger.LogDebug("Activity signal {SignalType} sent", signalType);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error sending signals to server");
+            _logger.LogWarning(ex, "Failed to send activity signal {SignalType}", signalType);
         }
     }
 
