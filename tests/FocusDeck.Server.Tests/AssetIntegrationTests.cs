@@ -19,12 +19,12 @@ using Xunit;
 
 namespace FocusDeck.Server.Tests;
 
-public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class AssetIntegrationTests : IClassFixture<FocusDeckWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly WebApplicationFactory<TestServerProgram> _factory;
     private readonly string _testStorageRoot;
 
-    public AssetIntegrationTests(WebApplicationFactory<Program> factory)
+    public AssetIntegrationTests(FocusDeckWebApplicationFactory factory)
     {
         _testStorageRoot = Path.Combine(Path.GetTempPath(), $"focusdeck_test_{Guid.NewGuid()}");
         Directory.CreateDirectory(_testStorageRoot);
@@ -77,7 +77,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
     public async Task UploadAsset_ValidFile_ReturnsCreated()
     {
         // Arrange
-        var client = CreateAuthenticatedClient();
+        var client = _factory.CreateAuthenticatedClient();
         var content = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(Encoding.UTF8.GetBytes("Test file content"));
         fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("text/plain");
@@ -102,7 +102,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
     public async Task UploadAsset_NoFile_ReturnsBadRequest()
     {
         // Arrange
-        var client = CreateAuthenticatedClient();
+        var client = _factory.CreateAuthenticatedClient();
         var content = new MultipartFormDataContent();
 
         // Act
@@ -116,7 +116,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
     public async Task UploadAsset_FileTooLarge_ReturnsPayloadTooLarge()
     {
         // Arrange
-        var client = CreateAuthenticatedClient();
+        var client = _factory.CreateAuthenticatedClient();
         var content = new MultipartFormDataContent();
         
         // Create a 6MB file (exceeds 5MB limit)
@@ -136,7 +136,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
     public async Task UploadAndDownloadAsset_RoundTrip_Success()
     {
         // Arrange
-        var client = CreateAuthenticatedClient();
+        var client = _factory.CreateAuthenticatedClient();
         var originalContent = "This is test file content for round-trip";
         var uploadContent = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(Encoding.UTF8.GetBytes(originalContent));
@@ -165,7 +165,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
     public async Task GetAsset_NonExistent_ReturnsNotFound()
     {
         // Arrange
-        var client = CreateAuthenticatedClient();
+        var client = _factory.CreateAuthenticatedClient();
         var nonExistentId = Guid.NewGuid().ToString();
 
         // Act
@@ -179,7 +179,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
     public async Task DeleteAsset_Existing_ReturnsNoContent()
     {
         // Arrange
-        var client = CreateAuthenticatedClient();
+        var client = _factory.CreateAuthenticatedClient();
         
         // Upload a file first
         var uploadContent = new MultipartFormDataContent();
@@ -206,7 +206,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
     public async Task GetAssetMetadata_Existing_ReturnsMetadata()
     {
         // Arrange
-        var client = CreateAuthenticatedClient();
+        var client = _factory.CreateAuthenticatedClient();
         
         // Upload a file first
         var uploadContent = new MultipartFormDataContent();
@@ -242,7 +242,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
     public async Task UploadAsset_DifferentContentTypes_Success(string contentType, string extension)
     {
         // Arrange
-        var client = CreateAuthenticatedClient();
+        var client = _factory.CreateAuthenticatedClient();
         var content = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(Encoding.UTF8.GetBytes("Test content"));
         fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
@@ -257,31 +257,6 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
         var result = await response.Content.ReadFromJsonAsync<AssetUploadResponse>();
         Assert.NotNull(result);
         Assert.NotEmpty(result.Id);
-    }
-
-    private HttpClient CreateAuthenticatedClient()
-    {
-        var client = _factory.CreateAuthenticatedClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateJwtToken());
-        return client;
-    }
-
-    private string CreateJwtToken()
-    {
-        var config = _factory.Services.GetRequiredService<IConfiguration>();
-        var key = config.GetValue<string>("Jwt:Key") ?? "test-key-for-testing-purposes-min-32-chars-long";
-        var issuer = config.GetValue<string>("Jwt:Issuer") ?? "test-issuer";
-        var audience = config.GetValue<string>("Jwt:Audience") ?? "test-audience";
-
-        var claims = new[]
-        {
-            new Claim(ClaimTypes.NameIdentifier, "test-user"),
-            new Claim("app_tenant_id", Guid.NewGuid().ToString())
-        };
-
-        var credentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)), SecurityAlgorithms.HmacSha256);
-        var token = new JwtSecurityToken(issuer, audience, claims, expires: DateTime.UtcNow.AddHours(1), signingCredentials: credentials);
-        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
     private void Dispose()
