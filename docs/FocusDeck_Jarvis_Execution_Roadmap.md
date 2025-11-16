@@ -1,8 +1,8 @@
 # FocusDeck + Jarvis: Execution Roadmap (AI-First ✅ Checklists)
 
-**Timezone:** America/Chicago  \
-**Server:** ASP.NET Core  \
-**UI:** Vite/React  \
+**Timezone:** America/Chicago
+**Server:** ASP.NET Core
+**UI:** Vite/React
 **Clients:** WPF (.NET 9)  _(Android/Mobile roadmap is tracked separately in `docs/FocusDeck_Jarvis_Android_Roadmap.md`)_
 
 ---
@@ -12,8 +12,8 @@
 - [x] Phase 0.1: Legacy SPA route work is ready—Vite base `/` plus `BuildSpa` hook exist and old `wwwroot/app` assets were removed (placeholder `.gitkeep` holds the root while release builds copy `dist`).
 - [x] Phase 0.2: `AutomationDbContext` owns the schema, migrations point to `InitialCanonicalSchema`, and there is no manual DDL in `Program.cs`.
 - [x] Phase 0.3: Desktop and Web dev proxy both target `http://localhost:5000` and `.NET 9` where applicable. _(Android/Mobile targeting deferred; see Android roadmap.)_
-- [x] Phase 0.4: CI produces a single `focusdeck-server-with-spa` artifact that stitches WebApp output and server builds into one deployable.
-- [ ] Phase 1: Foundations are ready—multi-tenant plumbing is wired (null tenant default, factory coverage, stubbed tenant membership for auth tests) so focus can shift to tenant-aware APIs/UI and the `/` SPA launch on Linux.
+- [ ] Phase 0.4: CI produces a single `focusdeck-server-with-spa` artifact that stitches WebApp output and server builds into one deployable.
+- [x] Phase 1: Foundations are ready—multi-tenant plumbing is wired (null tenant default, factory coverage, stubbed tenant membership for auth tests) so focus can shift to tenant-aware APIs/UI and the `/` SPA launch on Linux.
 
 ## Verifications
 
@@ -92,8 +92,8 @@
 - [x] Remove any manual schema DDL in `src/FocusDeck.Server/Program.cs` (no raw SQL remains)
 - [x] Ensure `DbSets` exist in `AutomationDbContext` for auth/sync/refresh-tokens/etc.
 - [x] Reset migrations (create a single clean `InitialCanonicalSchema`)
-- [ ] Apply: `dotnet ef database update`
-- [ ] Health check: server boots; basic endpoints respond 401/200 (not 500)
+- [x] Apply: `dotnet ef database update`
+- [x] Health check: server boots; basic endpoints respond 401/200 (not 500)
 
 **Files**
 
@@ -172,7 +172,7 @@ _Sequence: build and validate PAKE + tenant flows on Web first, then port those 
 
 - [x] `/login`, `/register`, `/pair` (PAKE start/finish; store tokens; `ProtectedRoute`; see `AuthPakeController`, `src/FocusDeck.WebApp/src/lib/pake.ts`, `KeyProvisioningService`)
 - [x] Login system validated end-to-end (fresh DB register + login + tenant claim confirmed)
-- [ ] Files:
+- [x] Files:
   - `src/FocusDeck.WebApp/src/pages/LoginPage.tsx`
   - `src/FocusDeck.WebApp/src/pages/ProvisioningPage.tsx`
   - `src/FocusDeck.WebApp/src/pages/PairingPage.tsx`
@@ -185,7 +185,7 @@ _Sequence: build and validate PAKE + tenant flows on Web first, then port those 
 
 - [x] Desktop: `OnboardingWindow` → `KeyProvisioningService` (PAKE flows + tenant refresh wired to `/v1/auth/pake`)
 - [x] Desktop: `KeyProvisioningService` now exposes tenant context (`CurrentTenantDto`) and raises updates so the shell can show the current workspace after login.
-- [ ] Files:
+- [x] Files:
   - `src/FocusDeck.Desktop/Views/OnboardingWindow.xaml(.cs)`
   - `src/FocusDeck.Desktop/Services/Auth/KeyProvisioningService.cs`
 
@@ -249,13 +249,13 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ### 0. Privacy & User Controls (Pre-flight)
 
-- [ ] Build `PrivacyService` with anonymization tiers (`Low | Medium | High`) and ensure every capture hook consults `PrivacyService.IsEnabled(contextType)`.
-- [ ] Implement consent dashboard (Web + Desktop) to toggle capture types (e.g., `ActiveWindowTitle`, `TypingVelocity`, `MouseEntropy`, `PhysicalLocation`) and provide live preview, delete, export, and disable controls.
-- [ ] Gate all snapshot and feedback pipelines behind verified consent; no contextual data leaves a device until privacy checks pass.
+- [x] Build `PrivacyService` with anonymization tiers (`Low | Medium | High`) and ensure every capture hook consults `PrivacyService.IsEnabled(contextType)`.
+- [x] Implement consent dashboard (Web + Desktop) to toggle capture types (e.g., `ActiveWindowTitle`, `TypingVelocity`, `MouseEntropy`, `PhysicalLocation`) and provide live preview, delete, export, and disable controls.
+- [x] Gate all snapshot and feedback pipelines behind verified consent; no contextual data leaves a device until privacy checks pass.
 
 ### 1. Context Snapshot Infrastructure
 
-- [ ] Add `ContextSnapshot` entity (`Id`, `UserId`, `TenantId`, `EventType`, `Timestamp`, `ActiveApplication`, `ActiveWindowTitle`, `CalendarEventId`, `CourseContext`, `MachineState`).
+- [x] Add `ContextSnapshot` entity (`Id`, `UserId`, `TenantId`, `EventType`, `Timestamp`, `ActiveApplication`, `ActiveWindowTitle`, `CalendarEventId`, `CourseContext`, `MachineState`).
 - [ ] Introduce client capture hooks for events (`NoteStarted`, `NoteStopped`, `WorkflowStarted`, `WorkflowCompleted`, `FocusModeEntered`, `FocusModeExited`, `AppFocused`, `BrowserTabActive`, `CalendarEventStarted`).
 - [ ] Clients publish snapshot events to an in-memory/redis channel; create `SnapshotIngestService` (`IHostedService`) to batch ingest into `Jarvis.ContextSnapshots` every 30 s and expose `/v1/jarvis/snapshots` for admin/debug.
 - [ ] Add `ContextAggregator` (Rx.NET) to merge events in 30 s windows before persistence.
@@ -302,12 +302,12 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ### Deliverables
 
-- ✅ Privacy & consent dashboard live before capture hooks
-- ✅ Decoupled snapshot ingestion with on-device feature summaries
-- ✅ Real-time vector index + embedding pipeline with explainable suggestions
-- ✅ `/v1/jarvis/suggest` + `/v1/jarvis/feedback` APIs wired to MCP Gateway
-- ✅ Performance-aware Jarvis runtime configuration (Eco/Balanced/Performance)
-- ✅ Learning metrics and validation dashboards (precision/recall/reward)
+- [x] Privacy & consent dashboard live before capture hooks
+- [ ] Decoupled snapshot ingestion with on-device feature summaries
+- [ ] Real-time vector index + embedding pipeline with explainable suggestions
+- [ ] `/v1/jarvis/suggest` + `/v1/jarvis/feedback` APIs wired to MCP Gateway
+- [ ] Performance-aware Jarvis runtime configuration (Eco/Balanced/Performance)
+- [ ] Learning metrics and validation dashboards (precision/recall/reward)
 
 ---
 
@@ -397,20 +397,20 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ### 3.4 Initial Jarvis workflows (server + Web, before Windows/Android)
 
-- **Smart Start Note for Current Class** — Workflow that calls the calendar resolver and `/v1/notes/start` to create a new note already attached to the “current” class, with a structured title/sections (built on top of Phase 4 auto-tag logic but exposed first via the Web UI).  
-- **Summarize and Quiz This Note** — Given a single note (or lecture transcript), produce a concise summary plus 5–10 quiz questions and key formulas/definitions; exposed on the note details page and gated by Jarvis feature flags to control token usage.  
-- **Next Session Prep** — On the dashboard, aggregate recent notes + upcoming calendar events and surface a short list of “next steps” (e.g., review these notes, finish these TODOs) using Jarvis context/suggest APIs.  
-- **Extract Tasks and Deadlines from Notes** — Workflow that scans a note to pull tasks, due dates, and project links, then proposes them into a tasks list with a “review & accept” UI.  
-- **Lecture Reflection / Study Plan** — After a lecture, Jarvis turns today’s note into: what you learned, what’s unclear, and a 3–5 step mini study plan for the coming days.
+- [ ] **Smart Start Note for Current Class** — Workflow that calls the calendar resolver and `/v1/notes/start` to create a new note already attached to the “current” class, with a structured title/sections (built on top of Phase 4 auto-tag logic but exposed first via the Web UI).
+- [ ] **Summarize and Quiz This Note** — Given a single note (or lecture transcript), produce a concise summary plus 5–10 quiz questions and key formulas/definitions; exposed on the note details page and gated by Jarvis feature flags to control token usage.
+- [ ] **Next Session Prep** — On the dashboard, aggregate recent notes + upcoming calendar events and surface a short list of “next steps” (e.g., review these notes, finish these TODOs) using Jarvis context/suggest APIs.
+- [ ] **Extract Tasks and Deadlines from Notes** — Workflow that scans a note to pull tasks, due dates, and project links, then proposes them into a tasks list with a “review & accept” UI.
+- [ ] **Lecture Reflection / Study Plan** — After a lecture, Jarvis turns today’s note into: what you learned, what’s unclear, and a 3–5 step mini study plan for the coming days.
 
 > All of these workflows are designed to run entirely on the server + Web UI first. Once stable, the Windows desktop client can trigger the same workflow IDs without changing Jarvis internals; Android picks them up later via the Android roadmap.
 
 ### 3.5 Jarvis Automation Center (server + Web)
 
-- **Automation Library (manage what Jarvis can do)** — Web UI under `/jarvis/automations` that lists all available Jarvis workflows and automations (including those Jarvis proposes himself), with per-automation enable/disable toggles, frequency/trigger settings, and “auto-run vs ask first” flags.  
-- **Safety & Approvals** — Global settings letting users choose which categories of automations Jarvis may run automatically (e.g., layout changes, reminders) and which always require explicit confirmation; all runs are logged with tenant/user, workflow, and evidence.  
-- **Custom Automation Builder** — Simple builder for “If [trigger] and [conditions], then run [Jarvis workflow/action]”, where triggers include note events, calendar events, and activity signals, and actions are existing workflow IDs (e.g., Smart Start Note, Extract Tasks).  
-- **Audit & History View** — Per-automation log showing recent runs, status, and the ability to pause/delete an automation if it behaves unexpectedly.
+- [ ] **Automation Library (manage what Jarvis can do)** — Web UI under `/jarvis/automations` that lists all available Jarvis workflows and automations (including those Jarvis proposes himself), with per-automation enable/disable toggles, frequency/trigger settings, and “auto-run vs ask first” flags.
+- [ ] **Safety & Approvals** — Global settings letting users choose which categories of automations Jarvis may run automatically (e.g., layout changes, reminders) and which always require explicit confirmation; all runs are logged with tenant/user, workflow, and evidence.
+- [ ] **Custom Automation Builder** — Simple builder for “If [trigger] and [conditions], then run [Jarvis workflow/action]”, where triggers include note events, calendar events, and activity signals, and actions are existing workflow IDs (e.g., Smart Start Note, Extract Tasks).
+- [ ] **Audit & History View** — Per-automation log showing recent runs, status, and the ability to pause/delete an automation if it behaves unexpectedly.
 
 > This Automation Center ships first on the Web UI and operates entirely on the server workflows; Windows and Android later surface a subset of controls (e.g., toggles, run buttons) without needing their own orchestration logic.
 
@@ -422,11 +422,11 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ### Activity Signals – Burnout & context telemetry
 
-- Ingest UI/agent telemetry via `POST /v1/activity/signals` (v1 API, `[Authorize]`).
+- [x] Ingest UI/agent telemetry via `POST /v1/activity/signals` (v1 API, `[Authorize]`).
   Each payload carries `SignalType`, `SignalValue`, `SourceApp`, optional `MetadataJson`, and `CapturedAtUtc`.
-- Persists the new `ActivitySignal` entity (`Id`, `TenantId`, `UserId`, `SignalType`, `SignalValue`, `SourceApp`, `MetadataJson`, `CapturedAtUtc`), indexed by `TenantId` + `CapturedAtUtc` so we can efficiently trend per-tenant/time window.
-- `/jarvis` exposes an “Emit sample activity signals” button (guarded by `Features:Jarvis`) that posts fake `TypingBurst`/`ActiveWindow` signals to the ingestion API, helping QA verify the pipeline without production sensors.
-- This telemetry stream seeds the upcoming burnout/autotagging work so we can detect typing bursts, active windows, and other context signals before hooking real clients.
+- [x] Persists the new `ActivitySignal` entity (`Id`, `TenantId`, `UserId`, `SignalType`, `SignalValue`, `SourceApp`, `MetadataJson`, `CapturedAtUtc`), indexed by `TenantId` + `CapturedAtUtc` so we can efficiently trend per-tenant/time window.
+- [x] `/jarvis` exposes an “Emit sample activity signals” button (guarded by `Features:Jarvis`) that posts fake `TypingBurst`/`ActiveWindow` signals to the ingestion API, helping QA verify the pipeline without production sensors.
+- [x] This telemetry stream seeds the upcoming burnout/autotagging work so we can detect typing bursts, active windows, and other context signals before hooking real clients.
 - [x] Burnout analysis now persists `StudentWellnessMetrics` (hours_worked, break_frequency, quality_score, sleep_hours, `IsUnsustainable`) and `BurnoutCheckJob` runs every 2 hours via Hangfire to flag 3+ consecutive 12-hour days or >50% break-frequency drops.
 
 ### 4.1 Google OAuth + incremental sync (+ push optional)
@@ -603,4 +603,4 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ---
 
-With this roadmap committed, the next action item is to begin **Phase 1** execution once Phase 0 stabilization tasks are delivered and validated.
+With this roadmap committed, the next action item is to begin **Phase 1.5** execution once Phase 1 stabilization tasks are delivered and validated.
