@@ -18,7 +18,10 @@ using FocusDeck.Server.Services.Privacy;
 using FocusDeck.Server.Services.Tenancy;
 using FocusDeck.Services.Context;
 using FocusDeck.Services.Context.Sources;
+using FocusDeck.Services.Jarvis;
+using FocusDeck.Server.Jobs.Jarvis;
 using FocusDeck.Contracts.Repositories;
+using FocusDeck.Persistence.Repositories.Jarvis;
 using FocusDeck.Persistence.Repositories.Context;
 using FocusDeck.Server.Services.Jarvis;
 using FocusDeck.SharedKernel;
@@ -263,6 +266,11 @@ public sealed class Startup
         services.AddHostedService<ImplicitFeedbackMonitor>();
         services.AddScoped<ILayeredContextService, LayeredContextService>();
         services.AddScoped<IExampleGenerator, ExampleGenerator>();
+        services.AddScoped<IJarvisRunRepository, EfJarvisRunRepository>();
+        services.AddScoped<IJarvisRunService, JarvisRunService>();
+        services.AddScoped<IJarvisActionDispatcher, JarvisActionDispatcher>();
+        services.AddScoped<IJarvisActionHandler, NoOpActionHandler>();
+        services.AddScoped<IJarvisRunJob, JarvisRunJob>();
 
         // Hangfire
         var hangfireConnection = _configuration.GetConnectionString("HangfireConnection")

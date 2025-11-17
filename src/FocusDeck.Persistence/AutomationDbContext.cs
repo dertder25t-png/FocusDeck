@@ -10,6 +10,7 @@ using FocusDeck.Domain.Entities.Auth;
 using FocusDeck.Domain.Entities.Remote;
 using FocusDeck.Domain.Entities.Sync;
 using FocusDeck.Domain.Entities.Context;
+using FocusDeck.Domain.Entities.Jarvis;
 using FocusDeck.SharedKernel.Auditing;
 using FocusDeck.SharedKernel.Tenancy;
 using Microsoft.EntityFrameworkCore;
