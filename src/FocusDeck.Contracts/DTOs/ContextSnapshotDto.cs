@@ -7,4 +7,5 @@ public record ContextSnapshotDto(
     string? ActiveWindowTitle,
     string? CalendarEventId,
     string? CourseContext,
-    string? MachineState);
+    string? MachineState,
+    FeatureSummaryDto? FeatureSummary);

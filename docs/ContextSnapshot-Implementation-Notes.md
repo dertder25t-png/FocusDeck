@@ -16,3 +16,4 @@ This document outlines the work that has been done to implement the Context Snap
 *   **Create a database migration:** A database migration needs to be created to apply the new entity to the database schema.
 *   **Implement `SnapshotIngestService`:** The placeholder implementation of the `SnapshotIngestService` needs to be replaced with the actual implementation that ingests snapshots into the database.
 *   **Add tests:** Unit and integration tests need to be added for the new functionality.
+*   **Integrate the client:** The `ActivityMonitorService` needs to be updated to send context snapshots to the new `/v1/jarvis/snapshots` endpoint.
