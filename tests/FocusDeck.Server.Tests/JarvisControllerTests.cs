@@ -33,7 +33,8 @@ public class JarvisControllerTests
             .AddInMemoryCollection(configDict!)
             .Build();
 
-        var controller = new JarvisController(registry, NullLogger<JarvisController>.Instance, configuration)
+        var controller = new JarvisController(registry, NullLogger<JarvisController>.Instance, configuration,
+            new StubSuggestionService(), new StubFeedbackService())
         {
             ControllerContext = new ControllerContext
             {

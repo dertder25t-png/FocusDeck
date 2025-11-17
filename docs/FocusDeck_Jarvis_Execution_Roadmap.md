@@ -253,14 +253,29 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - [ ] Implement consent dashboard (Web + Desktop) to toggle capture types (e.g., `ActiveWindowTitle`, `TypingVelocity`, `MouseEntropy`, `PhysicalLocation`) and provide live preview, delete, export, and disable controls.
 - [x] Gate all snapshot and feedback pipelines behind verified consent; no contextual data leaves a device until privacy checks pass.
 
-### 1. Context Snapshot Infrastructure (skeleton complete)
+### 1. Context Snapshot Infrastructure
 
-> **Implementation Guide:** See [`docs/ContextSnapshot-Implementation-Notes.md`](docs/ContextSnapshot-Implementation-Notes.md) for details on completing the database integration.
+> **Implementation Guide:** See [`docs/CONTEXT_SNAPSHOT_PIPELINE.md`](docs/CONTEXT_SNAPSHOT_PIPELINE.md) for the full design. The following steps will complete the skeleton system:
 
-- [x] Create `SnapshotIngestService` (`IHostedService`) to batch ingest into `Jarvis.ContextSnapshots` every 30 s and expose `/v1/jarvis/snapshots` for admin/debug. _(Skeleton implemented)_
-- [ ] Add `ContextSnapshot` entity (`Id`, `UserId`, `TenantId`, `EventType`, `Timestamp`, `ActiveApplication`, `ActiveWindowTitle`, `CalendarEventId`, `CourseContext`, `MachineState`). _(DB work remaining)_
-- [ ] Introduce client capture hooks for events (`NoteStarted`, `NoteStopped`, `WorkflowStarted`, `WorkflowCompleted`, `FocusModeEntered`, `FocusModeExited`, `AppFocused`, `BrowserTabActive`, `CalendarEventStarted`).
-- [ ] Add `ContextAggregator` (Rx.NET) to merge events in 30 s windows before persistence.
+- [ ] **Implement the `EfContextSnapshotRepository`:**
+    - Wire up the `AddAsync`, `GetByIdAsync`, and `GetLatestForUserAsync` methods to use the `AutomationDbContext`.
+    - Add a `DbSet<ContextSnapshot>` to the `AutomationDbContext`.
+    - Create a new EF Core migration to add the `ContextSnapshots` table.
+- [ ] **Implement the `ContextSnapshotService`:**
+    - Inject all `IContextSnapshotSource` implementations into the service.
+    - Implement the `CaptureNowAsync` method to:
+        - Call all sources to get context slices.
+        - Merge the slices in order of priority.
+        - Save the final snapshot to the repository.
+        - Enqueue a background job for vectorization.
+- [ ] **Implement the `ContextController`:**
+    - Inject the `IContextSnapshotService` into the controller.
+    - Wire up the controller actions to call the service.
+- [ ] **Implement the Snapshot Sources:**
+    - Replace the fake data in the snapshot sources with real data from the corresponding APIs (Google Calendar, Canvas, Spotify, etc.).
+- [ ] **Connect to the System:**
+    - Register the new services and repositories in the dependency injection container in `src/FocusDeck.Server/Startup.cs`.
+    - Add the new `DbContext` changes to the `AutomationDbContext`.
 
 ### 2. On-Device Feature Engineering & Enhanced Depth
 

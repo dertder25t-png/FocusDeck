@@ -15,6 +15,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FocusDeck.SharedKernel\FocusDeck.SharedKernel.csproj" />
+    <ProjectReference Include="..\FocusDeck.Domain\FocusDeck.Domain.csproj" />
   </ItemGroup>
 
 </Project>
