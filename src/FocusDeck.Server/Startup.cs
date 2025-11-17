@@ -216,6 +216,7 @@ public sealed class Startup
         services.AddScoped<IVerifyNoteJob, VerifyNoteJob>();
         services.AddScoped<IGenerateLectureNoteJob, GenerateLectureNoteJob>();
         services.AddScoped<BurnoutCheckJob>();
+        services.AddScoped<IVectorizeSnapshotJob, VectorizeSnapshotJob>();
 
         // Sync & automation
         services.AddScoped<ISyncService, SyncService>();
