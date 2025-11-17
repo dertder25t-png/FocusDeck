@@ -284,10 +284,12 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - [ ] Integrate MCP Gateway tool (`jarvis.analyze_context`) to allow LLM reasoning over layered context.
 - [x] Return `{ action, parameters, confidence, evidence[] }` payloads and surface "Why?" UI that fetches referenced snapshot summaries. _(Skeleton implemented)_
 
-### 5. Feedback & Reinforcement Loop
+### 5. Feedback & Reinforcement Loop (skeleton complete)
 
-- [ ] Add `/v1/jarvis/feedback { snapshotId, reward }` API and `Jarvis.FeedbackSignals` storage for explicit (👍/👎) and implicit (completion rate, dwell time) rewards.
-- [ ] Implement `ImplicitFeedbackMonitor` to infer rewards and trigger snapshot re-vectorization with decayed weighting (recent signals ×10).
+> **Implementation Guide:** See [`docs/FeedbackLoop-Implementation-Notes.md`](docs/FeedbackLoop-Implementation-Notes.md) for details on completing the implementation.
+
+- [x] Add `/v1/jarvis/feedback { snapshotId, reward }` API and `Jarvis.FeedbackSignals` storage for explicit (👍/👎) and implicit (completion rate, dwell time) rewards. _(Skeleton implemented)_
+- [x] Implement `ImplicitFeedbackMonitor` to infer rewards and trigger snapshot re-vectorization with decayed weighting (recent signals ×10). _(Skeleton implemented)_
 - [ ] Introduce Thompson Sampling (or similar) bandit policy to adapt recommendations based on cumulative rewards.
 
 ### 6. Layered Context Builder & Prompt Templates

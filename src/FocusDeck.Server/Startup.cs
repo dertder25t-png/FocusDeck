@@ -247,6 +247,8 @@ public sealed class Startup
         services.AddScoped<ISuggestionService, SuggestionService>();
         services.AddScoped<IFeedbackService, FeedbackService>();
         services.AddHostedService<ImplicitFeedbackMonitor>();
+        services.AddScoped<ILayeredContextService, LayeredContextService>();
+        services.AddScoped<IExampleGenerator, ExampleGenerator>();
 
         // Hangfire
         var hangfireConnection = _configuration.GetConnectionString("HangfireConnection")
