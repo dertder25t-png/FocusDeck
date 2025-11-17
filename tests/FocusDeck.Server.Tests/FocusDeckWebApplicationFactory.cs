@@ -36,9 +36,33 @@ public sealed class FocusDeckWebApplicationFactory : WebApplicationFactory<TestS
 
         var builder = TestServerProgram.CreateHostBuilder(Array.Empty<string>());
         builder.UseEnvironment("Testing");
+
+        // Find the solution root by walking up until we see a "src" folder with FocusDeck.Server inside
         var baseDir = AppContext.BaseDirectory ?? Directory.GetCurrentDirectory();
-        var contentRoot = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "src", "FocusDeck.Server"));
+        var dir = new DirectoryInfo(baseDir);
+
+        DirectoryInfo? solutionRoot = null;
+        while (dir != null)
+        {
+            var serverPath = Path.Combine(dir.FullName, "src", "FocusDeck.Server");
+            if (Directory.Exists(serverPath))
+            {
+                solutionRoot = dir;
+                break;
+            }
+
+            dir = dir.Parent;
+        }
+
+        if (solutionRoot == null)
+        {
+            throw new DirectoryNotFoundException(
+                $"Could not locate src/FocusDeck.Server starting from base directory {baseDir}");
+        }
+
+        var contentRoot = Path.Combine(solutionRoot.FullName, "src", "FocusDeck.Server");
         builder.UseContentRoot(contentRoot);
+
         builder.ConfigureAppConfiguration((context, config) =>
         {
             // IMPORTANT: Add test JWT config with high priority so it overrides any environment-specific config

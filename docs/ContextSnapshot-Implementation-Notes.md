@@ -4,16 +4,22 @@ This document outlines the work that has been done to implement the Context Snap
 
 ## What's Been Done
 
-*   **`ISnapshotIngestService` and `SnapshotIngestService`:** The `ISnapshotIngestService` interface and a placeholder implementation have been created in `src/FocusDeck.Server/Services/Context/`. The placeholder implementation currently logs incoming snapshots.
-*   **`ContextSnapshotDto`:** The `ContextSnapshotDto` has been created in `src/FocusDeck.Contracts/DTOs/`.
-*   **`ContextSnapshotsController`:** The `ContextSnapshotsController` has been created in `src/FocusDeck.Server/Controllers/v1/`. This controller exposes a `/v1/jarvis/snapshots` endpoint for clients to send snapshot data.
-*   **Dependency Injection:** The `SnapshotIngestService` has been registered with the dependency injection container in `src/FocusDeck.Server/Startup.cs`.
+*   **Domain Entities:** The `ContextSnapshot`, `ContextSlice`, `ContextSourceType`, and `ContextSnapshotMetadata` entities have been created in `src/FocusDeck.Domain/Entities/Context/`.
+*   **Repositories/Interfaces:** The `IContextSnapshotRepository` and `IEfContextSnapshotRepository` interfaces have been created in `src/FocusDeck.Contracts/Repositories/`, and the `EfContextSnapshotRepository` implementation has been created in `src/FocusDeck.Persistence/Repositories/Context/`.
+*   **DTOs:** The `ContextSnapshotDto` has been created in `src/FocusDeck.Contracts/DTOs/`.
+*   **Controllers:** The `ContextController` has been created in `src/FocusDeck.Server/Controllers/V1/Context/`.
+*   **Snapshot Source Interface:** The `IContextSnapshotSource` interface has been created in `src/FocusDeck.Services/Context/`.
+*   **EF Core Integration:** The `ContextSnapshot` and `ContextSlice` entities have been wired into EF Core, and the `AutomationDbContext` has been updated.
+*   **`SnapshotIngestService`:** The `SnapshotIngestService` has been implemented in `src/FocusDeck.Server/Services/Context/`.
+*   **`ContextSnapshotService`:** The `ContextSnapshotService` has been implemented in `src/FocusDeck.Services/Context/`.
+*   **`VectorizeSnapshotJob`:** The `VectorizeSnapshotJob` has been implemented in `src/FocusDeck.Server/Jobs/`.
+*   **`LayeredContextService`:** The `LayeredContextService` has been updated to consume snapshots.
 
 ## What's Left to Do
 
-*   **Define the `ContextSnapshot` entity:** The `ContextSnapshot` entity needs to be created in `src/FocusDeck.Domain/Entities/`. The entity should include the following properties: `Id`, `UserId`, `TenantId`, `EventType`, `Timestamp`, `ActiveApplication`, `ActiveWindowTitle`, `CalendarEventId`, `CourseContext`, and `MachineState`.
-*   **Update `AutomationDbContext`:** The `AutomationDbContext` needs to be updated to include a `DbSet<ContextSnapshot>` property.
-*   **Create a database migration:** A database migration needs to be created to apply the new entity to the database schema.
-*   **Implement `SnapshotIngestService`:** The placeholder implementation of the `SnapshotIngestService` needs to be replaced with the actual implementation that ingests snapshots into the database.
+*   **Create a database migration:** A database migration needs to be created to apply the new entities to the database schema. See `docs/ContextSnapshot-Migration-Instructions.md` for instructions.
+*   **Implement Snapshot Sources:** The stub implementations of the snapshot sources need to be replaced with real implementations that capture data from the corresponding APIs.
+*   **Implement `IVectorStore`:** The `IVectorStore` interface needs to be implemented to store and retrieve vector embeddings.
 *   **Add tests:** Unit and integration tests need to be added for the new functionality.
-*   **Integrate the client:** The `ActivityMonitorService` needs to be updated to send context snapshots to the new `/v1/jarvis/snapshots` endpoint.
+*   **Integrate the client:** The client applications need to be updated to send context snapshots to the new `/v1/context/snapshots` endpoint.
+*   **Finish `LayeredContextService`:** The `LayeredContextService` needs to be updated to fully utilize the context snapshots for all context layers.

@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using FocusDeck.Contracts.DTOs;
 using FocusDeck.Server.Jobs;
+using FocusDeck.Services.Context;
 using Hangfire;
 using Microsoft.Extensions.Logging;
 
@@ -50,7 +51,7 @@ public class FeedbackService : IFeedbackService
         // STEP 2: Trigger a re-vectorization of the original snapshot.
         // By re-processing the snapshot with the new feedback, the system can learn.
         // The vector could be updated with a decayed weighting to emphasize recent feedback.
-        _jobClient.Enqueue<IVectorizeSnapshotJob>(job => job.Execute(request.SnapshotId));
+        _jobClient.Enqueue<IVectorizeSnapshotJob>(job => job.Execute(request.SnapshotId, CancellationToken.None));
 
         _logger.LogInformation("Enqueued re-vectorization job for snapshot {SnapshotId} due to new feedback.", request.SnapshotId);
 

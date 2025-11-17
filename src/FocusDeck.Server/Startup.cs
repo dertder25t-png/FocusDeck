@@ -16,6 +16,10 @@ using FocusDeck.Server.Services.Auth;
 using FocusDeck.Server.Services.Burnout;
 using FocusDeck.Server.Services.Privacy;
 using FocusDeck.Server.Services.Tenancy;
+using FocusDeck.Services.Context;
+using FocusDeck.Services.Context.Sources;
+using FocusDeck.Contracts.Repositories;
+using FocusDeck.Persistence.Repositories.Context;
 using FocusDeck.Server.Services.Jarvis;
 using FocusDeck.SharedKernel;
 using System.Linq;
@@ -217,6 +221,7 @@ public sealed class Startup
         services.AddScoped<IGenerateLectureNoteJob, GenerateLectureNoteJob>();
         services.AddScoped<BurnoutCheckJob>();
         services.AddScoped<IVectorizeSnapshotJob, VectorizeSnapshotJob>();
+        services.AddScoped<IVectorStore, VectorStoreStub>();
 
         // Sync & automation
         services.AddScoped<ISyncService, SyncService>();
@@ -241,6 +246,15 @@ public sealed class Startup
         services.AddScoped<IPrivacyService, PrivacyService>();
         services.AddScoped<IBurnoutAnalysisService, BurnoutAnalysisService>();
         services.AddScoped<FocusDeck.Server.Services.Context.ISnapshotIngestService, FocusDeck.Server.Services.Context.SnapshotIngestService>();
+        services.AddScoped<IEfContextSnapshotRepository, EfContextSnapshotRepository>();
+        services.AddScoped<IContextSnapshotRepository, EfContextSnapshotRepository>();
+        services.AddScoped<IContextSnapshotService, ContextSnapshotService>();
+        services.AddScoped<IContextSnapshotSource, DesktopActiveWindowSource>();
+        services.AddScoped<IContextSnapshotSource, GoogleCalendarSource>();
+        services.AddScoped<IContextSnapshotSource, CanvasAssignmentsSource>();
+        services.AddScoped<IContextSnapshotSource, SpotifySource>();
+        services.AddScoped<IContextSnapshotSource, DeviceActivitySource>();
+        services.AddScoped<IContextSnapshotSource, SuggestiveContextSource>();
 
         // Jarvis workflow registry
         services.AddScoped<IJarvisWorkflowRegistry, JarvisWorkflowRegistry>();

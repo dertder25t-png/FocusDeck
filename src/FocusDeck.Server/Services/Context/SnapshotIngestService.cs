@@ -1,5 +1,6 @@
 using FocusDeck.Contracts.DTOs;
 using FocusDeck.Server.Jobs;
+using FocusDeck.Services.Context;
 using Hangfire;
 using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
@@ -28,7 +29,7 @@ public class SnapshotIngestService : ISnapshotIngestService
 
         // After saving the snapshot, enqueue a background job to vectorize it.
         // This ensures the API request returns quickly while the heavy lifting is done in the background.
-        _jobClient.Enqueue<IVectorizeSnapshotJob>(job => job.Execute(snapshotId));
+        _jobClient.Enqueue<IVectorizeSnapshotJob>(job => job.Execute(snapshotId, CancellationToken.None));
 
         _logger.LogInformation("Enqueued vectorization job for snapshot {SnapshotId}", snapshotId);
 

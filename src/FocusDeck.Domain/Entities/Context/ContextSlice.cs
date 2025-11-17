@@ -14,6 +14,11 @@ namespace FocusDeck.Domain.Entities.Context
         public Guid Id { get; set; }
 
         /// <summary>
+        /// Gets or sets the ID of the snapshot this slice belongs to.
+        /// </summary>
+        public Guid SnapshotId { get; set; }
+
+        /// <summary>
         /// Gets or sets the type of the source that generated this slice.
         /// </summary>
         public ContextSourceType SourceType { get; set; }

@@ -9,6 +9,7 @@ using FocusDeck.Domain.Entities.Automations;
 using FocusDeck.Domain.Entities.Auth;
 using FocusDeck.Domain.Entities.Remote;
 using FocusDeck.Domain.Entities.Sync;
+using FocusDeck.Domain.Entities.Context;
 using FocusDeck.SharedKernel.Auditing;
 using FocusDeck.SharedKernel.Tenancy;
 using Microsoft.EntityFrameworkCore;
@@ -94,6 +95,10 @@ public class AutomationDbContext : DbContext
 
     // Jarvis workflow runs
     public DbSet<JarvisWorkflowRun> JarvisWorkflowRuns { get; set; }
+
+    // Context Snapshot
+    public DbSet<ContextSnapshot> ContextSnapshots { get; set; }
+    public DbSet<ContextSlice> ContextSlices { get; set; }
 
     // Auth / PAKE
     public DbSet<FocusDeck.Domain.Entities.Auth.PakeCredential> PakeCredentials { get; set; }
