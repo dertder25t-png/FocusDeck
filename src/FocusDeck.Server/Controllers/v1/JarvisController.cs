@@ -24,12 +24,18 @@ public sealed class JarvisController : ControllerBase
     private readonly IJarvisWorkflowRegistry _registry;
     private readonly ILogger<JarvisController> _logger;
     private readonly bool _isEnabled;
+    private readonly ISuggestionService _suggestionService;
 
-    public JarvisController(IJarvisWorkflowRegistry registry, ILogger<JarvisController> logger, IConfiguration configuration)
+    public JarvisController(
+        IJarvisWorkflowRegistry registry,
+        ILogger<JarvisController> logger,
+        IConfiguration configuration,
+        ISuggestionService suggestionService)
     {
         _registry = registry;
         _logger = logger;
         _isEnabled = configuration.GetValue<bool>("Features:Jarvis", false);
+        _suggestionService = suggestionService;
     }
 
     /// <summary>
@@ -108,5 +114,25 @@ public sealed class JarvisController : ControllerBase
         }
 
         return Ok(status);
+    }
+
+    /// <summary>
+    /// Generates a suggestion based on the user's current context.
+    /// </summary>
+    [HttpPost("suggest")]
+    public async Task<ActionResult<SuggestionResponseDto>> GetSuggestion([FromBody] SuggestionRequestDto request)
+    {
+        if (!_isEnabled)
+        {
+            return NotFound(new { error = "Jarvis feature is disabled." });
+        }
+
+        var suggestion = await _suggestionService.GenerateSuggestionAsync(request);
+        if (suggestion == null)
+        {
+            return NoContent();
+        }
+
+        return Ok(suggestion);
     }
 }

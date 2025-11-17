@@ -253,11 +253,13 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - [ ] Implement consent dashboard (Web + Desktop) to toggle capture types (e.g., `ActiveWindowTitle`, `TypingVelocity`, `MouseEntropy`, `PhysicalLocation`) and provide live preview, delete, export, and disable controls.
 - [x] Gate all snapshot and feedback pipelines behind verified consent; no contextual data leaves a device until privacy checks pass.
 
-### 1. Context Snapshot Infrastructure
+### 1. Context Snapshot Infrastructure (skeleton complete)
 
-- [ ] Add `ContextSnapshot` entity (`Id`, `UserId`, `TenantId`, `EventType`, `Timestamp`, `ActiveApplication`, `ActiveWindowTitle`, `CalendarEventId`, `CourseContext`, `MachineState`).
+> **Implementation Guide:** See [`docs/ContextSnapshot-Implementation-Notes.md`](docs/ContextSnapshot-Implementation-Notes.md) for details on completing the database integration.
+
+- [x] Create `SnapshotIngestService` (`IHostedService`) to batch ingest into `Jarvis.ContextSnapshots` every 30 s and expose `/v1/jarvis/snapshots` for admin/debug. _(Skeleton implemented)_
+- [ ] Add `ContextSnapshot` entity (`Id`, `UserId`, `TenantId`, `EventType`, `Timestamp`, `ActiveApplication`, `ActiveWindowTitle`, `CalendarEventId`, `CourseContext`, `MachineState`). _(DB work remaining)_
 - [ ] Introduce client capture hooks for events (`NoteStarted`, `NoteStopped`, `WorkflowStarted`, `WorkflowCompleted`, `FocusModeEntered`, `FocusModeExited`, `AppFocused`, `BrowserTabActive`, `CalendarEventStarted`).
-- [ ] Clients publish snapshot events to an in-memory/redis channel; create `SnapshotIngestService` (`IHostedService`) to batch ingest into `Jarvis.ContextSnapshots` every 30 s and expose `/v1/jarvis/snapshots` for admin/debug.
 - [ ] Add `ContextAggregator` (Rx.NET) to merge events in 30 s windows before persistence.
 
 ### 2. On-Device Feature Engineering & Enhanced Depth
@@ -266,10 +268,12 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - [ ] Implement local aggregation so raw keystroke/mouse data stays on device; send `FeatureSummary` payloads with optional `ApplicationStateDetails` JSON blob.
 - [ ] Ensure capture SDK respects device power profiles—offer adaptive sampling rates to minimize CPU/battery on laptops while scaling up on high-performance desktops.
 
-### 3. Real-Time Vectorization & Storage
+### 3. Real-Time Vectorization & Storage (skeleton complete)
 
-- [ ] Deploy pgvector (preferred) or Qdrant alongside PostgreSQL and create `ContextVectors` tables for behavioral, temporal, and project embeddings.
-- [ ] Queue `VectorizeSnapshotJob` whenever a snapshot is persisted (and on feedback updates) to compute embeddings (`all-MiniLM-L6-v2` or ML.NET equivalent) and update indexes within seconds.
+> **Implementation Guide:** See [`docs/Vectorization-Implementation-Notes.md`](docs/Vectorization-Implementation-Notes.md) for details on setting up the vector DB and completing the job logic.
+
+- [x] Queue `VectorizeSnapshotJob` whenever a snapshot is persisted (and on feedback updates) to compute embeddings (`all-MiniLM-L6-v2` or ML.NET equivalent) and update indexes within seconds. _(Skeleton implemented)_
+- [ ] Deploy pgvector (preferred) or Qdrant alongside PostgreSQL and create `ContextVectors` tables for behavioral, temporal, and project embeddings. _(DB work remaining)_
 - [ ] Track queue throughput/lag metrics and schedule cleanup jobs for expired snapshots.
 
 ### 4. Suggestion APIs & Explainability
