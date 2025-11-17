@@ -239,6 +239,7 @@ public sealed class Startup
         services.AddHostedService<FocusDeck.Server.Services.Context.ContextBroadcastService>();
         services.AddScoped<IPrivacyService, PrivacyService>();
         services.AddScoped<IBurnoutAnalysisService, BurnoutAnalysisService>();
+        services.AddScoped<FocusDeck.Server.Services.Context.ISnapshotIngestService, FocusDeck.Server.Services.Context.SnapshotIngestService>();
 
         // Jarvis workflow registry
         services.AddScoped<IJarvisWorkflowRegistry, JarvisWorkflowRegistry>();

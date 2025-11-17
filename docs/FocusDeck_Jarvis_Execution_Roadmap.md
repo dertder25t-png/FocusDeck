@@ -249,9 +249,9 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ### 0. Privacy & User Controls (Pre-flight)
 
-- [ ] Build `PrivacyService` with anonymization tiers (`Low | Medium | High`) and ensure every capture hook consults `PrivacyService.IsEnabled(contextType)`.
+- [x] Build `PrivacyService` with anonymization tiers (`Low | Medium | High`) and ensure every capture hook consults `PrivacyService.IsEnabled(contextType)`.
 - [ ] Implement consent dashboard (Web + Desktop) to toggle capture types (e.g., `ActiveWindowTitle`, `TypingVelocity`, `MouseEntropy`, `PhysicalLocation`) and provide live preview, delete, export, and disable controls.
-- [ ] Gate all snapshot and feedback pipelines behind verified consent; no contextual data leaves a device until privacy checks pass.
+- [x] Gate all snapshot and feedback pipelines behind verified consent; no contextual data leaves a device until privacy checks pass.
 
 ### 1. Context Snapshot Infrastructure
 
