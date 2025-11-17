@@ -172,7 +172,7 @@ _Sequence: build and validate PAKE + tenant flows on Web first, then port those 
 
 - [x] `/login`, `/register`, `/pair` (PAKE start/finish; store tokens; `ProtectedRoute`; see `AuthPakeController`, `src/FocusDeck.WebApp/src/lib/pake.ts`, `KeyProvisioningService`)
 - [x] Login system validated end-to-end (fresh DB register + login + tenant claim confirmed)
-- [ ] Files:
+- [x] Files:
   - `src/FocusDeck.WebApp/src/pages/LoginPage.tsx`
   - `src/FocusDeck.WebApp/src/pages/ProvisioningPage.tsx`
   - `src/FocusDeck.WebApp/src/pages/PairingPage.tsx`
@@ -185,7 +185,7 @@ _Sequence: build and validate PAKE + tenant flows on Web first, then port those 
 
 - [x] Desktop: `OnboardingWindow` → `KeyProvisioningService` (PAKE flows + tenant refresh wired to `/v1/auth/pake`)
 - [x] Desktop: `KeyProvisioningService` now exposes tenant context (`CurrentTenantDto`) and raises updates so the shell can show the current workspace after login.
-- [ ] Files:
+- [x] Files:
   - `src/FocusDeck.Desktop/Views/OnboardingWindow.xaml(.cs)`
   - `src/FocusDeck.Desktop/Services/Auth/KeyProvisioningService.cs`
 
