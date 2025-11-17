@@ -245,6 +245,8 @@ public sealed class Startup
         // Jarvis workflow registry
         services.AddScoped<IJarvisWorkflowRegistry, JarvisWorkflowRegistry>();
         services.AddScoped<ISuggestionService, SuggestionService>();
+        services.AddScoped<IFeedbackService, FeedbackService>();
+        services.AddHostedService<ImplicitFeedbackMonitor>();
 
         // Hangfire
         var hangfireConnection = _configuration.GetConnectionString("HangfireConnection")

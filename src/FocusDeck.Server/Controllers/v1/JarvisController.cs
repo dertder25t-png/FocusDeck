@@ -25,17 +25,20 @@ public sealed class JarvisController : ControllerBase
     private readonly ILogger<JarvisController> _logger;
     private readonly bool _isEnabled;
     private readonly ISuggestionService _suggestionService;
+    private readonly IFeedbackService _feedbackService;
 
     public JarvisController(
         IJarvisWorkflowRegistry registry,
         ILogger<JarvisController> logger,
         IConfiguration configuration,
-        ISuggestionService suggestionService)
+        ISuggestionService suggestionService,
+        IFeedbackService feedbackService)
     {
         _registry = registry;
         _logger = logger;
         _isEnabled = configuration.GetValue<bool>("Features:Jarvis", false);
         _suggestionService = suggestionService;
+        _feedbackService = feedbackService;
     }
 
     /// <summary>
@@ -134,5 +137,20 @@ public sealed class JarvisController : ControllerBase
         }
 
         return Ok(suggestion);
+    }
+
+    /// <summary>
+    /// Submits feedback for a given suggestion.
+    /// </summary>
+    [HttpPost("feedback")]
+    public async Task<IActionResult> SubmitFeedback([FromBody] FeedbackRequestDto request)
+    {
+        if (!_isEnabled)
+        {
+            return NotFound(new { error = "Jarvis feature is disabled." });
+        }
+
+        await _feedbackService.ProcessFeedbackAsync(request);
+        return Accepted();
     }
 }

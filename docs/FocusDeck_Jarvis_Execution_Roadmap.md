@@ -276,11 +276,13 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - [ ] Deploy pgvector (preferred) or Qdrant alongside PostgreSQL and create `ContextVectors` tables for behavioral, temporal, and project embeddings. _(DB work remaining)_
 - [ ] Track queue throughput/lag metrics and schedule cleanup jobs for expired snapshots.
 
-### 4. Suggestion APIs & Explainability
+### 4. Suggestion APIs & Explainability (skeleton complete)
 
-- [ ] Implement `/v1/jarvis/suggest` with a rule-based MVP, then upgrade to vector-driven retrieval via `VectorSearchService`.
+> **Implementation Guide:** See [`docs/SuggestionAPI-Implementation-Notes.md`](docs/SuggestionAPI-Implementation-Notes.md) for details on completing the implementation.
+
+- [x] Implement `/v1/jarvis/suggest` with a rule-based MVP, then upgrade to vector-driven retrieval via `VectorSearchService`. _(Skeleton implemented)_
 - [ ] Integrate MCP Gateway tool (`jarvis.analyze_context`) to allow LLM reasoning over layered context.
-- [ ] Return `{ action, parameters, confidence, evidence[] }` payloads and surface "Why?" UI that fetches referenced snapshot summaries.
+- [x] Return `{ action, parameters, confidence, evidence[] }` payloads and surface "Why?" UI that fetches referenced snapshot summaries. _(Skeleton implemented)_
 
 ### 5. Feedback & Reinforcement Loop
 
