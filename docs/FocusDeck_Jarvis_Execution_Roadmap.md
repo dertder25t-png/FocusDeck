@@ -493,7 +493,7 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ---
 
-## Phase 6 — Browser Bridge + Memory Vault + Project Memory (Sprint 11–12)
+## Phase 6 — Browser Bridge + Memory Vault + Project Memory (Sprint 11–12) custom browswer exstentions for zen browswer/firefox
 
 **Goal:** Capture dev research, AI chats, and tab context into a personal knowledge notebook and recoverable states.
 
@@ -508,16 +508,114 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - [ ] Store meaningful AI chats (title, tags, gist, links)
 - [ ] Auto-summarize research queries into “Developer Knowledge Notebook”
 - [ ] Show “last next step” reminder when you revisit code area
+Browser extension (Firefox/Zen)
 
-**Files**
+Use this for:
 
-- `extensions/browser/**`
-- `src/FocusDeck.Server/Controllers/v1/MemoryController.cs`
-- `src/FocusDeck.Domain/Entities/KnowledgeItem.cs`
+Capture:
+
+List open tabs and their URLs/titles
+
+Content script to scrape:
+
+AI chats (ChatGPT, Claude, Gemini, etc.)
+
+Large <pre><code> blocks
+
+Article body text for research
+
+Take screenshots of current page if needed
+
+Commands (keyboard or button):
+
+“Send all AI chats on this page to FocusDeck”
+
+“Send this tab/page to FocusDeck → active project”
+
+“Close old tabs from this domain/workspace”
+
+“Save this as ‘research session’ for project X”
+
+Bridge:
+
+POST to https://your-focusdeck-server/v1/browser/events
+
+Includes:
+
+userId
+
+projectId or repoSlug
+
+tab URL, title
+
+scraped content
+
+“kind” (ai_chat, code_snippet, research_article, etc.)
+
+FocusDeck.Server (Browser Bridge + Memory Vault)
+
+Server does the thinking and storage:
+
+Browser Bridge API
+
+/v1/browser/tabs/snapshot
+
+/v1/browser/page/capture
+
+/v1/browser/ai-chat/save
+
+All tied to an authenticated user + project
+
+AI Memory Vault
+
+Store:
+
+page content
+
+minimal AI chat logs (title, gist, tags, links)
+
+Run jobs to:
+
+Summarize into “Developer Knowledge Notebook”
+
+Extract TODOs / “next step” per project
+
+Project Timeline
+
+Timeline entries like:
+
+“You read 4 pages about X at 3:20 PM”
+
+“You asked AI about refactoring Y”
+
+When you revisit a repo/branch/task:
+
+“Last next step here was: refactor FooService into modules A/B.”
+
+Windows app / Web UI
+
+These are just views and controls over what the extension + server are doing:
+
+Show:
+
+Knowledge notebook per project
+
+AI conversations attached to tasks/repos
+
+Tab snapshots from previous sessions (“restore this work session”)
+
+Let the user:
+
+Search their research
+
+Jump from a notebook entry → open repo / note / code area
+
+Configure rules (“auto-save all ChatGPT convos tagged ‘FocusDeck’”)
+
 
 ---
 
-## Phase 7 — “Mental Save State” + Adaptive Layout Intelligence (Sprint 13–14)
+## Phase 7 — “Mental Save State” + Adaptive Layout Intelligence (Sprint 13–14) windows app 
 
 **Goal:** One hotkey to save/restore whole-OS working sets; auto-apply preferred layouts per activity.
 
