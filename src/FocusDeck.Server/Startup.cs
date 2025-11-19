@@ -15,15 +15,17 @@ using FocusDeck.Server.Configuration;
 using FocusDeck.Server.Services.Auth;
 using FocusDeck.Server.Services.Burnout;
 using FocusDeck.Server.Services.Privacy;
+using FocusDeck.Server.Services.Jarvis;
+using FocusDeck.Server.Jobs.Jarvis;
 using FocusDeck.Server.Services.Tenancy;
+using FocusDeck.Services.Jarvis;
+using FocusDeck.Persistence.Repositories;
+using FocusDeck.Persistence.Repositories.Context;
+using FocusDeck.Persistence.Repositories.Jarvis;
+using FocusDeck.Contracts.Repositories;
+using FocusDeck.Contracts.Services.Context;
 using FocusDeck.Services.Context;
 using FocusDeck.Services.Context.Sources;
-using FocusDeck.Services.Jarvis;
-using FocusDeck.Server.Jobs.Jarvis;
-using FocusDeck.Contracts.Repositories;
-using FocusDeck.Persistence.Repositories.Jarvis;
-using FocusDeck.Persistence.Repositories.Context;
-using FocusDeck.Server.Services.Jarvis;
 using FocusDeck.SharedKernel;
 using System.Linq;
 using System.Text.Json;
@@ -218,18 +220,6 @@ public sealed class Startup
         services.AddSingleton<FocusDeck.Server.Services.TextGeneration.ITextGen, FocusDeck.Server.Services.TextGeneration.StubTextGen>();
 
         // Jobs
-        services.AddScoped<ITranscribeLectureJob, TranscribeLectureJob>();
-        services.AddScoped<ISummarizeLectureJob, SummarizeLectureJob>();
-        services.AddScoped<IVerifyNoteJob, VerifyNoteJob>();
-        services.AddScoped<IGenerateLectureNoteJob, GenerateLectureNoteJob>();
-        services.AddScoped<BurnoutCheckJob>();
-        services.AddScoped<IVectorizeSnapshotJob, VectorizeSnapshotJob>();
-        services.AddScoped<IVectorStore, VectorStoreStub>();
-
-        // Sync & automation
-        services.AddScoped<ISyncService, SyncService>();
-        services.AddSingleton<ActionExecutor>();
-        services.AddSingleton<IServerUpdateService, ServerUpdateService>();
         services.AddHostedService<AutomationEngine>();
 
         // Version service
@@ -251,6 +241,8 @@ public sealed class Startup
         services.AddScoped<FocusDeck.Server.Services.Context.ISnapshotIngestService, FocusDeck.Server.Services.Context.SnapshotIngestService>();
         services.AddScoped<IEfContextSnapshotRepository, EfContextSnapshotRepository>();
         services.AddScoped<IContextSnapshotRepository, EfContextSnapshotRepository>();
+        services.AddScoped<IActivitySignalRepository, FocusDeck.Persistence.Repositories.EfActivitySignalRepository>();
+        // Context snapshot infrastructure
         services.AddScoped<IContextSnapshotService, ContextSnapshotService>();
         services.AddScoped<IContextSnapshotSource, DesktopActiveWindowSource>();
         services.AddScoped<IContextSnapshotSource, GoogleCalendarSource>();

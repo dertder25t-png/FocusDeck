@@ -53,8 +53,16 @@ namespace FocusDeck.Server.Controllers.V1.Context
 
         private Guid GetCurrentUserId()
         {
-            // TODO: Get the current user ID from the HttpContext.
-            return Guid.NewGuid();
+            var userIdClaim = User.FindFirst("id")?.Value 
+                              ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            if (Guid.TryParse(userIdClaim, out var userId))
+            {
+                return userId;
+            }
+
+            // Fallback or throw if strict auth is required
+            throw new UnauthorizedAccessException("User ID not found in token.");
         }
     }
 }

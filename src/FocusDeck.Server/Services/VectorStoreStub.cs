@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using FocusDeck.Contracts.Services.Context;
 using FocusDeck.Server.Jobs;
 using Microsoft.Extensions.Logging;
 

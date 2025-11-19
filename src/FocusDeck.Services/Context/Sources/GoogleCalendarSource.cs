@@ -12,20 +12,25 @@ namespace FocusDeck.Services.Context.Sources
 
         public Task<ContextSlice?> CaptureAsync(Guid userId, CancellationToken ct)
         {
-            // TODO: Implement the logic to capture the user's upcoming Google Calendar event.
-            // This will involve using the Google Calendar API.
+            // TODO: Replace with real Google Calendar API call
+            // For now, return a stubbed event
             var data = new JsonObject
             {
                 ["event"] = "Team Standup",
                 ["startTime"] = DateTimeOffset.UtcNow.AddMinutes(15).ToString("o"),
-                ["endTime"] = DateTimeOffset.UtcNow.AddMinutes(45).ToString("o")
+                ["endTime"] = DateTimeOffset.UtcNow.AddMinutes(45).ToString("o"),
+                ["location"] = "Google Meet",
+                ["description"] = "Daily sync with the team."
             };
+
             var slice = new ContextSlice
             {
+                Id = Guid.NewGuid(),
                 SourceType = ContextSourceType.GoogleCalendar,
                 Timestamp = DateTimeOffset.UtcNow,
                 Data = data
             };
+
             return Task.FromResult<ContextSlice?>(slice);
         }
     }

@@ -51,6 +51,16 @@ namespace FocusDeck.Services.Context
 
             return snapshot;
         }
+
+        public async Task<ContextSnapshot?> GetByIdAsync(Guid snapshotId, CancellationToken ct = default)
+        {
+            return await _repository.GetByIdAsync(snapshotId, ct);
+        }
+
+        public async Task<ContextSnapshot?> GetLatestForUserAsync(Guid userId, CancellationToken ct = default)
+        {
+            return await _repository.GetLatestForUserAsync(userId, ct);
+        }
     }
 
     public interface IVectorizeSnapshotJob

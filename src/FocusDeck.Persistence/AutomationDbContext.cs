@@ -40,10 +40,9 @@ public class AutomationDbContext : DbContext
         _currentTenant = currentTenant ?? NullCurrentTenant.Instance;
         _actorProvider = actorProvider;
     }
-
+    public DbSet<ConnectedService> ConnectedServices { get; set; }
     public DbSet<Automation> Automations { get; set; }
     public DbSet<AutomationExecution> AutomationExecutions { get; set; }
-    public DbSet<ConnectedService> ConnectedServices { get; set; }
     public DbSet<ServiceConfiguration> ServiceConfigurations { get; set; }
     public DbSet<Note> Notes { get; set; }
     public DbSet<StudySession> StudySessions { get; set; }
@@ -100,6 +99,7 @@ public class AutomationDbContext : DbContext
     // Context Snapshot
     public DbSet<ContextSnapshot> ContextSnapshots { get; set; }
     public DbSet<ContextSlice> ContextSlices { get; set; }
+    public DbSet<ContextVector> ContextVectors { get; set; }
 
     // Auth / PAKE
     public DbSet<FocusDeck.Domain.Entities.Auth.PakeCredential> PakeCredentials { get; set; }
@@ -115,6 +115,18 @@ public class AutomationDbContext : DbContext
 
         // Apply all configurations from the Configurations folder
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AutomationDbContext).Assembly);
+
+        modelBuilder.Entity<ContextSlice>()
+            .HasOne<ContextSnapshot>()
+            .WithMany(s => s.Slices)
+            .HasForeignKey(s => s.SnapshotId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ContextVector>()
+            .HasOne(v => v.Snapshot)
+            .WithMany()
+            .HasForeignKey(v => v.SnapshotId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         if (Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true)
         {

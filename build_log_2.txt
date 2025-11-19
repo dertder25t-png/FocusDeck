@@ -1,0 +1,12 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  FocusDeck.SharedKernel -> C:\Users\Caleb\Desktop\new-focusdeck\FocusDeck\src\FocusDeck.SharedKernel\bin\Debug\net9.0\FocusDeck.SharedKernel.dll
+  FocusDeck.Domain -> C:\Users\Caleb\Desktop\new-focusdeck\FocusDeck\src\FocusDeck.Domain\bin\Debug\net9.0\FocusDeck.Domain.dll
+  FocusDeck.Contracts -> C:\Users\Caleb\Desktop\new-focusdeck\FocusDeck\src\FocusDeck.Contracts\bin\Debug\net9.0\FocusDeck.Contracts.dll
+  FocusDeck.Persistence -> C:\Users\Caleb\Desktop\new-focusdeck\FocusDeck\src\FocusDeck.Persistence\bin\Debug\net9.0\FocusDeck.Persistence.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.26

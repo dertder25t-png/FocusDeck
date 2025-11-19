@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using FocusDeck.Contracts.Repositories;
+using FocusDeck.Contracts.Services.Context;
 using FocusDeck.Services.Context;
 using Microsoft.Extensions.Logging;
 
@@ -54,8 +55,5 @@ namespace FocusDeck.Server.Jobs
         }
     }
 
-    public interface IVectorStore
-    {
-        Task UpsertAsync(Guid snapshotId, string text);
-    }
+
 }

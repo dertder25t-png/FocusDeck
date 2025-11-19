@@ -3,6 +3,7 @@ using System;
 using FocusDeck.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FocusDeck.Persistence.Migrations
 {
     [DbContext(typeof(AutomationDbContext))]
-    partial class AutomationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251119002727_AddContextSnapshots")]
+    partial class AddContextSnapshots
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.10");
@@ -517,39 +520,6 @@ namespace FocusDeck.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ContextSnapshots", (string)null);
-                });
-
-            modelBuilder.Entity("FocusDeck.Domain.Entities.Context.ContextVector", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Dimensions")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ModelName")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("SnapshotId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<byte[]>("VectorData")
-                        .IsRequired()
-                        .HasColumnType("BLOB");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SnapshotId");
-
-                    b.ToTable("ContextVectors");
                 });
 
             modelBuilder.Entity("FocusDeck.Domain.Entities.Course", b =>
@@ -1928,17 +1898,6 @@ namespace FocusDeck.Persistence.Migrations
                         });
 
                     b.Navigation("Metadata");
-                });
-
-            modelBuilder.Entity("FocusDeck.Domain.Entities.Context.ContextVector", b =>
-                {
-                    b.HasOne("FocusDeck.Domain.Entities.Context.ContextSnapshot", "Snapshot")
-                        .WithMany()
-                        .HasForeignKey("SnapshotId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Snapshot");
                 });
 
             modelBuilder.Entity("FocusDeck.Domain.Entities.DesignIdea", b =>

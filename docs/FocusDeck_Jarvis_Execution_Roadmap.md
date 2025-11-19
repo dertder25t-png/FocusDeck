@@ -351,93 +351,79 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - `src/FocusDeck.Server/appsettings*.json`
 - `src/FocusDeck.Server/FocusDeck.Server.csproj`
 
-### 2.2 MCP Server + Gateway (your definition: LLMs can grab resources/APIs as tools)
+### 2.2 Native Automation Engine (YAML + Local Execution)
+**Goal:** A Home Assistant-style automation engine where behaviors are defined in YAML and executed locally. This maximizes token efficiency (AI writes the YAML once; engine runs it forever) and privacy.
 
-**Concept:** Expose capabilities (e.g., “list lectures”, “create note”, “queue Jarvis workflow”) behind a Model Context Protocol server. A gateway brokers between multiple MCP servers (FocusDeck, Google, Canvas, Home Assistant), giving Copilot/GPT a single toolbelt.
-
-- [ ] Define tool contracts (`/mcp/tools/*.json`) for: `notes.create`, `notes.find`, `lectures.uploadAudio`, `jarvis.runWorkflow`, `calendar.getNowClass`, `projects.saveState`, `browserBridge.openTabs` (proxy), etc.
-- [ ] Implement MCP server in FocusDeck (WebSocket/HTTP) that exposes these tools with auth (tenant-scoped)
-- [ ] Docker MCP Gateway (off-box) that aggregates: `focusdeck-mcp`, `google-mcp`, `canvas-mcp`, `homeassistant-mcp`
-- [ ] Client configs (Copilot/Codex/Gemini): point to gateway; pass user identity/tenant in headers
+- [ ] **Automation Core:**
+    - `AutomationEngine`: The background service that listens for triggers and executes actions.
+    - `YamlLoader`: Parses YAML definitions into executable `Automation` objects.
+    - `TriggerSystem`: Event bus for `TimeTrigger`, `StateChangeTrigger` (e.g., "Focus Mode ON"), `EventTrigger` (e.g., "Calendar Event Started").
+    - `ActionSystem`: Registry of executable actions (e.g., `Obsidian.AppendNote`, `Spotify.Play`, `Windows.OpenApp`).
+- [ ] **Integration Registry:**
+    - System for users to add/configure integrations (Google, Spotify, Obsidian, etc.) which expose Triggers and Actions.
+- [ ] **Web UI (Automation Center):**
+    - Dashboard showing active automations.
+    - **YAML Editor:** Monaco-based editor for raw YAML editing.
+    - **Visual Builder:** Form-based UI for editing triggers/actions (generates YAML).
+    - **Run History:** Logs of when automations ran and their output.
 
 **Files**
-
-- `tools/mcp/focusdeck/*.ts|cs` (server handlers)
-- `tools/mcp/gateway/docker-compose.yml`
-- `docs/MCP_TOOLS.md` (contract examples, auth rules)
+- `src/FocusDeck.Server/Services/Automation/**`
+- `src/FocusDeck.Domain/Entities/Automation.cs`
+- `src/FocusDeck.WebApp/src/pages/Automations/**`
 
 ### 2.3 Core Integrations (Email, Code, Files)
+**Goal:** Give the Automation Engine access to external tools via "Integrations".
 
-**Goal:** Give Jarvis safe, first-class access to email, code hosts, and cloud files so it can plan around assignments, repos, and lecture materials—all via the server and MCP.
-
-- **Email (Gmail / Outlook)** — Connect accounts (OAuth) so Jarvis can parse assignment/meeting emails into calendar events and FocusDeck tasks, and surface “incoming work” on the dashboard.  
-- **GitHub / GitLab** — Link notes to repos/issues; allow Jarvis to surface TODOs, open PRs, and recent commits relevant to a note, course, or project context.  
-- **Google Drive / OneDrive** — Attach files from Drive/OneDrive to notes, auto-save note exports, and let Jarvis pull referenced slides/docs when summarizing or prepping sessions.
-
-**Files**
-
-- `src/FocusDeck.Server/Services/Integrations/Email/**`
-- `src/FocusDeck.Server/Services/Integrations/CodeHosts/**`
-- `src/FocusDeck.Server/Services/Integrations/CloudFiles/**`
-- `docs/INTEGRATIONS_EMAIL_CODE_FILES.md`
+- **Email (Gmail / Outlook)** — Triggers: `OnEmailReceived`; Actions: `CreateTask`.
+- **GitHub / GitLab** — Triggers: `OnPrAssigned`; Actions: `OpenBrowser`.
+- **Google Drive / OneDrive** — Actions: `SaveFile`, `ListFiles`.
 
 ---
 
-## Phase 3 — Jarvis (API + Runner + SignalR Bus) (Sprint 6–7)
+## Phase 3 — Jarvis "The Architect" (Sprint 6–7)
 
-**Goal:** End-to-end Jarvis slice on the Linux server + Web UI first, feature-gated and tenant-aware; Windows and Android clients hook into these same workflows later.
+**Goal:** Jarvis acts as the *creator* of automations, not just the runner. It analyzes context and writes YAML automations for the engine to execute.
 
-### 3.1 Jarvis API & registry
+### 3.1 Jarvis Modes
+- **Manual Mode:** User writes YAML manually. Jarvis is passive.
+- **Review Mode (Default):** Jarvis suggests automations (YAML); User must approve/edit them before they become active.
+- **Auto Mode:** Jarvis creates and enables automations automatically based on confidence thresholds.
 
-- [x] `GET /v1/jarvis/workflows` → scan `bmad/jarvis/workflows/**`
-- [x] `POST /v1/jarvis/run-workflow` → enqueue Hangfire job, return `runId`
-- [x] `GET /v1/jarvis/runs/{id}` → status/logs
+### 3.2 The "Architect" Loop
+- [ ] **Context Review Job:** Scheduled job (user-defined interval) where Jarvis analyzes `ContextSnapshots` and `ActivitySignals`.
+- [ ] **Automation Generator:** LLM prompt pipeline that outputs valid YAML automations based on the user's habits (e.g., "I see you always open VS Code and Spotify at 9 AM; here is an automation to do that").
+- [ ] **Suggestion UI:** Interface for the user to review, diff, and accept Jarvis-generated automations.
 
-**Files**
+### 3.3 Jarvis API
+- `POST /v1/jarvis/architect/analyze` -> Triggers an ad-hoc review.
+- `POST /v1/jarvis/architect/generate` -> Generates YAML for a specific intent.
 
-- `src/FocusDeck.Server/Controllers/v1/JarvisController.cs`
-- `src/FocusDeck.Server/Services/Jarvis/JarvisWorkflowRegistry.cs`
-- `src/FocusDeck.Contracts/DTOs/JarvisDto.cs`
+### Phase 3.5: Foundation - Hybrid Academic Writing Engine (Weeks 13-16)
 
-### 3.2 Hangfire job runner + outputs → SignalR actions
+**Goal:** Build the "Body" for Jarvis to inhabit. Create a professional-grade writing environment that supports complex academic work natively (Zero-Token) so Jarvis has a structured target for generation later.
 
-- [x] Job `JarvisWorkflowJob` runs Jarvis workflows via a Hangfire job and updates status/logs (Phase 3.2 stub – external script invocation can be extended in later phases).
-- [x] Persist `JarvisWorkflowRun` entity; update status/logs
-- [x] Parse workflow outputs → dispatch via `NotificationsHub` (Phase 3.2 uses `JarvisRunUpdated` notifications; richer remote actions can follow in later phases).
-- [x] Desktop clients implement the listener and perform actions (show toast, start/pause, open URL, etc.). _(Android/Mobile listener is specified in the Android roadmap.)_
+#### 3.5.1 Dual-Mode Editor Architecture
+- [ ] **Architecture Fork:** Split `Note` entity into `QuickNote` (Markdown) and `AcademicPaper` (Structured Document).
+- [ ] **Paper Mode UI:** Implement WPF `FlowDocument` viewer for true pagination, headers, and footers (Google Docs style).
+- [ ] **Smart Mode Switcher:** Toggle context: "Speed Mode" (Notes) vs. "Format Mode" (Paper).
 
-**Files**
+#### 3.5.2 Native Citation Engine (Deterministic/No-LLM)
+- [ ] **Structured Source Database:** Create `AcademicSource` entity to store metadata (Author, Year, Publisher) separate from text.
+- [ ] **The "Cite-o-matic" Logic:** C# service to generate APA/MLA/Chicago strings deterministically (No AI tokens used).
+- [ ] **"Find & Cite" Tool:** Paste a quote $\to$ Engine finds text position $\to$ Injects citation ID $\to$ Auto-updates Bibliography footer.
+- [ ] **Hot-Swap Styles:** Change paper from APA to MLA instantly by re-rendering the footer (not rewriting text).
 
-- `src/FocusDeck.Server/Jobs/JobImplementations.cs`
-- `src/FocusDeck.Domain/Entities/JarvisWorkflowRun.cs`
-- `src/FocusDeck.Shared/SignalR/Notifications/INotificationClientContract.cs`
-- Clients’ SignalR services
+**Deliverables:**
+- `CitationEngine` (Core logic for formatting)
+- `PaperEditorControl` (WPF RichText implementation)
+- `SourceManagerDialog` (UI for adding books/links)
 
-### 3.3 Jarvis UI (Web)
+**Tests:**
+- [ ] Bibliography generates correctly for 50+ sources in < 100ms.
+- [ ] Switching Citation Style updates all footnotes without breaking text.
 
-- [x] `/jarvis` page: list workflows, run, see run status/logs
-- [x] Feature flag `"Features:Jarvis"`: false by default; enable canary
-
-### 3.4 Initial Jarvis workflows (server + Web, before Windows/Android)
-
-- **Smart Start Note for Current Class** — Workflow that calls the calendar resolver and `/v1/notes/start` to create a new note already attached to the “current” class, with a structured title/sections (built on top of Phase 4 auto-tag logic but exposed first via the Web UI).  
-- **Summarize and Quiz This Note** — Given a single note (or lecture transcript), produce a concise summary plus 5–10 quiz questions and key formulas/definitions; exposed on the note details page and gated by Jarvis feature flags to control token usage.  
-- **Next Session Prep** — On the dashboard, aggregate recent notes + upcoming calendar events and surface a short list of “next steps” (e.g., review these notes, finish these TODOs) using Jarvis context/suggest APIs.  
-- **Extract Tasks and Deadlines from Notes** — Workflow that scans a note to pull tasks, due dates, and project links, then proposes them into a tasks list with a “review & accept” UI.  
-- **Lecture Reflection / Study Plan** — After a lecture, Jarvis turns today’s note into: what you learned, what’s unclear, and a 3–5 step mini study plan for the coming days.
-
-> All of these workflows are designed to run entirely on the server + Web UI first. Once stable, the Windows desktop client can trigger the same workflow IDs without changing Jarvis internals; Android picks them up later via the Android roadmap.
-
-### 3.5 Jarvis Automation Center (server + Web)
-
-- **Automation Library (manage what Jarvis can do)** — Web UI under `/jarvis/automations` that lists all available Jarvis workflows and automations (including those Jarvis proposes himself), with per-automation enable/disable toggles, frequency/trigger settings, and “auto-run vs ask first” flags.  
-- **Safety & Approvals** — Global settings letting users choose which categories of automations Jarvis may run automatically (e.g., layout changes, reminders) and which always require explicit confirmation; all runs are logged with tenant/user, workflow, and evidence.  
-- **Custom Automation Builder** — Simple builder for “If [trigger] and [conditions], then run [Jarvis workflow/action]”, where triggers include note events, calendar events, and activity signals, and actions are existing workflow IDs (e.g., Smart Start Note, Extract Tasks).  
-- **Audit & History View** — Per-automation log showing recent runs, status, and the ability to pause/delete an automation if it behaves unexpectedly.
-
-> This Automation Center ships first on the Web UI and operates entirely on the server workflows; Windows and Android later surface a subset of controls (e.g., toggles, run buttons) without needing their own orchestration logic.
-
----
+------
 
 ## Phase 4 — Auto-Tag Notes to Class (GCal) + Calendar Planner (Sprint 8)
 
@@ -472,7 +458,17 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - `src/FocusDeck.Server/Services/Calendar/CalendarResolver.cs`
 - `src/FocusDeck.Domain/Entities/*` (`CalendarSource`, `EventCache`, `NoteSession`, `CourseIndex`)
 
----
+#### 4.3 The Lecture Scribe (Zero-Input Audio Pipeline)
+**Goal:** Never miss a detail in class, even if you forget to open the app.
+- [ ] **Geofence Triggers:** Service detects "On Campus" location + "Class Time" (Calendar).
+- [ ] **Passive Audio Sentinel:** Low-power listening for dominant voice frequencies (Professor speaking) when in class context.
+- [ ] **Auto-Record & Transcribe:** Automatically starts local audio recording and processes via local Whisper model (no cloud costs).
+- [ ] **Smart Synthesis:** Converts transcript into a structured `Note` with bullet points, "Key Terms," and "Homework Mentions."
+
+**Deliverables:**
+- `IGeoLocationService` (Platform-specific geofencing)
+- `IAudioSentinelService` (Privacy-focused voice activity detection)
+- `LocalWhisperIntegration` (C# bindings for `whisper.cpp` to run on GPU)
 
 ## Phase 5 — Device Agent + Job Bundles (Sprint 9–10)
 
@@ -491,7 +487,34 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - `src/FocusDeck.Server/Controllers/v1/AgentController.cs`
 - `src/FocusDeck.Server/Services/Jobs/**`
 
----
+#### 5.3 The Tab Shepherd (Browser Clutter Killer)
+**Goal:** Eliminate "Tab Hoarding" anxiety by treating browser tabs as transient context, not permanent storage.
+- [ ] **Browser Extension:** Build Chrome/Edge extension to communicate active tabs to FocusDeck Desktop via SignalR.
+- [ ] **Context Binding:** "Bind" a set of tabs to a specific Project or FocusDeck Task.
+- [ ] **Auto-Fold:** If a tab group hasn't been touched in 2 hours, auto-close it and save it as a "Session Bundle" in the project history.
+- [ ] **Instant Restore:** When opening the project again, one click restores the exact browser state (scroll position + open tabs).
+
+**Deliverables:**
+- `FocusDeck.BrowserExt` (Manifest V3 extension)
+- `IBrowserContextService` (Manage tab groups/persistence)
+
+#### 5.4 The Ambient Horizon (Subconscious Deadline Awareness)
+**Goal:** Replace stressful notification spam with subtle, peripheral awareness of time.
+- [ ] **Visual Urgency Engine:** Tints UI accents (Dock border, wallpaper glow) based on `TimeRemaining / WorkRemaining`.
+    - *Cool Blue:* Safe (> 3 days).
+    - *Warm Orange:* Warning (< 24 hours).
+    - *Critical Red:* Immediate (< 4 hours).
+- [ ] **The "Morning Rundown" Protocol:**
+    - Optional "Morning Meeting" mode where Jarvis greets you with a visual summary of the day's "Horizon" colors.
+    - User choice: "Show me the raw list" vs. "Just give me the vibe (colors)."
+- [ ] **Granular Customization:**
+    - **Toggle:** Master On/Off switch for ambient effects.
+    - **UI Mode:** Choose between "Subtle Glow," "Text Ticker," or "Standard Notifications."
+    - **Palette Editor:** User defines what "Urgent" looks like (e.g., maybe Purple instead of Red).
+
+**Deliverables:**
+- `IAmbientDisplayService` (Controls UI theming/overlay)
+- `MorningBriefingView` (The "Morning Meeting" UI)
 
 ## Phase 6 — Browser Bridge + Memory Vault + Project Memory (Sprint 11–12) custom browswer exstentions for zen browswer/firefox
 
