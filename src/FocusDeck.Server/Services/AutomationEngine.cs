@@ -104,9 +104,8 @@ namespace FocusDeck.Server.Services
         {
             if (string.IsNullOrWhiteSpace(yaml)) return false;
 
-            // Simple string parsing for MVP to avoid heavy YamlDotNet dependency if not strictly needed,
-            // or we can use regex.
-            // Example YAML:
+            // Parse YAML using rudimentary regex for MVP to avoid dependencies for now.
+            // Structure:
             // Trigger:
             //   AppOpen: "VS Code"
 
@@ -117,16 +116,36 @@ namespace FocusDeck.Server.Services
                 if (match.Success)
                 {
                     var targetApp = match.Groups[1].Value.Trim();
+
                     // Check active window slice
                     var windowSlice = snapshot.Slices.FirstOrDefault(s => s.SourceType == ContextSourceType.DesktopActiveWindow);
                     if (windowSlice != null && windowSlice.Data != null)
                     {
-                        // Assuming Data is JSON: { "App": "VS Code", ... }
-                        var appName = windowSlice.Data["App"]?.ToString();
-                        if (!string.IsNullOrEmpty(appName) && appName.Contains(targetApp, StringComparison.OrdinalIgnoreCase))
-                        {
-                            return true;
-                        }
+                         try
+                         {
+                             // Try multiple property names since JSON serialization/schema might vary
+                             var appName = windowSlice.Data["App"]?.ToString() ??
+                                           windowSlice.Data["ActiveApplication"]?.ToString() ??
+                                           windowSlice.Data["Application"]?.ToString();
+
+                             if (!string.IsNullOrEmpty(appName) && appName.Contains(targetApp, StringComparison.OrdinalIgnoreCase))
+                             {
+                                 return true;
+                             }
+
+                             // Also check Title if App doesn't match or isn't present
+                             var title = windowSlice.Data["Title"]?.ToString() ??
+                                         windowSlice.Data["ActiveWindowTitle"]?.ToString();
+
+                             if (!string.IsNullOrEmpty(title) && title.Contains(targetApp, StringComparison.OrdinalIgnoreCase))
+                             {
+                                 return true;
+                             }
+                         }
+                         catch (Exception ex)
+                         {
+                             _logger.LogWarning(ex, "Failed to parse window slice data during trigger evaluation.");
+                         }
                     }
                 }
             }
