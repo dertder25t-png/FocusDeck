@@ -321,36 +321,20 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 - [ ] Simulate ≥100 contexts across personas (e.g., "CS Student", "Designer", "Gamer") to benchmark precision/recall against Jarvis Classic.
 - [ ] Implement adversarial testing to catch false positives and monitor dashboards for precision, recall, reward curves, and vectorization lag.
-- [ ] Store successful workflow runs as training signals and ensure MCP audit logs correlate tool calls with context evidence.
+.
 
 ### Deliverables
 
 - ✅ Privacy & consent dashboard live before capture hooks
 - ✅ Decoupled snapshot ingestion with on-device feature summaries
 - ✅ Real-time vector index + embedding pipeline with explainable suggestions
-- ✅ `/v1/jarvis/suggest` + `/v1/jarvis/feedback` APIs wired to MCP Gateway
+- ✅ `/v1/jarvis/suggest` + `/v1/jarvis/feedback` 
 - ✅ Performance-aware Jarvis runtime configuration (Eco/Balanced/Performance)
 - ✅ Learning metrics and validation dashboards (precision/recall/reward)
 
 ---
 
-## Phase 2 — Observability + MCP Server/Gateway (Sprint 5)
-
-**Goal:** Production-grade telemetry and the MCP tool plane so LLMs can safely call your app’s tools.
-
-### 2.1 Observability
-
-- [ ] OpenTelemetry traces → OTLP exporter (collector/Tempo/Jaeger)
-- [ ] Metrics → Prometheus (`/metrics`)
-- [ ] Serilog → OTLP/Seq sink
-- [ ] Minimal dashboards (RPS, 4xx/5xx, job failures)
-
-**Files**
-
-- `src/FocusDeck.Server/Program.cs`
-- `src/FocusDeck.Server/appsettings*.json`
-- `src/FocusDeck.Server/FocusDeck.Server.csproj`
-
+## 
 ### 2.2 Native Automation Engine (YAML + Local Execution)
 **Goal:** A Home Assistant-style automation engine where behaviors are defined in YAML and executed locally. This maximizes token efficiency (AI writes the YAML once; engine runs it forever) and privacy.
 
@@ -381,49 +365,37 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ---
 
-## Phase 3 — Jarvis "The Architect" (Sprint 6–7)
+## Phase 3 — Jarvis "The Architect" (YAML Generator) (Sprint 6)
 
-**Goal:** Jarvis acts as the *creator* of automations, not just the runner. It analyzes context and writes YAML automations for the engine to execute.
+**Goal:** Minimize AI costs by having Jarvis write persistent, locally-executed automation rules (YAML) instead of acting as a live agent for every task.
 
-### 3.1 Jarvis Modes
-- **Manual Mode:** User writes YAML manually. Jarvis is passive.
-- **Review Mode (Default):** Jarvis suggests automations (YAML); User must approve/edit them before they become active.
-- **Auto Mode:** Jarvis creates and enables automations automatically based on confidence thresholds.
+### 3.1 The "Architect" Engine
+- [ ] **Pattern Detection:** Implement a background job `PatternRecognitionJob` that analyzes `ContextSnapshots` for recurring correlations (e.g., "When App=VSCode, then App=Spotify is active").
+- [ ] **YAML Generator:** Create `AutomationGeneratorService` that sends these patterns to Gemini to generate valid YAML.
+  - *Prompt:* "Here is a user behavior pattern. Write a FocusDeck YAML automation to replicate it. Schema: [Trigger -> Action]."
+- [ ] **Verification UI:** A "Review Automations" dashboard where users can see the generated YAML, edit it, and click "Enable."
 
-### 3.2 The "Architect" Loop
-- [ ] **Context Review Job:** Scheduled job (user-defined interval) where Jarvis analyzes `ContextSnapshots` and `ActivitySignals`.
-- [ ] **Automation Generator:** LLM prompt pipeline that outputs valid YAML automations based on the user's habits (e.g., "I see you always open VS Code and Spotify at 9 AM; here is an automation to do that").
-- [ ] **Suggestion UI:** Interface for the user to review, diff, and accept Jarvis-generated automations.
+**Files**
+- `src/FocusDeck.Server/Services/Automation/AutomationGeneratorService.cs`
+- `src/FocusDeck.Server/Jobs/PatternRecognitionJob.cs`
+- `src/FocusDeck.Domain/Entities/Automations/Automation.cs` (Ensure `YamlDefinition` property exists)
 
-### 3.3 Jarvis API
-- `POST /v1/jarvis/architect/analyze` -> Triggers an ad-hoc review.
-- `POST /v1/jarvis/architect/generate` -> Generates YAML for a specific intent.
+### 3.2 Zero-Token Execution
+- [ ] **Local Engine:** Ensure `AutomationEngine` reads strictly from the local YAML files/database to execute actions. It should *never* call the LLM to run an automation.
+- [ ] **Optimization:** Cache compiled automations in memory for <1ms execution latency.
 
-### Phase 3.5: Foundation - Hybrid Academic Writing Engine (Weeks 13-16)
+### Card: "The Architect" Pipeline
 
-**Goal:** Build the "Body" for Jarvis to inhabit. Create a professional-grade writing environment that supports complex academic work natively (Zero-Token) so Jarvis has a structured target for generation later.
+**Intent:** Shift from "AI Agent" (Recurring Cost) to "AI Engineer" (One-Time Cost).
+**Touch:** `PatternRecognitionJob.cs`, `AutomationGeneratorService.cs`
 
-#### 3.5.1 Dual-Mode Editor Architecture
-- [ ] **Architecture Fork:** Split `Note` entity into `QuickNote` (Markdown) and `AcademicPaper` (Structured Document).
-- [ ] **Paper Mode UI:** Implement WPF `FlowDocument` viewer for true pagination, headers, and footers (Google Docs style).
-- [ ] **Smart Mode Switcher:** Toggle context: "Speed Mode" (Notes) vs. "Format Mode" (Paper).
+**Steps:**
+1. Job finds pattern (A -> B).
+2. Service sends pattern to LLM -> gets YAML.
+3. User approves YAML or it auto saves based on mode 
+4. Engine executes YAML locally forever (0 tokens).
 
-#### 3.5.2 Native Citation Engine (Deterministic/No-LLM)
-- [ ] **Structured Source Database:** Create `AcademicSource` entity to store metadata (Author, Year, Publisher) separate from text.
-- [ ] **The "Cite-o-matic" Logic:** C# service to generate APA/MLA/Chicago strings deterministically (No AI tokens used).
-- [ ] **"Find & Cite" Tool:** Paste a quote $\to$ Engine finds text position $\to$ Injects citation ID $\to$ Auto-updates Bibliography footer.
-- [ ] **Hot-Swap Styles:** Change paper from APA to MLA instantly by re-rendering the footer (not rewriting text).
 
-**Deliverables:**
-- `CitationEngine` (Core logic for formatting)
-- `PaperEditorControl` (WPF RichText implementation)
-- `SourceManagerDialog` (UI for adding books/links)
-
-**Tests:**
-- [ ] Bibliography generates correctly for 50+ sources in < 100ms.
-- [ ] Switching Citation Style updates all footnotes without breaking text.
-
-------
 
 ## Phase 4 — Auto-Tag Notes to Class (GCal) + Calendar Planner (Sprint 8)
 
