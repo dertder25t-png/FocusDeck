@@ -98,6 +98,24 @@ namespace FocusDeck.Server.Controllers.v1.Jarvis
 
             return Ok(new { AutomationId = automation.Id });
         }
+
+        /// <summary>
+        /// Rejects (deletes) a pending proposal.
+        /// </summary>
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> RejectProposal(System.Guid id, CancellationToken cancellationToken)
+        {
+            var proposal = await _dbContext.AutomationProposals.FindAsync(new object[] { id }, cancellationToken);
+            if (proposal == null)
+            {
+                return NotFound("Proposal not found");
+            }
+
+            _dbContext.AutomationProposals.Remove(proposal);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            return NoContent();
+        }
     }
 
     public record AutomationProposalDto(

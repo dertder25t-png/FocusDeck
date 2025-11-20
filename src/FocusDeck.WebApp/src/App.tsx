@@ -14,6 +14,8 @@ import { JarvisPage } from './pages/JarvisPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { TenantsPage } from './pages/TenantsPage'
 import { JobsPage } from './pages/JobsPage'
+import { AutomationsPage } from './pages/AutomationsPage'
+import { AutomationProposalsPage } from './pages/AutomationProposalsPage'
 import { cn } from './lib/utils'
 import { DevicesPage } from './pages/DevicesPage'
 import { logout } from './lib/utils'
@@ -21,6 +23,7 @@ import { PairingPage } from './pages/Auth/PairingPage'
 import ProvisioningPage from './pages/ProvisioningPage'
 import { useCurrentTenant } from './hooks/useCurrentTenant'
 import { ProtectedRoute } from './pages/Auth/ProtectedRoute'
+import { SignalRProvider } from './contexts/signalR'
 
 type NavigationItem = { name: string; path: string; icon: string; exact?: boolean }
 
@@ -37,6 +40,7 @@ function AppLayout() {
     { name: 'Notes', path: '/notes', icon: '📝' },
     { name: 'Design', path: '/design', icon: '🎨' },
     { name: 'Analytics', path: '/analytics', icon: '📈' },
+    { name: 'Automations', path: '/automations', icon: '⚡' },
     { name: 'Jarvis', path: '/jarvis', icon: '🤖' },
     { name: 'Devices', path: '/devices', icon: '💻' },
     { name: 'Pairing', path: '/pairing', icon: '🔗' },
@@ -181,6 +185,7 @@ function App() {
 
   return (
     <ToastProvider>
+     <SignalRProvider>
       <BrowserRouter>
         <Routes>
           {/* Public Routes */}
@@ -200,6 +205,8 @@ function App() {
               <Route path="design" element={<DesignPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
               <Route path="jarvis" element={<JarvisPage />} />
+              <Route path="automations" element={<AutomationsPage />} />
+              <Route path="automations/proposals" element={<AutomationProposalsPage />} />
               
               {/* Settings & Management */}
               <Route path="settings" element={<SettingsPage />} />
@@ -218,6 +225,7 @@ function App() {
         </Routes>
         <ToastViewport />
       </BrowserRouter>
+     </SignalRProvider>
     </ToastProvider>
   )
 }

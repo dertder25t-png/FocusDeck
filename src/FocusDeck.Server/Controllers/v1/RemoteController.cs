@@ -87,7 +87,7 @@ public class RemoteController : ControllerBase
 
         // Send SignalR notification to desktop clients
         await _hubContext.Clients.Group($"user:{userId}")
-            .NotificationReceived(
+            .ReceiveNotification(
                 "Remote Action",
                 $"New action: {actionKind}",
                 "info");
