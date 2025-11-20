@@ -8,6 +8,7 @@ namespace FocusDeck.Domain.Entities.Automations
         public string Name { get; set; } = null!;
         public string? Description { get; set; }
         public bool IsEnabled { get; set; }
+        public string YamlDefinition { get; set; } = string.Empty;
         public AutomationTrigger Trigger { get; set; } = null!;
         public List<AutomationAction> Actions { get; set; } = new();
         public DateTime CreatedAt { get; set; }

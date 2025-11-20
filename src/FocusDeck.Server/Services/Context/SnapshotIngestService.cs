@@ -15,15 +15,18 @@ public class SnapshotIngestService : ISnapshotIngestService
     private readonly ILogger<SnapshotIngestService> _logger;
     private readonly IBackgroundJobClient _jobClient;
     private readonly IContextSnapshotRepository _snapshotRepository;
+    private readonly IContextEventBus _eventBus;
 
     public SnapshotIngestService(
         ILogger<SnapshotIngestService> logger,
         IBackgroundJobClient jobClient,
-        IContextSnapshotRepository snapshotRepository)
+        IContextSnapshotRepository snapshotRepository,
+        IContextEventBus eventBus)
     {
         _logger = logger;
         _jobClient = jobClient;
         _snapshotRepository = snapshotRepository;
+        _eventBus = eventBus;
     }
 
     public async Task IngestSnapshotAsync(ContextSnapshotDto dto, CancellationToken cancellationToken)
@@ -84,6 +87,7 @@ public class SnapshotIngestService : ISnapshotIngestService
 
         _logger.LogInformation("Saved snapshot {SnapshotId} with status Pending", snapshot.Id);
 
-        // Removed automatic job enqueueing in favor of recurring batch job.
+        // Publish event for real-time automation engine
+        await _eventBus.PublishAsync(snapshot);
     }
 }

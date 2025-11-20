@@ -150,7 +150,7 @@ public interface INotificationClient : INotificationClientContract
     /// <summary>
     /// General notification message
     /// </summary>
-    Task NotificationReceived(string title, string message, string severity);
+    Task ReceiveNotification(string title, string message, string severity);
     
     /// <summary>
     /// Notify client when lecture transcription is complete

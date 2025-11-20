@@ -1,7 +1,12 @@
 using FocusDeck.Domain.Entities.Automations;
+using FocusDeck.Domain.Entities.Context;
 using FocusDeck.Persistence;
+using FocusDeck.Server.Hubs;
+using FocusDeck.Server.Services.Context;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 namespace FocusDeck.Server.Services
 {
@@ -13,16 +18,120 @@ namespace FocusDeck.Server.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<AutomationEngine> _logger;
         private readonly ActionExecutor _actionExecutor;
+        private readonly IContextEventBus _eventBus;
+        private readonly IHubContext<NotificationsHub, INotificationClient> _hubContext;
         private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(1);
+
+        // Cache for active automations
+        private List<Automation> _activeAutomations = new();
 
         public AutomationEngine(
             IServiceProvider serviceProvider, 
             ILogger<AutomationEngine> logger,
-            ActionExecutor actionExecutor)
+            ActionExecutor actionExecutor,
+            IContextEventBus eventBus,
+            IHubContext<NotificationsHub, INotificationClient> hubContext)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
             _actionExecutor = actionExecutor;
+            _eventBus = eventBus;
+            _hubContext = hubContext;
+
+            _eventBus.OnContextSnapshotCreated += HandleContextSnapshot;
+        }
+
+        public override async Task StartAsync(CancellationToken cancellationToken)
+        {
+            await ReloadAutomations();
+            await base.StartAsync(cancellationToken);
+        }
+
+        private async Task ReloadAutomations()
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+            _activeAutomations = await db.Automations
+                .Where(a => a.IsEnabled)
+                .ToListAsync();
+            _logger.LogInformation("Loaded {Count} active automations.", _activeAutomations.Count);
+        }
+
+        private async Task HandleContextSnapshot(ContextSnapshot snapshot)
+        {
+            _logger.LogInformation("Processing snapshot for automations: {SnapshotId}", snapshot.Id);
+
+            // We need to iterate over a copy to avoid thread safety issues if reloading
+            var automations = _activeAutomations.ToList();
+
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+
+            foreach (var automation in automations)
+            {
+                try
+                {
+                    // Parse YAML if needed to check triggers
+                    // For MVP, we assume Trigger object is populated or we parse YAML here
+                    // Currently, Trigger property is populated, but let's ensure we use YamlDefinition if Trigger is generic
+                    // If Trigger.Type == "yaml_managed", we need to parse YamlDefinition to check trigger logic
+
+                    bool triggered = false;
+                    if (automation.Trigger?.Type == "yaml_managed")
+                    {
+                        triggered = EvaluateYamlTrigger(automation.YamlDefinition, snapshot);
+                    }
+                    else
+                    {
+                        // Legacy/Standard trigger check
+                        triggered = await ShouldTrigger(automation.Trigger, automation.LastRunAt);
+                    }
+
+                    if (triggered)
+                    {
+                        _logger.LogInformation("Triggering automation from context: {Name}", automation.Name);
+                        await ExecuteAutomation(automation, db);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error evaluating automation {Id}", automation.Id);
+                }
+            }
+        }
+
+        private bool EvaluateYamlTrigger(string yaml, ContextSnapshot snapshot)
+        {
+            if (string.IsNullOrWhiteSpace(yaml)) return false;
+
+            // Simple string parsing for MVP to avoid heavy YamlDotNet dependency if not strictly needed,
+            // or we can use regex.
+            // Example YAML:
+            // Trigger:
+            //   AppOpen: "VS Code"
+
+            // Check for AppOpen
+            if (yaml.Contains("AppOpen:", StringComparison.OrdinalIgnoreCase))
+            {
+                var match = Regex.Match(yaml, @"AppOpen:\s*""?([^""\n]+)""?");
+                if (match.Success)
+                {
+                    var targetApp = match.Groups[1].Value.Trim();
+                    // Check active window slice
+                    var windowSlice = snapshot.Slices.FirstOrDefault(s => s.SourceType == ContextSourceType.DesktopActiveWindow);
+                    if (windowSlice != null && windowSlice.Data != null)
+                    {
+                        // Assuming Data is JSON: { "App": "VS Code", ... }
+                        var appName = windowSlice.Data["App"]?.ToString();
+                        if (!string.IsNullOrEmpty(appName) && appName.Contains(targetApp, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -31,14 +140,11 @@ namespace FocusDeck.Server.Services
 
             while (!stoppingToken.IsCancellationRequested)
             {
-                try
-                {
-                    await CheckAndExecuteAutomations();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error in automation engine");
-                }
+                // Periodically reload automations
+                await ReloadAutomations();
+
+                // Also run time-based checks
+                await CheckAndExecuteAutomations(stoppingToken);
 
                 await Task.Delay(_checkInterval, stoppingToken);
             }
@@ -46,26 +152,29 @@ namespace FocusDeck.Server.Services
             _logger.LogInformation("Automation Engine stopped");
         }
 
-        private async Task CheckAndExecuteAutomations()
+        private async Task CheckAndExecuteAutomations(CancellationToken cancellationToken = default)
         {
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
 
-            // Get all enabled automations from database
-            var automations = await db.Automations
-                .Where(a => a.IsEnabled)
-                .ToListAsync();
-
-            _logger.LogDebug("Checking {Count} enabled automations", automations.Count);
+            // Use cached list instead of querying again, but we need to be thread safe or just query for safety.
+            // For reliability, let's query active automations or use the cached list if we trust it.
+            // Let's use the cache for performance as requested in requirements ("hold all active automations in memory").
+            var automations = _activeAutomations.ToList();
 
             foreach (var automation in automations)
             {
                 try
                 {
-                    if (await ShouldTrigger(automation.Trigger, automation.LastRunAt))
+                    // Check time-based triggers only here
+                    if (automation.Trigger.TriggerType == TriggerTypes.AtSpecificTime ||
+                        automation.Trigger.TriggerType == TriggerTypes.RecurringInterval)
                     {
-                        _logger.LogInformation("Triggering automation: {Name} (ID: {Id})", automation.Name, automation.Id);
-                        await ExecuteAutomation(automation, db);
+                        if (await ShouldTrigger(automation.Trigger, automation.LastRunAt))
+                        {
+                            _logger.LogInformation("Triggering automation: {Name} (ID: {Id})", automation.Name, automation.Id);
+                            await ExecuteAutomation(automation, db);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -77,6 +186,8 @@ namespace FocusDeck.Server.Services
 
         private async Task<bool> ShouldTrigger(AutomationTrigger trigger, DateTime? lastRunAt)
         {
+            if (trigger == null) return false;
+
             return trigger.TriggerType switch
             {
                 TriggerTypes.AtSpecificTime => await CheckTimeTrigger(trigger, lastRunAt),
@@ -238,8 +349,9 @@ namespace FocusDeck.Server.Services
             var message = action.Settings.GetValueOrDefault("message", "Automation triggered");
             
             _logger.LogInformation("Notification: {Title} - {Message}", title, message);
-            // TODO: Implement actual notification system
-            await Task.CompletedTask;
+
+            // Send via SignalR to all connected clients
+            await _hubContext.Clients.All.ReceiveNotification(title, message, "info");
         }
 
         private async Task StartTimer(AutomationAction action)

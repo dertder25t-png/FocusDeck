@@ -44,6 +44,60 @@ namespace FocusDeck.Server.Controllers.v1.Jarvis
 
             return Ok(proposals);
         }
+
+        /// <summary>
+        /// Accepts a proposal, converting it into an active automation.
+        /// </summary>
+        [HttpPost("{id}/accept")]
+        public async Task<IActionResult> AcceptProposal(System.Guid id, CancellationToken cancellationToken)
+        {
+            var proposal = await _dbContext.AutomationProposals.FindAsync(new object[] { id }, cancellationToken);
+            if (proposal == null)
+            {
+                return NotFound("Proposal not found");
+            }
+
+            if (proposal.Status != ProposalStatus.Pending)
+            {
+                return BadRequest($"Proposal is already {proposal.Status}");
+            }
+
+            // Create active Automation
+            // NOTE: Parsing YAML to objects (Trigger/Actions) would ideally happen here or in the engine loading.
+            // For now, we persist the YAML and let the Engine parse it on load/refresh.
+            var automation = new FocusDeck.Domain.Entities.Automations.Automation
+            {
+                Id = System.Guid.NewGuid(),
+                Name = proposal.Title,
+                Description = proposal.Description,
+                YamlDefinition = proposal.YamlDefinition,
+                IsEnabled = true,
+                CreatedAt = System.DateTime.UtcNow,
+                UpdatedAt = System.DateTime.UtcNow,
+                TenantId = proposal.TenantId,
+                // Stub Trigger/Actions to satisfy non-null if EF requires it (though they are handled by EF Core usually if ignored or mapped)
+                // Assuming Automation uses EF Core conversion for Trigger/Actions JSON columns or ignored?
+                // Checking Automation entity again...
+                // Trigger/Actions are properties. AutomationDbContext likely maps them to JSON strings?
+                // If mapped, we need to populate them or they will be null.
+                // Let's parse basic info or initialize empty defaults.
+                Trigger = new FocusDeck.Domain.Entities.Automations.AutomationTrigger { Type = "yaml_managed", Configuration = "{}" },
+                Actions = new System.Collections.Generic.List<FocusDeck.Domain.Entities.Automations.AutomationAction>()
+            };
+
+            _dbContext.Automations.Add(automation);
+
+            // Update Proposal
+            proposal.Status = ProposalStatus.Accepted;
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            // TODO: Notify AutomationEngine to reload?
+            // For MVP, Engine can reload periodically or we inject it and call Reload().
+            // We'll implement reloading in the Engine step.
+
+            return Ok(new { AutomationId = automation.Id });
+        }
     }
 
     public record AutomationProposalDto(

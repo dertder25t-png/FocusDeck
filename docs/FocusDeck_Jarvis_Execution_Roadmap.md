@@ -13,7 +13,9 @@
 - [x] Phase 0.2: `AutomationDbContext` owns the schema, migrations point to `InitialCanonicalSchema`, and there is no manual DDL in `Program.cs`.
 - [x] Phase 0.3: Desktop and Web dev proxy both target `http://localhost:5000` and `.NET 9` where applicable. _(Android/Mobile targeting deferred; see Android roadmap.)_
 - [x] Phase 0.4: CI produces a single `focusdeck-server-with-spa` artifact that stitches WebApp output and server builds into one deployable.
-- [ ] Phase 1: Foundations are ready—multi-tenant plumbing is wired (null tenant default, factory coverage, stubbed tenant membership for auth tests) so focus can shift to tenant-aware APIs/UI and the `/` SPA launch on Linux.
+- [x] Phase 1: Foundations are ready—multi-tenant plumbing is wired (null tenant default, factory coverage, stubbed tenant membership for auth tests) so focus can shift to tenant-aware APIs/UI and the `/` SPA launch on Linux.
+- [x] Phase 3.1: Jarvis "The Architect" (Proactive Automation Generation) - Retrieval Layer & Proposal Engine complete.
+- [ ] Phase 2.2/3.5: Automation Execution Engine (Local Runtime) - In Progress.
 
 ## Verifications
 
