@@ -21,7 +21,7 @@ namespace FocusDeck.Server.Services
             return Task.CompletedTask;
         }
 
-        public Task<System.Collections.Generic.List<FocusDeck.Domain.Entities.Context.ContextSnapshot>> GetNearestNeighborsAsync(float[] queryVector, int limit = 5)
+        public Task<System.Collections.Generic.List<FocusDeck.Domain.Entities.Context.ContextSnapshot>> GetNearestNeighborsAsync(float[] queryVector, int limit = 5, double minRelevance = 0.7)
         {
             return Task.FromResult(new System.Collections.Generic.List<FocusDeck.Domain.Entities.Context.ContextSnapshot>());
         }

@@ -45,7 +45,7 @@ namespace FocusDeck.Server.Services.Context
             var queryVector = await _embeddingService.GenerateEmbeddingAsync(text.ToString());
 
             // 3. Search vector store
-            var neighbors = await _vectorStore.GetNearestNeighborsAsync(queryVector, limit: 10); // Fetch more to filter
+            var neighbors = await _vectorStore.GetNearestNeighborsAsync(queryVector, limit: 10, minRelevance: 0.7); // Fetch more to filter
 
             // 4. Filter
             var filtered = neighbors

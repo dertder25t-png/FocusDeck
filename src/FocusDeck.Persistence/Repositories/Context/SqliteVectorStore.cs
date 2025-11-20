@@ -27,7 +27,7 @@ namespace FocusDeck.Persistence.Repositories.Context
             _logger = logger;
         }
 
-        public async Task<System.Collections.Generic.List<ContextSnapshot>> GetNearestNeighborsAsync(float[] queryVector, int limit = 5)
+        public async Task<System.Collections.Generic.List<ContextSnapshot>> GetNearestNeighborsAsync(float[] queryVector, int limit = 5, double minRelevance = 0.7)
         {
             // 1. Load all vectors into memory (MVP approach for < 100k records)
             // Select strictly what we need to minimize memory footprint
@@ -52,7 +52,10 @@ namespace FocusDeck.Persistence.Repositories.Context
                     dotProduct += queryVector[i] * targetVector[i];
                 }
 
-                candidates.Add((v.SnapshotId, dotProduct));
+                if (dotProduct >= minRelevance)
+                {
+                    candidates.Add((v.SnapshotId, dotProduct));
+                }
             }
 
             // 3. Sort and take top N
