@@ -32,5 +32,10 @@ namespace FocusDeck.Domain.Entities.Context
         /// Gets or sets the metadata associated with this snapshot.
         /// </summary>
         public ContextSnapshotMetadata? Metadata { get; set; }
+
+        /// <summary>
+        /// Gets or sets the vectorization state of this snapshot.
+        /// </summary>
+        public VectorizationState VectorizationState { get; set; } = VectorizationState.Pending;
     }
 }

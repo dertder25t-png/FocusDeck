@@ -12,6 +12,44 @@ export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'profile' | 'tenant' | 'integrations' | 'privacy' | 'system'>('profile')
   const { settings: privacySettings, loading: privacyLoading, updateSetting } = usePrivacySettings()
   const [pendingPrivacy, setPendingPrivacy] = useState<string[]>([])
+  const [geminiKey, setGeminiKey] = useState('')
+  const [geminiKeySaved, setGeminiKeySaved] = useState(false)
+  const [isSavingKey, setIsSavingKey] = useState(false)
+
+  useEffect(() => {
+    if (activeTab === 'integrations') {
+      fetch('/v1/system/config/gemini')
+        .then(res => res.json())
+        .then(data => setGeminiKeySaved(data.hasKey))
+        .catch(err => console.error('Failed to check Gemini key status:', err))
+    }
+  }, [activeTab])
+
+  const saveGeminiKey = async () => {
+    if (!geminiKey) return
+
+    setIsSavingKey(true)
+    try {
+      const res = await fetch('/v1/system/config/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: geminiKey })
+      })
+
+      if (res.ok) {
+        setGeminiKeySaved(true)
+        setGeminiKey('')
+        alert('Gemini API Key saved successfully!')
+      } else {
+        alert('Failed to save API Key')
+      }
+    } catch (err) {
+      console.error('Error saving Gemini key:', err)
+      alert('Error saving API Key')
+    } finally {
+      setIsSavingKey(false)
+    }
+  }
 
   const toggleSetting = async (setting: PrivacySetting) => {
     if (pendingPrivacy.includes(setting.contextType)) {
@@ -254,14 +292,25 @@ export function SettingsPage() {
                 <p className="text-xs text-gray-500 mt-1">Managed by platform (read-only)</p>
               </div>
               <div>
-                <label className="text-sm font-medium mb-2 block">LLM API Key</label>
-                <Input 
-                  type="password" 
-                  value="sk-•••••••••••••••••••" 
-                  disabled
-                  className="bg-gray-900 text-gray-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">Managed by platform (masked)</p>
+                <label className="text-sm font-medium mb-2 block">Google Gemini API Key</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="password"
+                    value={geminiKey}
+                    onChange={(e) => setGeminiKey(e.target.value)}
+                    placeholder={geminiKeySaved ? "Key is set (enter new to update)" : "Enter your Google Cloud API Key"}
+                    className="bg-gray-900 text-white"
+                  />
+                  <Button
+                    onClick={saveGeminiKey}
+                    disabled={isSavingKey || !geminiKey}
+                  >
+                    {isSavingKey ? 'Saving...' : 'Save'}
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Used for text embedding. {geminiKeySaved ? <span className="text-green-500 font-medium">✓ Key is currently configured.</span> : <span className="text-yellow-500">⚠️ Key is not set.</span>}
+                </p>
               </div>
             </CardContent>
           </Card>

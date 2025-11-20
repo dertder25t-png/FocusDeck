@@ -514,6 +514,9 @@ namespace FocusDeck.Persistence.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("VectorizationState")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("Id");
 
                     b.ToTable("ContextSnapshots", (string)null);

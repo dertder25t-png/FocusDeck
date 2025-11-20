@@ -14,6 +14,16 @@ namespace FocusDeck.Services.Context
 
         public Task<float[]> GenerateEmbeddingAsync(string inputText)
         {
+            return Task.FromResult(GenerateEmbeddingInternal(inputText));
+        }
+
+        public Task<List<float[]>> GenerateBatchEmbeddingsAsync(IEnumerable<string> inputs)
+        {
+            return Task.FromResult(inputs.Select(GenerateEmbeddingInternal).ToList());
+        }
+
+        private float[] GenerateEmbeddingInternal(string inputText)
+        {
             // Deterministic stub: hash input to seed a random generator
             // This ensures the same text gets the same vector (useful for testing)
             using var sha256 = SHA256.Create();
@@ -39,7 +49,7 @@ namespace FocusDeck.Services.Context
                 }
             }
 
-            return Task.FromResult(vector);
+            return vector;
         }
     }
 }

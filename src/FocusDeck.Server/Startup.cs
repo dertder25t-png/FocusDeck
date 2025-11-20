@@ -218,9 +218,11 @@ public sealed class Startup
         // Transcription & TextGen
         services.AddSingleton<FocusDeck.Server.Services.Transcription.IWhisperAdapter, FocusDeck.Server.Services.Transcription.StubWhisperAdapter>();
         services.AddSingleton<FocusDeck.Server.Services.TextGeneration.ITextGen, FocusDeck.Server.Services.TextGeneration.StubTextGen>();
+        services.AddScoped<FocusDeck.Contracts.Services.Context.IEmbeddingGenerationService, FocusDeck.Server.Services.Context.GeminiEmbeddingService>();
 
         // Jobs
         services.AddHostedService<AutomationEngine>();
+        services.AddScoped<VectorizePendingSnapshotsJob>();
 
         // Version service
         services.AddSingleton<VersionService>();
@@ -530,6 +532,11 @@ public sealed class Startup
                 "burnout-check-job",
                 job => job.ExecuteAsync(CancellationToken.None),
                 "0 */2 * * *");
+
+            RecurringJob.AddOrUpdate<VectorizePendingSnapshotsJob>(
+                "vectorize-pending-snapshots",
+                job => job.ExecuteAsync(CancellationToken.None),
+                "*/1 * * * *"); // Run every minute
         }
 
         app.UseEndpoints(endpoints =>
