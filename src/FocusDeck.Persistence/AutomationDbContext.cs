@@ -42,6 +42,7 @@ public class AutomationDbContext : DbContext
     }
     public DbSet<ConnectedService> ConnectedServices { get; set; }
     public DbSet<Automation> Automations { get; set; }
+    public DbSet<AutomationProposal> AutomationProposals { get; set; }
     public DbSet<AutomationExecution> AutomationExecutions { get; set; }
     public DbSet<ServiceConfiguration> ServiceConfigurations { get; set; }
     public DbSet<Note> Notes { get; set; }

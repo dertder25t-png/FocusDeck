@@ -256,6 +256,7 @@ public sealed class Startup
 
         // Jarvis workflow registry
         services.AddScoped<IJarvisWorkflowRegistry, JarvisWorkflowRegistry>();
+        services.AddScoped<FocusDeck.Server.Services.Jarvis.IAutomationGeneratorService, FocusDeck.Server.Services.Jarvis.AutomationGeneratorService>();
         services.AddScoped<ISuggestionService, SuggestionService>();
         services.AddScoped<IFeedbackService, FeedbackService>();
         services.AddHostedService<ImplicitFeedbackMonitor>();
@@ -266,6 +267,7 @@ public sealed class Startup
         services.AddScoped<IJarvisActionDispatcher, JarvisActionDispatcher>();
         services.AddScoped<IJarvisActionHandler, NoOpActionHandler>();
         services.AddScoped<IJarvisRunJob, JarvisRunJob>();
+        services.AddScoped<FocusDeck.Server.Jobs.Jarvis.PatternRecognitionJob>();
 
         // Hangfire
         var hangfireConnection = _configuration.GetConnectionString("HangfireConnection")
@@ -538,6 +540,11 @@ public sealed class Startup
                 "vectorize-pending-snapshots",
                 job => job.ExecuteAsync(CancellationToken.None),
                 "*/1 * * * *"); // Run every minute
+
+            RecurringJob.AddOrUpdate<FocusDeck.Server.Jobs.Jarvis.PatternRecognitionJob>(
+                "pattern-recognition-job",
+                job => job.ExecuteAsync(CancellationToken.None),
+                "0 * * * *"); // Run every hour
         }
 
         app.UseEndpoints(endpoints =>
