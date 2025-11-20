@@ -81,7 +81,7 @@ namespace FocusDeck.Server.Controllers.v1.Jarvis
                 // Trigger/Actions are properties. AutomationDbContext likely maps them to JSON strings?
                 // If mapped, we need to populate them or they will be null.
                 // Let's parse basic info or initialize empty defaults.
-                Trigger = new FocusDeck.Domain.Entities.Automations.AutomationTrigger { Type = "yaml_managed", Configuration = "{}" },
+                Trigger = new FocusDeck.Domain.Entities.Automations.AutomationTrigger { TriggerType = "yaml_managed", Settings = new Dictionary<string, string>() },
                 Actions = new System.Collections.Generic.List<FocusDeck.Domain.Entities.Automations.AutomationAction>()
             };
 

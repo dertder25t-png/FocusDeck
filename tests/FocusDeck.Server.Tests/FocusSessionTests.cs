@@ -94,6 +94,7 @@ public class FocusSessionTests : IDisposable
         public Task AutomationExecuted(string automationId, bool success, string message) => Task.CompletedTask;
         public Task JobCompleted(string jobId, string jobType, bool success, string message, object? result) => Task.CompletedTask;
         public Task JobProgress(string jobId, string jobType, int progressPercent, string message) => Task.CompletedTask;
+        public Task ReceiveNotification(string title, string message, string severity) => Task.CompletedTask;
         public Task NotificationReceived(string title, string message, string severity) => Task.CompletedTask;
         public Task LectureTranscribed(string lectureId, string transcriptionText, string message) => Task.CompletedTask;
         public Task LectureSummarized(string lectureId, string summaryText, string message) => Task.CompletedTask;

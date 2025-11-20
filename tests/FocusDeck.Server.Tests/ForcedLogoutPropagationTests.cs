@@ -28,6 +28,7 @@ public class ForcedLogoutPropagationTests
         public Task LectureNoteReady(string lectureId, string noteId, string message) => Task.CompletedTask;
         public Task LectureSummarized(string lectureId, string summaryText, string message) => Task.CompletedTask;
         public Task LectureTranscribed(string lectureId, string transcriptionText, string message) => Task.CompletedTask;
+        public Task ReceiveNotification(string title, string message, string severity) => Task.CompletedTask;
         public Task NotificationReceived(string title, string message, string severity) => Task.CompletedTask;
         public Task NoteSuggestionReady(string noteId, string suggestionId, string type, string content) => Task.CompletedTask;
         public Task RemoteActionCreated(string ActionId, string Kind, object Payload) => Task.CompletedTask;

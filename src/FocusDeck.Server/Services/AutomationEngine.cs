@@ -77,11 +77,11 @@ namespace FocusDeck.Server.Services
                     // If Trigger.Type == "yaml_managed", we need to parse YamlDefinition to check trigger logic
 
                     bool triggered = false;
-                    if (automation.Trigger?.Type == "yaml_managed")
+                    if (automation.Trigger != null && automation.Trigger.TriggerType == "yaml_managed")
                     {
                         triggered = EvaluateYamlTrigger(automation.YamlDefinition, snapshot);
                     }
-                    else
+                    else if (automation.Trigger != null)
                     {
                         // Legacy/Standard trigger check
                         triggered = await ShouldTrigger(automation.Trigger, automation.LastRunAt);

@@ -202,4 +202,9 @@ public interface INotificationClient : INotificationClientContract
     /// </summary>
     Task ContextUpdated(FocusDeck.Services.Activity.ActivityState state);
 
+    /// <summary>
+    /// Notify client of a new notification (general purpose)
+    /// </summary>
+    Task NotificationReceived(string title, string message, string severity);
+
 }

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { width: 300px; font-family: sans-serif; padding: 10px; }
+    label { display: block; margin-top: 10px; }
+    input, select, button { width: 100%; margin-top: 5px; box-sizing: border-box; }
+    button { margin-top: 15px; padding: 8px; background: #007bff; color: white; border: none; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    .status { margin-top: 10px; color: green; font-size: 0.9em; }
+    .error { color: red; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h3>FocusDeck Bridge</h3>
+
+  <label for="serverUrl">Server URL</label>
+  <input type="text" id="serverUrl" placeholder="http://localhost:5000">
+
+  <label for="apiKey">API Key (Optional)</label>
+  <input type="password" id="apiKey" placeholder="Bearer token">
+
+  <label for="projectSelect">Active Project</label>
+  <select id="projectSelect">
+    <option value="">Select Project...</option>
+  </select>
+  <button id="refreshProjects">Refresh Projects</button>
+
+  <hr>
+
+  <button id="capturePage">Capture Page</button>
+  <button id="snapshotTabs">Snapshot Open Tabs</button>
+
+  <div id="status" class="status"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

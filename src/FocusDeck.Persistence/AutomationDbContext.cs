@@ -53,6 +53,7 @@ public class AutomationDbContext : DbContext
     public DbSet<Lecture> Lectures { get; set; }
     public DbSet<ReviewPlan> ReviewPlans { get; set; }
     public DbSet<ReviewSession> ReviewSessions { get; set; }
+    public DbSet<TodoItem> TodoItems { get; set; }
 
     // Sync tables
     public DbSet<DeviceRegistration> DeviceRegistrations { get; set; }
@@ -81,6 +82,10 @@ public class AutomationDbContext : DbContext
     // Design projects
     public DbSet<DesignProject> DesignProjects { get; set; }
     public DbSet<DesignIdea> DesignIdeas { get; set; }
+
+    // Browser Bridge & Memory Vault
+    public DbSet<Project> Projects { get; set; }
+    public DbSet<CapturedItem> CapturedItems { get; set; }
 
     // Context aggregation snapshots
     public DbSet<FocusDeck.Domain.Entities.StudentContext> StudentContexts { get; set; }
@@ -128,6 +133,12 @@ public class AutomationDbContext : DbContext
             .WithMany()
             .HasForeignKey(v => v.SnapshotId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CapturedItem>()
+            .HasOne(c => c.Project)
+            .WithMany()
+            .HasForeignKey(c => c.ProjectId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         if (Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true)
         {
