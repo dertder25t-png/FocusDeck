@@ -120,6 +120,8 @@ public class FocusSessionTests : IDisposable
         public Task RemoteTelemetry(TelemetryUpdate payload) => Task.CompletedTask;
         public Task ForceLogout(ForceLogoutMessage payload) => Task.CompletedTask;
         public Task JarvisRunUpdated(JarvisRunUpdate payload) => Task.CompletedTask;
+
+        public Task ReceiveNotification(string title, string message, string severity) => Task.CompletedTask;
     }
 
     [Fact]

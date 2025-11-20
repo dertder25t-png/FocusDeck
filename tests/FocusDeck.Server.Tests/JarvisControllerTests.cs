@@ -33,8 +33,15 @@ public class JarvisControllerTests
             .AddInMemoryCollection(configDict!)
             .Build();
 
-        var controller = new JarvisController(registry, NullLogger<JarvisController>.Instance, configuration,
-            new StubSuggestionService(), new StubFeedbackService())
+        var controller = new JarvisController(
+            registry,
+            NullLogger<JarvisController>.Instance,
+            configuration,
+            new StubSuggestionService(),
+            new StubFeedbackService(),
+            new StubContextRetrievalService(),
+            new AutomationDbContext(new DbContextOptionsBuilder<AutomationDbContext>().UseInMemoryDatabase("JarvisControllerTests").Options),
+            new StubCurrentTenant())
         {
             ControllerContext = new ControllerContext
             {
@@ -185,6 +192,8 @@ file sealed class FakeNotificationClient : INotificationClient
         LastRun = payload;
         return Task.CompletedTask;
     }
+
+    public Task ReceiveNotification(string title, string message, string severity) => Task.CompletedTask;
 }
 
 file sealed class FakeHubClients : IHubClients<INotificationClient>
@@ -225,3 +234,28 @@ file sealed class StubJarvisWorkflowRegistry : IJarvisWorkflowRegistry
     public Task<JarvisRunStatusDto?> GetRunStatusAsync(Guid runId, CancellationToken cancellationToken = default)
         => Task.FromResult<JarvisRunStatusDto?>(new JarvisRunStatusDto(runId, "Pending", null));
 }
+
+file sealed class StubContextRetrievalService : FocusDeck.Contracts.Services.Context.IContextRetrievalService
+{
+    public Task<IEnumerable<FocusDeck.Contracts.DTOs.ContextSnapshotDto>> RetrieveRelatedMomentsAsync(string query, int limit, float minRelevance, CancellationToken cancellationToken = default)
+        => Task.FromResult(Enumerable.Empty<FocusDeck.Contracts.DTOs.ContextSnapshotDto>());
+
+    public Task<IEnumerable<FocusDeck.Contracts.DTOs.ContextSnapshotDto>> RetrieveRecentSnapshotsAsync(int limit, CancellationToken cancellationToken = default)
+        => Task.FromResult(Enumerable.Empty<FocusDeck.Contracts.DTOs.ContextSnapshotDto>());
+
+    public Task<FocusDeck.Contracts.DTOs.ContextSnapshotDto?> GetSnapshotAsync(Guid id, CancellationToken cancellationToken = default)
+        => Task.FromResult<FocusDeck.Contracts.DTOs.ContextSnapshotDto?>(null);
+
+    public Task<List<FocusDeck.Domain.Entities.Context.ContextSnapshot>> GetSimilarMomentsAsync(FocusDeck.Domain.Entities.Context.ContextSnapshot current)
+        => Task.FromResult(new List<FocusDeck.Domain.Entities.Context.ContextSnapshot>());
+}
+
+file sealed class StubCurrentTenant : FocusDeck.SharedKernel.Tenancy.ICurrentTenant
+{
+    public Guid? TenantId => Guid.Empty;
+    public bool HasTenant => false;
+    public IDisposable Change(Guid? tenantId) => new StubDisposable();
+    public void SetTenant(Guid tenantId) { }
+}
+
+file sealed class StubDisposable : IDisposable { public void Dispose() {} }

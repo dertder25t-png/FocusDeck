@@ -41,6 +41,8 @@ public class ForcedLogoutPropagationTests
             return Task.CompletedTask;
         }
         public Task JarvisRunUpdated(JarvisRunUpdate payload) => Task.CompletedTask;
+
+        public Task ReceiveNotification(string title, string message, string severity) => Task.CompletedTask;
     }
 
     private sealed class FakeHubClients : IHubClients<INotificationClient>

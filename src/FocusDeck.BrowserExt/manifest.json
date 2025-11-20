@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "FocusDeck Browser Bridge",
+  "version": "1.0",
+  "description": "Bridge your browser context to FocusDeck.",
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "storage",
+    "scripting",
+    "contextMenus"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "FocusDeck Bridge"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "commands": {
+      "capture_page": {
+        "suggested_key": {
+          "default": "Ctrl+Shift+Y",
+          "mac": "Command+Shift+Y"
+        },
+        "description": "Capture current page to FocusDeck"
+      }
+    }
+}

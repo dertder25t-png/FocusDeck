@@ -151,6 +151,11 @@ public interface INotificationClient : INotificationClientContract
     /// General notification message
     /// </summary>
     Task ReceiveNotification(string title, string message, string severity);
+
+    /// <summary>
+    /// Legacy method alias for backward compatibility
+    /// </summary>
+    Task NotificationReceived(string title, string message, string severity);
     
     /// <summary>
     /// Notify client when lecture transcription is complete
