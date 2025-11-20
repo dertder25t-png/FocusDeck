@@ -245,6 +245,7 @@ public sealed class Startup
         services.AddScoped<IContextSnapshotRepository, EfContextSnapshotRepository>();
         services.AddScoped<IActivitySignalRepository, FocusDeck.Persistence.Repositories.EfActivitySignalRepository>();
         // Context snapshot infrastructure
+        services.AddScoped<FocusDeck.Contracts.Services.Context.IContextRetrievalService, FocusDeck.Server.Services.Context.ContextRetrievalService>();
         services.AddScoped<IContextSnapshotService, ContextSnapshotService>();
         services.AddScoped<IContextSnapshotSource, DesktopActiveWindowSource>();
         services.AddScoped<IContextSnapshotSource, GoogleCalendarSource>();

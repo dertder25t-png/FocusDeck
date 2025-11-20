@@ -3,6 +3,7 @@ using FocusDeck.Contracts.DTOs;
 using FocusDeck.Server.Services.Jarvis;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 namespace FocusDeck.Server.Controllers.v1;
@@ -26,19 +27,28 @@ public sealed class JarvisController : ControllerBase
     private readonly bool _isEnabled;
     private readonly ISuggestionService _suggestionService;
     private readonly IFeedbackService _feedbackService;
+    private readonly FocusDeck.Contracts.Services.Context.IContextRetrievalService _retrievalService;
+    private readonly FocusDeck.Persistence.AutomationDbContext _dbContext;
+    private readonly FocusDeck.SharedKernel.Tenancy.ICurrentTenant _currentTenant;
 
     public JarvisController(
         IJarvisWorkflowRegistry registry,
         ILogger<JarvisController> logger,
         IConfiguration configuration,
         ISuggestionService suggestionService,
-        IFeedbackService feedbackService)
+        IFeedbackService feedbackService,
+        FocusDeck.Contracts.Services.Context.IContextRetrievalService retrievalService,
+        FocusDeck.Persistence.AutomationDbContext dbContext,
+        FocusDeck.SharedKernel.Tenancy.ICurrentTenant currentTenant)
     {
         _registry = registry;
         _logger = logger;
         _isEnabled = configuration.GetValue<bool>("Features:Jarvis", false);
         _suggestionService = suggestionService;
         _feedbackService = feedbackService;
+        _retrievalService = retrievalService;
+        _dbContext = dbContext;
+        _currentTenant = currentTenant;
     }
 
     /// <summary>
@@ -152,5 +162,33 @@ public sealed class JarvisController : ControllerBase
 
         await _feedbackService.ProcessFeedbackAsync(request);
         return Accepted();
+    }
+
+    /// <summary>
+    /// Retrieves similar past moments based on the user's most recent context snapshot.
+    /// </summary>
+    [HttpGet("suggest-moments")]
+    public async Task<ActionResult<IEnumerable<FocusDeck.Domain.Entities.Context.ContextSnapshot>>> GetSimilarMoments()
+    {
+        if (!_isEnabled)
+        {
+            return NotFound(new { error = "Jarvis feature is disabled." });
+        }
+
+        // Fetch the latest snapshot for the current user/tenant
+        // We need to perform this query manually as we don't have the full snapshot object in the request
+        var latestSnapshot = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+            _dbContext.ContextSnapshots
+                .Include(s => s.Slices)
+                .Include(s => s.Metadata)
+                .OrderByDescending(s => s.Timestamp));
+
+        if (latestSnapshot == null)
+        {
+            return NotFound(new { error = "No context history found to generate suggestions from." });
+        }
+
+        var similarMoments = await _retrievalService.GetSimilarMomentsAsync(latestSnapshot);
+        return Ok(similarMoments);
     }
 }

@@ -20,5 +20,10 @@ namespace FocusDeck.Server.Services
             _logger.LogInformation("Vectorizing and storing snapshot {SnapshotId}", snapshotId);
             return Task.CompletedTask;
         }
+
+        public Task<System.Collections.Generic.List<FocusDeck.Domain.Entities.Context.ContextSnapshot>> GetNearestNeighborsAsync(float[] queryVector, int limit = 5)
+        {
+            return Task.FromResult(new System.Collections.Generic.List<FocusDeck.Domain.Entities.Context.ContextSnapshot>());
+        }
     }
 }
