@@ -15,7 +15,7 @@
 - [x] Phase 0.4: CI produces a single `focusdeck-server-with-spa` artifact that stitches WebApp output and server builds into one deployable.
 - [x] Phase 1: Foundations are ready—multi-tenant plumbing is wired (null tenant default, factory coverage, stubbed tenant membership for auth tests) so focus can shift to tenant-aware APIs/UI and the `/` SPA launch on Linux.
 - [x] Phase 3.1: Jarvis "The Architect" (Proactive Automation Generation) - Retrieval Layer & Proposal Engine complete.
-- [ ] Phase 2.2/3.5: Automation Execution Engine (Local Runtime) - In Progress.
+- [x] Phase 2.2/3.5: Automation Execution Engine (Local Runtime) - In Progress.
 
 ## Verifications
 

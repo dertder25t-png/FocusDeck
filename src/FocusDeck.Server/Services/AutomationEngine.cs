@@ -2,11 +2,11 @@ using FocusDeck.Domain.Entities.Automations;
 using FocusDeck.Domain.Entities.Context;
 using FocusDeck.Persistence;
 using FocusDeck.Server.Hubs;
+using FocusDeck.Server.Services.Automations;
 using FocusDeck.Server.Services.Context;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
-using System.Text.RegularExpressions;
 
 namespace FocusDeck.Server.Services
 {
@@ -20,6 +20,7 @@ namespace FocusDeck.Server.Services
         private readonly ActionExecutor _actionExecutor;
         private readonly IContextEventBus _eventBus;
         private readonly IHubContext<NotificationsHub, INotificationClient> _hubContext;
+        private readonly IYamlAutomationLoader _yamlLoader;
         private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(1);
 
         // Cache for active automations
@@ -30,13 +31,15 @@ namespace FocusDeck.Server.Services
             ILogger<AutomationEngine> logger,
             ActionExecutor actionExecutor,
             IContextEventBus eventBus,
-            IHubContext<NotificationsHub, INotificationClient> hubContext)
+            IHubContext<NotificationsHub, INotificationClient> hubContext,
+            IYamlAutomationLoader yamlLoader)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
             _actionExecutor = actionExecutor;
             _eventBus = eventBus;
             _hubContext = hubContext;
+            _yamlLoader = yamlLoader;
 
             _eventBus.OnContextSnapshotCreated += HandleContextSnapshot;
         }
@@ -51,16 +54,32 @@ namespace FocusDeck.Server.Services
         {
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
-            _activeAutomations = await db.Automations
+            var automations = await db.Automations
                 .Where(a => a.IsEnabled)
                 .ToListAsync();
+
+            // Re-parse YAML for consistency
+            foreach (var automation in automations)
+            {
+                if (!string.IsNullOrWhiteSpace(automation.YamlDefinition))
+                {
+                    try
+                    {
+                        _yamlLoader.UpdateAutomationFromYaml(automation, automation.YamlDefinition);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to parse YAML for automation {Id}", automation.Id);
+                    }
+                }
+            }
+
+            _activeAutomations = automations;
             _logger.LogInformation("Loaded {Count} active automations.", _activeAutomations.Count);
         }
 
         private async Task HandleContextSnapshot(ContextSnapshot snapshot)
         {
-            _logger.LogInformation("Processing snapshot for automations: {SnapshotId}", snapshot.Id);
-
             // We need to iterate over a copy to avoid thread safety issues if reloading
             var automations = _activeAutomations.ToList();
 
@@ -71,21 +90,7 @@ namespace FocusDeck.Server.Services
             {
                 try
                 {
-                    // Parse YAML if needed to check triggers
-                    // For MVP, we assume Trigger object is populated or we parse YAML here
-                    // Currently, Trigger property is populated, but let's ensure we use YamlDefinition if Trigger is generic
-                    // If Trigger.Type == "yaml_managed", we need to parse YamlDefinition to check trigger logic
-
-                    bool triggered = false;
-                    if (automation.Trigger != null && automation.Trigger.Type == "yaml_managed")
-                    {
-                        triggered = EvaluateYamlTrigger(automation.YamlDefinition, snapshot);
-                    }
-                    else
-                    {
-                        // Legacy/Standard trigger check
-                        triggered = await ShouldTrigger(automation.Trigger, automation.LastRunAt);
-                    }
+                    bool triggered = EvaluateTrigger(automation, snapshot);
 
                     if (triggered)
                     {
@@ -100,53 +105,43 @@ namespace FocusDeck.Server.Services
             }
         }
 
-        private bool EvaluateYamlTrigger(string yaml, ContextSnapshot snapshot)
+        private bool EvaluateTrigger(Automation automation, ContextSnapshot snapshot)
         {
-            if (string.IsNullOrWhiteSpace(yaml)) return false;
+            if (automation.Trigger == null) return false;
 
-            // Parse YAML using rudimentary regex for MVP to avoid dependencies for now.
-            // Structure:
-            // Trigger:
-            //   AppOpen: "VS Code"
-
-            // Check for AppOpen
-            if (yaml.Contains("AppOpen:", StringComparison.OrdinalIgnoreCase))
+            if (automation.Trigger.Type == "AppOpen" || automation.Trigger.TriggerType == "AppOpen")
             {
-                var match = Regex.Match(yaml, @"AppOpen:\s*""?([^""\n]+)""?");
-                if (match.Success)
+                var targetApp = automation.Trigger.Settings.GetValueOrDefault("app")
+                                ?? automation.Trigger.Settings.GetValueOrDefault("name");
+
+                if (string.IsNullOrEmpty(targetApp)) return false;
+
+                var windowSlice = snapshot.Slices.FirstOrDefault(s => s.SourceType == ContextSourceType.DesktopActiveWindow);
+                if (windowSlice != null && windowSlice.Data != null)
                 {
-                    var targetApp = match.Groups[1].Value.Trim();
+                     try
+                     {
+                         var appName = windowSlice.Data["App"]?.ToString() ??
+                                       windowSlice.Data["ActiveApplication"]?.ToString() ??
+                                       windowSlice.Data["Application"]?.ToString();
 
-                    // Check active window slice
-                    var windowSlice = snapshot.Slices.FirstOrDefault(s => s.SourceType == ContextSourceType.DesktopActiveWindow);
-                    if (windowSlice != null && windowSlice.Data != null)
-                    {
-                         try
+                         if (!string.IsNullOrEmpty(appName) && appName.Contains(targetApp, StringComparison.OrdinalIgnoreCase))
                          {
-                             // Try multiple property names since JSON serialization/schema might vary
-                             var appName = windowSlice.Data["App"]?.ToString() ??
-                                           windowSlice.Data["ActiveApplication"]?.ToString() ??
-                                           windowSlice.Data["Application"]?.ToString();
-
-                             if (!string.IsNullOrEmpty(appName) && appName.Contains(targetApp, StringComparison.OrdinalIgnoreCase))
-                             {
-                                 return true;
-                             }
-
-                             // Also check Title if App doesn't match or isn't present
-                             var title = windowSlice.Data["Title"]?.ToString() ??
-                                         windowSlice.Data["ActiveWindowTitle"]?.ToString();
-
-                             if (!string.IsNullOrEmpty(title) && title.Contains(targetApp, StringComparison.OrdinalIgnoreCase))
-                             {
-                                 return true;
-                             }
+                             return true;
                          }
-                         catch (Exception ex)
+
+                         var title = windowSlice.Data["Title"]?.ToString() ??
+                                     windowSlice.Data["ActiveWindowTitle"]?.ToString();
+
+                         if (!string.IsNullOrEmpty(title) && title.Contains(targetApp, StringComparison.OrdinalIgnoreCase))
                          {
-                             _logger.LogWarning(ex, "Failed to parse window slice data during trigger evaluation.");
+                             return true;
                          }
-                    }
+                     }
+                     catch (Exception ex)
+                     {
+                         _logger.LogWarning(ex, "Failed to parse window slice data during trigger evaluation.");
+                     }
                 }
             }
 
@@ -159,12 +154,8 @@ namespace FocusDeck.Server.Services
 
             while (!stoppingToken.IsCancellationRequested)
             {
-                // Periodically reload automations
                 await ReloadAutomations();
-
-                // Also run time-based checks
                 await CheckAndExecuteAutomations(stoppingToken);
-
                 await Task.Delay(_checkInterval, stoppingToken);
             }
 
@@ -175,21 +166,24 @@ namespace FocusDeck.Server.Services
         {
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
-
-            // Use cached list instead of querying again, but we need to be thread safe or just query for safety.
-            // For reliability, let's query active automations or use the cached list if we trust it.
-            // Let's use the cache for performance as requested in requirements ("hold all active automations in memory").
             var automations = _activeAutomations.ToList();
 
             foreach (var automation in automations)
             {
                 try
                 {
-                    // Check time-based triggers only here
-                    if (automation.Trigger.TriggerType == TriggerTypes.AtSpecificTime ||
-                        automation.Trigger.TriggerType == TriggerTypes.RecurringInterval)
+                    // Check time-based triggers
+                    if (automation.Trigger?.Type == "Time" || automation.Trigger?.TriggerType == TriggerTypes.AtSpecificTime)
                     {
-                        if (await ShouldTrigger(automation.Trigger, automation.LastRunAt))
+                        if (await CheckTimeTrigger(automation.Trigger, automation.LastRunAt))
+                        {
+                            _logger.LogInformation("Triggering automation: {Name} (ID: {Id})", automation.Name, automation.Id);
+                            await ExecuteAutomation(automation, db);
+                        }
+                    }
+                    else if (automation.Trigger?.Type == "Interval" || automation.Trigger?.TriggerType == TriggerTypes.RecurringInterval)
+                    {
+                        if (await CheckIntervalTrigger(automation.Trigger, automation.LastRunAt))
                         {
                             _logger.LogInformation("Triggering automation: {Name} (ID: {Id})", automation.Name, automation.Id);
                             await ExecuteAutomation(automation, db);
@@ -203,20 +197,6 @@ namespace FocusDeck.Server.Services
             }
         }
 
-        private async Task<bool> ShouldTrigger(AutomationTrigger? trigger, DateTime? lastRunAt)
-        {
-            if (trigger == null) return false;
-
-            return trigger.TriggerType switch
-            {
-                TriggerTypes.AtSpecificTime => await CheckTimeTrigger(trigger, lastRunAt),
-                TriggerTypes.RecurringInterval => await CheckIntervalTrigger(trigger, lastRunAt),
-                TriggerTypes.UserIdle => await CheckIdleTrigger(trigger),
-                TriggerTypes.FileChanged => await CheckFileTrigger(trigger),
-                _ => false
-            };
-        }
-
         private async Task<bool> CheckTimeTrigger(AutomationTrigger trigger, DateTime? lastRunAt)
         {
             if (!trigger.Settings.TryGetValue("time", out var timeStr))
@@ -226,10 +206,8 @@ namespace FocusDeck.Server.Services
                 return false;
 
             var now = DateTime.Now.TimeOfDay;
-            // Check if we're within 1 minute of target time
             var diff = Math.Abs((now - targetTime).TotalMinutes);
             
-            // Only trigger if within window and hasn't run in the last 2 minutes
             var canRun = diff < 1;
             if (canRun && lastRunAt.HasValue)
             {
@@ -249,22 +227,10 @@ namespace FocusDeck.Server.Services
                 return false;
 
             if (!lastRunAt.HasValue)
-                return true; // Never run before, trigger it
+                return true;
 
             var timeSinceLastRun = DateTime.UtcNow - lastRunAt.Value;
             return await Task.FromResult(timeSinceLastRun.TotalMinutes >= minutes);
-        }
-
-        private async Task<bool> CheckIdleTrigger(AutomationTrigger trigger)
-        {
-            // TODO: Implement system idle time checking
-            return await Task.FromResult(false);
-        }
-
-        private async Task<bool> CheckFileTrigger(AutomationTrigger trigger)
-        {
-            // TODO: Implement FileSystemWatcher integration
-            return await Task.FromResult(false);
         }
 
         private async Task ExecuteAutomation(Automation automation, AutomationDbContext db)
@@ -275,6 +241,13 @@ namespace FocusDeck.Server.Services
 
             try
             {
+                // Attach the automation to the current context if it's detached
+                // This ensures changes to LastRunAt are persisted
+                if (db.Entry(automation).State == EntityState.Detached)
+                {
+                    db.Automations.Attach(automation);
+                }
+
                 foreach (var action in automation.Actions)
                 {
                     try
@@ -286,11 +259,10 @@ namespace FocusDeck.Server.Services
                         _logger.LogError(ex, "Error executing action {ActionType}", action.ActionType);
                         success = false;
                         errorMessage = ex.Message;
-                        break; // Stop executing remaining actions
+                        break;
                     }
                 }
 
-                // Update last run time
                 automation.LastRunAt = DateTime.UtcNow;
                 automation.UpdatedAt = DateTime.UtcNow;
                 await db.SaveChangesAsync();
@@ -307,7 +279,6 @@ namespace FocusDeck.Server.Services
             {
                 stopwatch.Stop();
 
-                // Log execution to database
                 var execution = new AutomationExecution
                 {
                     AutomationId = automation.Id,
@@ -320,9 +291,6 @@ namespace FocusDeck.Server.Services
 
                 db.AutomationExecutions.Add(execution);
                 await db.SaveChangesAsync();
-
-                _logger.LogInformation("Automation execution logged: {Name} - Success: {Success}, Duration: {Duration}ms",
-                    automation.Name, success, stopwatch.ElapsedMilliseconds);
             }
         }
 

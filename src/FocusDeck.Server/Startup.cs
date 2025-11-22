@@ -10,9 +10,10 @@ using FocusDeck.Server.Hubs;
 using FocusDeck.Server.Jobs;
 using FocusDeck.Server.Middleware;
 using FocusDeck.Server.Services;
+using FocusDeck.Server.Services.Automations;
 using FocusDeck.Server.Services.Auditing;
-using FocusDeck.Server.Configuration;
 using FocusDeck.Server.Services.Auth;
+using FocusDeck.Server.Configuration;
 using FocusDeck.Server.Services.Burnout;
 using FocusDeck.Server.Services.Privacy;
 using FocusDeck.Server.Services.Jarvis;
@@ -220,8 +221,12 @@ public sealed class Startup
         services.AddSingleton<FocusDeck.Server.Services.TextGeneration.ITextGen, FocusDeck.Server.Services.TextGeneration.StubTextGen>();
         services.AddScoped<FocusDeck.Contracts.Services.Context.IEmbeddingGenerationService, FocusDeck.Server.Services.Context.GeminiEmbeddingService>();
 
-        // Jobs
+        // Automation
+        services.AddSingleton<IYamlAutomationLoader, YamlAutomationLoader>();
+        services.AddSingleton<ActionExecutor>();
         services.AddHostedService<AutomationEngine>();
+
+        // Jobs
         services.AddScoped<VectorizePendingSnapshotsJob>();
 
         // Version service
