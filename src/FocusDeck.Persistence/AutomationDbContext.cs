@@ -46,6 +46,9 @@ public class AutomationDbContext : DbContext
     public DbSet<AutomationExecution> AutomationExecutions { get; set; }
     public DbSet<ServiceConfiguration> ServiceConfigurations { get; set; }
     public DbSet<Note> Notes { get; set; }
+    public DbSet<CalendarSource> CalendarSources { get; set; }
+    public DbSet<EventCache> EventCache { get; set; }
+    public DbSet<CourseIndex> CourseIndex { get; set; }
     public DbSet<StudySession> StudySessions { get; set; }
     public DbSet<RefreshToken> RefreshTokens { get; set; }
     public DbSet<Asset> Assets { get; set; }
@@ -138,6 +141,12 @@ public class AutomationDbContext : DbContext
             .WithMany()
             .HasForeignKey(c => c.ProjectId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<EventCache>()
+            .HasOne(e => e.CalendarSource)
+            .WithMany()
+            .HasForeignKey(e => e.CalendarSourceId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         if (Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true)
         {
