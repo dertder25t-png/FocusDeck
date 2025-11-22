@@ -336,24 +336,9 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ---
 
-## Phase 2 — Observability + MCP Server/Gateway (Sprint 5)
+## Phase 2 — Observability + 
 
-**Goal:** Production-grade telemetry and the MCP tool plane so LLMs can safely call your app’s tools.
-
-### 2.1 Observability
-
-- [ ] OpenTelemetry traces → OTLP exporter (collector/Tempo/Jaeger)
-- [ ] Metrics → Prometheus (`/metrics`)
-- [ ] Serilog → OTLP/Seq sink
-- [ ] Minimal dashboards (RPS, 4xx/5xx, job failures)
-
-**Files**
-
-- `src/FocusDeck.Server/Program.cs`
-- `src/FocusDeck.Server/appsettings*.json`
-- `src/FocusDeck.Server/FocusDeck.Server.csproj`
-
-### 2.2 Native Automation Engine (YAML + Local Execution)
+### 2. Native Automation Engine (YAML + Local Execution)
 **Goal:** A Home Assistant-style automation engine where behaviors are defined in YAML and executed locally. This maximizes token efficiency (AI writes the YAML once; engine runs it forever) and privacy.
 
 - [ ] **Automation Core:**
