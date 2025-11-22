@@ -124,6 +124,10 @@ export function AutomationVisualBuilder({ initialYaml, onYamlChange }: VisualBui
     setActions([...actions, { type: 'focusdeck.ShowNotification', settings: { title: 'New Notification', message: 'Hello' } }])
   }
 
+  const addEmailAction = () => {
+    setActions([...actions, { type: 'email.Send', settings: { to: '', subject: '', body: '' } }])
+  }
+
   const removeAction = (index: number) => {
     const newActions = [...actions]
     newActions.splice(index, 1)
@@ -229,6 +233,9 @@ export function AutomationVisualBuilder({ initialYaml, onYamlChange }: VisualBui
                              <option value="focusdeck.PlaySound">Play Sound</option>
                              <option value="focusdeck.StartTimer">Start Timer</option>
                              <option value="general.OpenURL">Open Website</option>
+                             <option value="email.Send">Send Email</option>
+                             <option value="github.OpenBrowser">Open GitHub</option>
+                             <option value="storage.SaveFile">Save File</option>
                            </select>
                         </div>
 
@@ -270,17 +277,82 @@ export function AutomationVisualBuilder({ initialYaml, onYamlChange }: VisualBui
                                 />
                             </div>
                         )}
+                        {action.type === 'email.Send' && (
+                            <>
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">To</label>
+                                    <Input
+                                        value={action.settings['to'] || ''}
+                                        onChange={(e) => updateAction(idx, 'to', e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">Subject</label>
+                                    <Input
+                                        value={action.settings['subject'] || ''}
+                                        onChange={(e) => updateAction(idx, 'subject', e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">Body</label>
+                                    <Input
+                                        value={action.settings['body'] || ''}
+                                        onChange={(e) => updateAction(idx, 'body', e.target.value)}
+                                    />
+                                </div>
+                            </>
+                        )}
+                        {action.type === 'github.OpenBrowser' && (
+                            <div>
+                                <label className="block text-xs text-gray-500 mb-1">URL</label>
+                                <Input
+                                    value={action.settings['url'] || 'https://github.com'}
+                                    onChange={(e) => updateAction(idx, 'url', e.target.value)}
+                                />
+                            </div>
+                        )}
+                        {action.type === 'storage.SaveFile' && (
+                            <>
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">Provider</label>
+                                    <select
+                                        value={action.settings['provider'] || 'GoogleDrive'}
+                                        onChange={(e) => updateAction(idx, 'provider', e.target.value)}
+                                        className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm text-white focus:outline-none focus:border-primary"
+                                    >
+                                        <option value="GoogleDrive">Google Drive</option>
+                                        <option value="OneDrive">OneDrive</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">Path</label>
+                                    <Input
+                                        value={action.settings['path'] || '/'}
+                                        onChange={(e) => updateAction(idx, 'path', e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">Content</label>
+                                    <Input
+                                        value={action.settings['content'] || ''}
+                                        onChange={(e) => updateAction(idx, 'content', e.target.value)}
+                                    />
+                                </div>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
             ))}
         </div>
-        <Button
-            variant="outline"
-            className="w-full mt-3 border-dashed border-gray-700 hover:border-gray-500 text-gray-400"
-            onClick={addAction}
-        >
-            + Add Action
-        </Button>
+        <div className="flex gap-2 mt-3">
+            <Button
+                variant="outline"
+                className="flex-1 border-dashed border-gray-700 hover:border-gray-500 text-gray-400"
+                onClick={addAction}
+            >
+                + Add Action
+            </Button>
+        </div>
       </div>
     </div>
   )
