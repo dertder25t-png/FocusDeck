@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using FocusDeck.Domain.Entities.Automations;
 using FocusDeck.Persistence;
 using FocusDeck.Server.Services.Integrations;
 using Microsoft.AspNetCore.Authorization;
@@ -25,6 +26,101 @@ public class IntegrationsController : ControllerBase
         _logger = logger;
     }
 
+    /// <summary>
+    /// Lists all connected services for the current user.
+    /// </summary>
+    [HttpGet]
+    [Authorize]
+    public async Task<ActionResult<List<ConnectedServiceDto>>> GetIntegrations(CancellationToken ct)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        var services = await _db.ConnectedServices
+            .AsNoTracking()
+            .Where(s => s.UserId == userId)
+            .Select(s => new ConnectedServiceDto(
+                s.Id,
+                s.Service.ToString(),
+                s.IsConfigured,
+                s.ConnectedAt,
+                s.MetadataJson))
+            .ToListAsync(ct);
+
+        return Ok(services);
+    }
+
+    /// <summary>
+    /// Connects or updates an integration service manually (e.g. API Key).
+    /// </summary>
+    [HttpPost]
+    [Authorize]
+    public async Task<IActionResult> ConnectService([FromBody] ConnectServiceRequest request, CancellationToken ct)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        if (!Enum.TryParse<ServiceType>(request.ServiceType, true, out var serviceType))
+        {
+            return BadRequest(new { error = "Invalid service type" });
+        }
+
+        var existing = await _db.ConnectedServices
+            .FirstOrDefaultAsync(s => s.UserId == userId && s.Service == serviceType, ct);
+
+        if (existing != null)
+        {
+            // Update
+            existing.AccessToken = request.AccessToken ?? existing.AccessToken;
+            existing.RefreshToken = request.RefreshToken ?? existing.RefreshToken;
+            existing.MetadataJson = request.MetadataJson ?? existing.MetadataJson;
+            existing.ExpiresAt = request.ExpiresAt;
+            existing.IsConfigured = true; // Assuming if we are saving it, it's configured
+            existing.ConnectedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            // Create
+            var service = new ConnectedService
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Service = serviceType,
+                AccessToken = request.AccessToken ?? string.Empty,
+                RefreshToken = request.RefreshToken ?? string.Empty,
+                MetadataJson = request.MetadataJson,
+                ExpiresAt = request.ExpiresAt,
+                IsConfigured = true,
+                ConnectedAt = DateTime.UtcNow
+            };
+            _db.ConnectedServices.Add(service);
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return Ok();
+    }
+
+    /// <summary>
+    /// Removes a connected integration.
+    /// </summary>
+    [HttpDelete("{id}")]
+    [Authorize]
+    public async Task<IActionResult> DisconnectService(Guid id, CancellationToken ct)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        var svc = await _db.ConnectedServices
+            .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId, ct);
+
+        if (svc == null) return NotFound();
+
+        _db.ConnectedServices.Remove(svc);
+        await _db.SaveChangesAsync(ct);
+
+        return NoContent();
+    }
+
     [HttpPost("canvas/refresh")]
     [Authorize]
     public async Task<IActionResult> RefreshCanvas(CancellationToken ct)
@@ -34,7 +130,7 @@ public class IntegrationsController : ControllerBase
 
         // Try to find a ConnectedService for this user
         var svc = await _db.ConnectedServices.AsNoTracking()
-            .FirstOrDefaultAsync(s => s.UserId == userId && s.Service.ToString() == "Canvas", ct);
+            .FirstOrDefaultAsync(s => s.UserId == userId && s.Service == ServiceType.Canvas, ct);
 
         if (svc == null)
         {
@@ -74,5 +170,20 @@ public class IntegrationsController : ControllerBase
             return StatusCode(500, new { error = "Canvas refresh failed" });
         }
     }
-}
 
+    public record ConnectedServiceDto(
+        Guid Id,
+        string ServiceType,
+        bool IsConfigured,
+        DateTime ConnectedAt,
+        string? MetadataJson
+    );
+
+    public record ConnectServiceRequest(
+        string ServiceType,
+        string? AccessToken,
+        string? RefreshToken,
+        string? MetadataJson,
+        DateTime? ExpiresAt
+    );
+}

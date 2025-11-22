@@ -4,7 +4,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Asp.Versioning;
+using FocusDeck.Domain.Entities.Automations;
 using FocusDeck.Persistence;
+using FocusDeck.Server.Services.Automations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,10 +20,12 @@ namespace FocusDeck.Server.Controllers.v1
     public class AutomationsController : ControllerBase
     {
         private readonly AutomationDbContext _dbContext;
+        private readonly IYamlAutomationLoader _yamlLoader;
 
-        public AutomationsController(AutomationDbContext dbContext)
+        public AutomationsController(AutomationDbContext dbContext, IYamlAutomationLoader yamlLoader)
         {
             _dbContext = dbContext;
+            _yamlLoader = yamlLoader;
         }
 
         /// <summary>
@@ -38,10 +42,83 @@ namespace FocusDeck.Server.Controllers.v1
                     a.Name,
                     a.Description,
                     a.IsEnabled,
-                    a.LastRunAt))
+                    a.LastRunAt,
+                    a.YamlDefinition))
                 .ToListAsync(cancellationToken);
 
             return Ok(automations);
+        }
+
+        /// <summary>
+        /// Gets a specific automation by ID.
+        /// </summary>
+        [HttpGet("{id}")]
+        public async Task<ActionResult<AutomationDto>> GetAutomation(Guid id, CancellationToken cancellationToken)
+        {
+            var a = await _dbContext.Automations.FindAsync(new object[] { id }, cancellationToken);
+            if (a == null) return NotFound();
+
+            return Ok(new AutomationDto(a.Id, a.Name, a.Description, a.IsEnabled, a.LastRunAt, a.YamlDefinition));
+        }
+
+        /// <summary>
+        /// Creates a new automation.
+        /// </summary>
+        [HttpPost]
+        public async Task<ActionResult<AutomationDto>> CreateAutomation([FromBody] CreateAutomationRequest request, CancellationToken cancellationToken)
+        {
+            var automation = new Automation
+            {
+                Id = Guid.NewGuid(),
+                Name = request.Name,
+                Description = request.Description,
+                IsEnabled = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                YamlDefinition = request.YamlDefinition
+            };
+
+            try
+            {
+                _yamlLoader.UpdateAutomationFromYaml(automation, request.YamlDefinition);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = "Invalid YAML definition", details = ex.Message });
+            }
+
+            _dbContext.Automations.Add(automation);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            return CreatedAtAction(nameof(GetAutomation), new { id = automation.Id, version = "1" },
+                new AutomationDto(automation.Id, automation.Name, automation.Description, automation.IsEnabled, automation.LastRunAt, automation.YamlDefinition));
+        }
+
+        /// <summary>
+        /// Updates an existing automation.
+        /// </summary>
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateAutomation(Guid id, [FromBody] UpdateAutomationRequest request, CancellationToken cancellationToken)
+        {
+            var automation = await _dbContext.Automations.FindAsync(new object[] { id }, cancellationToken);
+            if (automation == null) return NotFound();
+
+            automation.Name = request.Name;
+            automation.Description = request.Description;
+            automation.YamlDefinition = request.YamlDefinition;
+            automation.UpdatedAt = DateTime.UtcNow;
+
+            try
+            {
+                _yamlLoader.UpdateAutomationFromYaml(automation, request.YamlDefinition);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = "Invalid YAML definition", details = ex.Message });
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return Ok(new AutomationDto(automation.Id, automation.Name, automation.Description, automation.IsEnabled, automation.LastRunAt, automation.YamlDefinition));
         }
 
         /// <summary>
@@ -81,6 +158,29 @@ namespace FocusDeck.Server.Controllers.v1
 
             return NoContent();
         }
+
+        /// <summary>
+        /// Gets execution history for an automation.
+        /// </summary>
+        [HttpGet("{id}/history")]
+        public async Task<ActionResult<List<AutomationExecutionDto>>> GetHistory(Guid id, CancellationToken cancellationToken)
+        {
+            var history = await _dbContext.AutomationExecutions
+                .AsNoTracking()
+                .Where(e => e.AutomationId == id)
+                .OrderByDescending(e => e.ExecutedAt)
+                .Take(50)
+                .Select(e => new AutomationExecutionDto(
+                    e.Id,
+                    e.ExecutedAt,
+                    e.Success,
+                    e.ErrorMessage,
+                    e.DurationMs,
+                    e.TriggerData))
+                .ToListAsync(cancellationToken);
+
+            return Ok(history);
+        }
     }
 
     public record AutomationDto(
@@ -88,6 +188,19 @@ namespace FocusDeck.Server.Controllers.v1
         string Name,
         string? Description,
         bool IsEnabled,
-        DateTime? LastRunAt
+        DateTime? LastRunAt,
+        string YamlDefinition
+    );
+
+    public record CreateAutomationRequest(string Name, string? Description, string YamlDefinition);
+    public record UpdateAutomationRequest(string Name, string? Description, string YamlDefinition);
+
+    public record AutomationExecutionDto(
+        int Id,
+        DateTime ExecutedAt,
+        bool Success,
+        string? ErrorMessage,
+        long DurationMs,
+        string? TriggerData
     );
 }

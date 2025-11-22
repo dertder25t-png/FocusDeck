@@ -1,0 +1,176 @@
+import { useState, useEffect } from 'react'
+import { Button } from '../components/Button'
+import { Input } from '../components/Input'
+import { AutomationVisualBuilder } from './AutomationVisualBuilder'
+
+interface AutomationEditorProps {
+  automationId?: string | null
+  onClose: () => void
+  onSaved: () => void
+}
+
+export function AutomationEditor({ automationId, onClose, onSaved }: AutomationEditorProps) {
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [yaml, setYaml] = useState('')
+  const [mode, setMode] = useState<'visual' | 'yaml'>('visual')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (automationId) {
+      loadAutomation(automationId)
+    } else {
+      // Default template
+      setYaml(`trigger:
+  type: Time
+  settings:
+    time: "09:00"
+
+actions:
+  - type: focusdeck.ShowNotification
+    settings:
+      title: "Good Morning"
+      message: "Time to focus!"`)
+    }
+  }, [automationId])
+
+  const loadAutomation = async (id: string) => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/v1/automations/${id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setName(data.name)
+        setDescription(data.description || '')
+        setYaml(data.yamlDefinition)
+      }
+    } catch (err) {
+      setError('Failed to load automation')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSave = async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const url = automationId ? `/v1/automations/${automationId}` : '/v1/automations'
+      const method = automationId ? 'PUT' : 'POST'
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description, yamlDefinition: yaml })
+      })
+
+      if (res.ok) {
+        onSaved()
+      } else {
+        const data = await res.json()
+        setError(data.details || data.error || 'Failed to save')
+      }
+    } catch (err) {
+      setError('An unexpected error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+        <div className="p-6 border-b border-gray-800 flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-white">
+            {automationId ? 'Edit Automation' : 'New Automation'}
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">
+            ✕
+          </button>
+        </div>
+
+        <div className="p-6 flex-1 overflow-y-auto space-y-4">
+          {error && (
+            <div className="bg-red-900/20 border border-red-800 text-red-200 p-3 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Name</label>
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="My Automation"
+              className="w-full"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Description</label>
+            <Input
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="What does this do?"
+              className="w-full"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm text-gray-400">Automation Logic</label>
+              <div className="flex bg-gray-800 rounded-lg p-1">
+                <button
+                  onClick={() => setMode('visual')}
+                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                    mode === 'visual' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Visual
+                </button>
+                <button
+                  onClick={() => setMode('yaml')}
+                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                    mode === 'yaml' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  YAML
+                </button>
+              </div>
+            </div>
+
+            {mode === 'visual' ? (
+              <AutomationVisualBuilder
+                initialYaml={yaml}
+                onYamlChange={setYaml}
+              />
+            ) : (
+              <div className="flex flex-col min-h-[400px]">
+                <textarea
+                  value={yaml}
+                  onChange={e => setYaml(e.target.value)}
+                  className="flex-1 w-full bg-gray-950 border border-gray-800 rounded-lg p-4 font-mono text-sm text-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-700 resize-none h-[400px]"
+                  spellCheck={false}
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Advanced mode: Edit the raw YAML definition directly.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="p-6 border-t border-gray-800 flex justify-end gap-3">
+          <Button variant="ghost" onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={loading || !name || !yaml}>
+            {loading ? 'Saving...' : 'Save Automation'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}

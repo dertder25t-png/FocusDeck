@@ -241,33 +241,38 @@ namespace FocusDeck.Server.Services
 
             try
             {
-                // Attach the automation to the current context if it's detached
-                // This ensures changes to LastRunAt are persisted
-                if (db.Entry(automation).State == EntityState.Detached)
+                // Only load the automation entity for tracking status updates
+                // This avoids attaching the entire object graph with potentially new (untracked) action objects
+                // which would cause duplication.
+                var trackedAutomation = await db.Automations.FindAsync(automation.Id);
+
+                if (trackedAutomation != null)
                 {
-                    db.Automations.Attach(automation);
-                }
+                    foreach (var action in automation.Actions)
+                    {
+                        try
+                        {
+                            await ExecuteAction(action, automation, db);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error executing action {ActionType}", action.ActionType);
+                            success = false;
+                            errorMessage = ex.Message;
+                            break;
+                        }
+                    }
 
-                foreach (var action in automation.Actions)
+                    trackedAutomation.LastRunAt = DateTime.UtcNow;
+                    trackedAutomation.UpdatedAt = DateTime.UtcNow;
+                    await db.SaveChangesAsync();
+
+                    _logger.LogInformation("Automation '{Name}' executed successfully", automation.Name);
+                }
+                else
                 {
-                    try
-                    {
-                        await ExecuteAction(action, automation, db);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error executing action {ActionType}", action.ActionType);
-                        success = false;
-                        errorMessage = ex.Message;
-                        break;
-                    }
+                    _logger.LogWarning("Automation {Id} not found in database for execution update", automation.Id);
                 }
-
-                automation.LastRunAt = DateTime.UtcNow;
-                automation.UpdatedAt = DateTime.UtcNow;
-                await db.SaveChangesAsync();
-
-                _logger.LogInformation("Automation '{Name}' executed successfully", automation.Name);
             }
             catch (Exception ex)
             {

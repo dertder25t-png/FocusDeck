@@ -3,6 +3,8 @@ import { Card, CardContent } from '../components/Card'
 import { Button } from '../components/Button'
 import { Badge } from '../components/Badge'
 import { Link } from 'react-router-dom'
+import { AutomationEditor } from './AutomationEditor'
+import { AutomationHistory } from './AutomationHistory'
 
 interface Automation {
   id: string
@@ -10,11 +12,16 @@ interface Automation {
   description: string | null
   isEnabled: boolean
   lastRunAt: string | null
+  yamlDefinition: string
 }
 
 export function AutomationsPage() {
   const [automations, setAutomations] = useState<Automation[]>([])
   const [loading, setLoading] = useState(true)
+  const [showEditor, setShowEditor] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [historyId, setHistoryId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchAutomations()
@@ -61,6 +68,31 @@ export function AutomationsPage() {
     }
   }
 
+  const openEditor = (id?: string) => {
+    setEditingId(id || null)
+    setShowEditor(true)
+  }
+
+  const closeEditor = () => {
+    setShowEditor(false)
+    setEditingId(null)
+  }
+
+  const openHistory = (id: string) => {
+    setHistoryId(id)
+    setShowHistory(true)
+  }
+
+  const closeHistory = () => {
+    setShowHistory(false)
+    setHistoryId(null)
+  }
+
+  const handleSaved = () => {
+    closeEditor()
+    fetchAutomations()
+  }
+
   if (loading) return <div className="p-8 text-center text-gray-400">Loading automations...</div>
 
   return (
@@ -72,17 +104,23 @@ export function AutomationsPage() {
             Manage your running automation rules.
           </p>
         </div>
-        <Link to="/automations/proposals">
-          <Button variant="secondary">View Proposals</Button>
-        </Link>
+        <div className="flex gap-3">
+          <Button onClick={() => openEditor()}>Create New</Button>
+          <Link to="/automations/proposals">
+            <Button variant="secondary">View Proposals</Button>
+          </Link>
+        </div>
       </div>
 
       {automations.length === 0 ? (
         <div className="text-center py-12 border border-gray-800 rounded-lg bg-gray-900/20">
           <p className="text-gray-400 mb-4">No active automations.</p>
-          <Link to="/automations/proposals">
-            <Button>Check Proposals</Button>
-          </Link>
+          <div className="flex justify-center gap-3">
+            <Button onClick={() => openEditor()}>Create Manually</Button>
+            <Link to="/automations/proposals">
+              <Button variant="secondary">Check Proposals</Button>
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
@@ -90,9 +128,11 @@ export function AutomationsPage() {
             <Card key={automation.id} className="overflow-hidden">
               <CardContent className="p-0">
                 <div className="flex items-center justify-between p-4">
-                  <div className="flex-1">
+                  <div className="flex-1 cursor-pointer" onClick={() => openEditor(automation.id)}>
                     <div className="flex items-center gap-3 mb-1">
-                      <h3 className="font-medium text-white">{automation.name}</h3>
+                      <h3 className="font-medium text-white hover:text-primary transition-colors">
+                        {automation.name}
+                      </h3>
                       {!automation.isEnabled && (
                         <Badge variant="secondary" className="text-xs">Disabled</Badge>
                       )}
@@ -108,7 +148,7 @@ export function AutomationsPage() {
                   </div>
 
                   <div className="flex items-center gap-4">
-                    <label className="flex items-center cursor-pointer">
+                    <label className="flex items-center cursor-pointer" title="Toggle Automation">
                       <div className="relative">
                         <input
                           type="checkbox"
@@ -127,6 +167,20 @@ export function AutomationsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
+                      onClick={() => openHistory(automation.id)}
+                    >
+                      History
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openEditor(automation.id)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
                       onClick={() => deleteAutomation(automation.id)}
                     >
@@ -138,6 +192,21 @@ export function AutomationsPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {showEditor && (
+        <AutomationEditor
+          automationId={editingId}
+          onClose={closeEditor}
+          onSaved={handleSaved}
+        />
+      )}
+
+      {showHistory && historyId && (
+        <AutomationHistory
+          automationId={historyId}
+          onClose={closeHistory}
+        />
       )}
     </div>
   )

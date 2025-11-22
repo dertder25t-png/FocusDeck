@@ -366,7 +366,7 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - [ ] **Web UI (Automation Center):**
     - Dashboard showing active automations.
     - **YAML Editor:** Monaco-based editor for raw YAML editing.
-    - **Visual Builder:** Form-based UI for editing triggers/actions (generates YAML).
+    - [x] **Visual Builder:** Form-based UI for editing triggers/actions (generates YAML).
     - **Run History:** Logs of when automations ran and their output.
 
 **Files**
