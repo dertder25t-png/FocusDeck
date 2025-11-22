@@ -279,7 +279,7 @@ namespace FocusDeck.Server.Services
                 {
                     try
                     {
-                        await ExecuteAction(action, automation);
+                        await ExecuteAction(action, automation, db);
                     }
                     catch (Exception ex)
                     {
@@ -326,126 +326,20 @@ namespace FocusDeck.Server.Services
             }
         }
 
-        private async Task ExecuteAction(AutomationAction action, Automation automation)
+        private async Task ExecuteAction(AutomationAction action, Automation automation, AutomationDbContext db)
         {
             _logger.LogInformation("Executing action: {ActionType}", action.ActionType);
 
-            switch (action.ActionType)
+            var result = await _actionExecutor.ExecuteActionAsync(action, db);
+            
+            if (!result.Success)
             {
-                case ActionTypes.ShowNotification:
-                    await SendNotification(action);
-                    break;
-                
-                case ActionTypes.StartTimer:
-                    await StartTimer(action);
-                    break;
-                
-                case ActionTypes.CreateTask:
-                    await CreateTask(action);
-                    break;
-                
-                case ActionTypes.RunCommand:
-                    await RunCommand(action);
-                    break;
-                
-                case ActionTypes.HttpRequest:
-                    await MakeHttpRequest(action);
-                    break;
-
-                case ActionTypes.Wait:
-                    await WaitAction(action);
-                    break;
-
-                default:
-                    _logger.LogWarning("Action type {ActionType} not implemented yet", action.ActionType);
-                    break;
+                _logger.LogWarning("Action failed: {Message}", result.Message);
+                throw new Exception(result.Message);
             }
-        }
-
-        private async Task SendNotification(AutomationAction action)
-        {
-            var title = action.Settings.GetValueOrDefault("title", "FocusDeck");
-            var message = action.Settings.GetValueOrDefault("message", "Automation triggered");
-            
-            _logger.LogInformation("Notification: {Title} - {Message}", title, message);
-
-            // Send via SignalR to all connected clients
-            await _hubContext.Clients.All.ReceiveNotification(title, message, "info");
-        }
-
-        private async Task StartTimer(AutomationAction action)
-        {
-            var duration = action.Settings.GetValueOrDefault("duration", "25");
-            _logger.LogInformation("Starting timer for {Duration} minutes", duration);
-            // TODO: Integrate with timer service
-            await Task.CompletedTask;
-        }
-
-        private async Task CreateTask(AutomationAction action)
-        {
-            var title = action.Settings.GetValueOrDefault("title", "New Task");
-            var priority = action.Settings.GetValueOrDefault("priority", "medium");
-            
-            _logger.LogInformation("Creating task: {Title} (Priority: {Priority})", title, priority);
-            // TODO: Integrate with task service
-            await Task.CompletedTask;
-        }
-
-        private async Task RunCommand(AutomationAction action)
-        {
-            var command = action.Settings.GetValueOrDefault("command", "");
-            if (string.IsNullOrEmpty(command))
-                return;
-
-            _logger.LogInformation("Running command: {Command}", command);
-            // TODO: Implement safe command execution
-            await Task.CompletedTask;
-        }
-
-        private async Task MakeHttpRequest(AutomationAction action)
-        {
-            var url = action.Settings.GetValueOrDefault("url", "");
-            var method = action.Settings.GetValueOrDefault("method", "GET");
-            
-            if (string.IsNullOrEmpty(url))
-                return;
-
-            using var httpClient = new HttpClient();
-            httpClient.Timeout = TimeSpan.FromSeconds(30);
-            
-            try
+            else
             {
-                if (method.ToUpper() == "POST")
-                {
-                    var body = action.Settings.GetValueOrDefault("body", "{}");
-                    var content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
-                    var response = await httpClient.PostAsync(url, content);
-                    response.EnsureSuccessStatusCode();
-                }
-                else
-                {
-                    var response = await httpClient.GetAsync(url);
-                    response.EnsureSuccessStatusCode();
-                }
-                
-                _logger.LogInformation("HTTP {Method} to {Url} successful", method, url);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "HTTP request failed: {Method} {Url}", method, url);
-                throw;
-            }
-        }
-
-        private async Task WaitAction(AutomationAction action)
-        {
-            if (action.Settings.TryGetValue("seconds", out var secondsStr))
-            {
-                if (int.TryParse(secondsStr, out var seconds))
-                {
-                    _logger.LogInformation("Waiting {Seconds} seconds", seconds);
-                    await Task.Delay(TimeSpan.FromSeconds(seconds));
-                }
+                _logger.LogInformation("Action executed successfully: {Message}", result.Message);
             }
         }
     }
