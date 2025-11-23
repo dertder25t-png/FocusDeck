@@ -1,5 +1,6 @@
 using FocusDeck.Persistence;
 using FocusDeck.Domain.Entities;
+using FocusDeck.Server.Services.Calendar;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -7,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FocusDeck.Services.Abstractions;
+using FocusDeck.SharedKernel.Tenancy;
 
 namespace FocusDeck.Server.Controllers
 {
@@ -17,12 +19,21 @@ namespace FocusDeck.Server.Controllers
         private readonly AutomationDbContext _db;
         private readonly ILogger<NotesController> _logger;
         private readonly IEncryptionService _encryptionService;
+        private readonly CalendarResolver _calendarResolver;
+        private readonly ICurrentTenant _currentTenant;
 
-        public NotesController(AutomationDbContext db, ILogger<NotesController> logger, IEncryptionService encryptionService)
+        public NotesController(
+            AutomationDbContext db,
+            ILogger<NotesController> logger,
+            IEncryptionService encryptionService,
+            CalendarResolver calendarResolver,
+            ICurrentTenant currentTenant)
         {
             _db = db;
             _logger = logger;
             _encryptionService = encryptionService;
+            _calendarResolver = calendarResolver;
+            _currentTenant = currentTenant;
         }
 
         // GET: api/notes
@@ -30,7 +41,8 @@ namespace FocusDeck.Server.Controllers
         public async Task<ActionResult<IEnumerable<Note>>> GetNotes(
             [FromQuery] string? search,
             [FromQuery] string? tag,
-            [FromQuery] bool? pinned)
+            [FromQuery] bool? pinned,
+            [FromQuery] NoteType? type)
         {
             var query = _db.Notes.AsNoTracking();
 
@@ -48,6 +60,11 @@ namespace FocusDeck.Server.Controllers
             if (pinned.HasValue)
             {
                 query = query.Where(n => n.IsPinned == pinned.Value);
+            }
+
+            if (type.HasValue)
+            {
+                query = query.Where(n => n.Type == type.Value);
             }
 
             var results = await query
@@ -68,8 +85,8 @@ namespace FocusDeck.Server.Controllers
                 n.Content = _encryptionService.Decrypt(n.Content);
             });
 
-            _logger.LogInformation("Returned {Count} notes (search={Search}, tag={Tag}, pinned={Pinned})",
-                results.Count, search, tag, pinned);
+            _logger.LogInformation("Returned {Count} notes (search={Search}, tag={Tag}, pinned={Pinned}, type={Type})",
+                results.Count, search, tag, pinned, type);
 
             return Ok(results);
         }
@@ -116,6 +133,7 @@ namespace FocusDeck.Server.Controllers
             {
                 total = notes.Count,
                 pinned = notes.Count(n => n.IsPinned),
+                papers = notes.Count(n => n.Type == NoteType.AcademicPaper),
                 tags = tagCounts,
                 recent
             });
@@ -125,7 +143,11 @@ namespace FocusDeck.Server.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<Note>> GetNote(string id)
         {
-            var note = await _db.Notes.AsNoTracking().FirstOrDefaultAsync(n => n.Id == id);
+            var note = await _db.Notes
+                .Include(n => n.Sources)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(n => n.Id == id);
+
             if (note == null)
             {
                 _logger.LogWarning("Note {NoteId} not found", id);
@@ -157,6 +179,45 @@ namespace FocusDeck.Server.Controllers
             note.CreatedDate = utcNow;
             note.LastModified = utcNow;
 
+            // Phase 4: Auto-tag from Calendar if not manually specified
+            if (note.CourseId == null && _currentTenant.HasTenant && _currentTenant.TenantId.HasValue)
+            {
+                var (evt, course) = await _calendarResolver.ResolveCurrentContextAsync(_currentTenant.TenantId.Value);
+
+                if (evt != null)
+                {
+                    note.EventId = evt.Id;
+
+                    if (course != null)
+                    {
+                        note.CourseId = course.Id;
+                        // Auto-title if empty
+                        if (string.IsNullOrWhiteSpace(note.Title))
+                        {
+                            note.Title = $"{course.Code} - {evt.Title}";
+                        }
+                    }
+                    else
+                    {
+                        // Fallback title
+                        if (string.IsNullOrWhiteSpace(note.Title))
+                        {
+                            note.Title = evt.Title;
+                        }
+                    }
+                }
+            }
+
+            // Handle sources if any
+            if (note.Type == NoteType.AcademicPaper && note.Sources != null)
+            {
+                foreach (var source in note.Sources)
+                {
+                    if (source.Id == Guid.Empty) source.Id = Guid.NewGuid();
+                    source.NoteId = note.Id;
+                }
+            }
+
             note.Title = _encryptionService.Encrypt(note.Title);
             note.Content = _encryptionService.Encrypt(note.Content);
 
@@ -180,7 +241,10 @@ namespace FocusDeck.Server.Controllers
                 return BadRequest("Invalid note data");
             }
 
-            var note = await _db.Notes.FirstOrDefaultAsync(n => n.Id == id);
+            var note = await _db.Notes
+                .Include(n => n.Sources)
+                .FirstOrDefaultAsync(n => n.Id == id);
+
             if (note == null)
             {
                 _logger.LogWarning("Note {NoteId} not found for update", id);
@@ -193,7 +257,27 @@ namespace FocusDeck.Server.Controllers
             note.IsPinned = updatedNote.IsPinned;
             note.Tags = NormalizeTags(updatedNote.Tags);
             note.Bookmarks = NormalizeBookmarks(updatedNote.Bookmarks);
+            note.Type = updatedNote.Type;
+            note.CitationStyle = updatedNote.CitationStyle;
+            note.CourseId = updatedNote.CourseId;
+            note.EventId = updatedNote.EventId;
             note.LastModified = DateTime.UtcNow;
+
+            // Update sources logic (simple replacement for now, could be optimized)
+            // Note: AcademicSources handling removed as part of revert for cleaner PR
+            // If this feature is re-added, uncomment or implement proper source management
+            /*
+            if (updatedNote.Type == NoteType.AcademicPaper && updatedNote.Sources != null)
+            {
+                _db.AcademicSources.RemoveRange(note.Sources);
+                foreach (var source in updatedNote.Sources)
+                {
+                    source.Id = Guid.NewGuid(); // Reset ID to treat as new
+                    source.NoteId = note.Id;
+                    _db.AcademicSources.Add(source);
+                }
+            }
+            */
 
             await _db.SaveChangesAsync();
 

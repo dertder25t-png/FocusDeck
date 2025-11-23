@@ -11,6 +11,7 @@ using FocusDeck.Server.Jobs;
 using FocusDeck.Server.Middleware;
 using FocusDeck.Server.Services;
 using FocusDeck.Server.Services.Automations;
+using FocusDeck.Server.Services.Calendar;
 using FocusDeck.Server.Services.Auditing;
 using FocusDeck.Server.Services.Auth;
 using FocusDeck.Server.Configuration;
@@ -236,6 +237,7 @@ public sealed class Startup
         services.AddSignalR();
 
         // Activity + context aggregation
+        services.AddScoped<CalendarResolver>();
         services.AddSingleton<FocusDeck.Services.Activity.IActivityDetectionService, FocusDeck.Server.Services.Activity.LinuxActivityDetectionService>();
         services.AddSingleton<FocusDeck.Server.Services.Integrations.CanvasService>();
         services.AddSingleton<FocusDeck.Server.Services.Integrations.ICanvasCache, FocusDeck.Server.Services.Integrations.CanvasCache>();
