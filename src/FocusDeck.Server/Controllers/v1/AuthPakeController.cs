@@ -582,15 +582,54 @@ public class AuthPakeController : ControllerBase
         if (session.Status != PairingStatus.Ready || string.IsNullOrEmpty(session.VaultDataBase64))
             return BadRequest(new { error = "Not ready" });
 
+        var roles = new[] { "User" };
+        var accessToken = await _tokenService.GenerateAccessTokenAsync(session.UserId, roles, session.TenantId, HttpContext.RequestAborted);
+        var refreshToken = _tokenService.GenerateRefreshToken();
+
+        // Register the new refresh token (and device)
+        var deviceId = session.TargetDeviceId ?? "mobile-pairing-" + session.Id.ToString()[..8];
+        var deviceName = "Mobile Device";
+        var devicePlatform = DevicePlatform.Android; // Assume Android since this flow is primarily for it
+
+        var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
+        var clientFingerprint = _tokenService.ComputeClientFingerprint(deviceId, userAgent);
+
+        var refreshEntity = new FocusDeck.Domain.Entities.RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = session.UserId,
+            TokenHash = _tokenService.ComputeTokenHash(refreshToken),
+            ClientFingerprint = clientFingerprint,
+            IssuedUtc = DateTime.UtcNow,
+            ExpiresUtc = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
+            DeviceId = deviceId,
+            DeviceName = deviceName,
+            DevicePlatform = devicePlatform,
+            LastAccessUtc = DateTime.UtcNow,
+            TenantId = session.TenantId
+        };
+        _db.RefreshTokens.Add(refreshEntity);
+
+        if (!string.IsNullOrWhiteSpace(deviceId))
+        {
+            await UpsertDeviceRegistrationAsync(session.UserId, session.TenantId, deviceId, deviceName, devicePlatform.ToString());
+        }
+
         session.Status = PairingStatus.Completed;
         await _db.SaveChangesAsync();
+
+        await LogAuthEventAsync("PAKE_PAIR_REDEEM", session.UserId, true, deviceId: deviceId);
+        TrackLoginSuccess(session.UserId, session.TenantId, deviceId);
 
         return Ok(new
         {
             vaultDataBase64 = session.VaultDataBase64,
             userId = session.UserId,
             vaultKdfMetadataJson = session.VaultKdfMetadataJson,
-            vaultCipherSuite = session.VaultCipherSuite
+            vaultCipherSuite = session.VaultCipherSuite,
+            accessToken,
+            refreshToken,
+            expiresIn = _jwtSettings.AccessTokenExpirationMinutes * 60
         });
     }
 

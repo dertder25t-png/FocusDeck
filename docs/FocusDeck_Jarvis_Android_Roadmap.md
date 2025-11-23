@@ -27,7 +27,7 @@ Android/Mobile should only start once the server and Windows client are in produ
 ### 1.1 Authentication UI (Android/Mobile)
 
 - [x] Provisioning page subscribes to tenant summary updates exposed by `IMobileAuthService`, so the active tenant name/slug appears on-device after login.
-- [ ] Implement provisioning + QR pairing (claim code → tokens) with `MobilePakeAuthService` + `ProvisioningPage`. (Partial: UI scans code, but service logic to exchange claim code for tokens is missing).
+- [x] Implement provisioning + QR pairing (claim code → tokens) with `MobilePakeAuthService` + `ProvisioningPage`.
 - [x] Wire the mobile provisioning view model to call the same `/v1/auth/pake` endpoints used by Web/Desktop and store tenant-scoped tokens.
 
 **Files**

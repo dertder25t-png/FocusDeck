@@ -19,6 +19,7 @@ public interface IMobileAuthService
     Task<CurrentTenantDto?> RefreshCurrentTenantAsync(CancellationToken cancellationToken = default);
     CurrentTenantDto? CurrentTenant { get; }
     event EventHandler<CurrentTenantDto?>? CurrentTenantChanged;
+    Task<bool> RedeemClaimCodeAsync(string scannedData, CancellationToken cancellationToken = default);
 }
 
 public class MobilePakeAuthService : IMobileAuthService
@@ -267,5 +268,77 @@ public class MobilePakeAuthService : IMobileAuthService
             UpdateCurrentTenant(null);
             return null;
         }
+    }
+
+    public async Task<bool> RedeemClaimCodeAsync(string scannedData, CancellationToken cancellationToken = default)
+    {
+        // Expected format: JSON or pipe-delimited
+        // We'll support pipe-delimited for now as it's compact: {pairingId}|{code}|{serverUrl}
+        // Or JSON: { "pairingId": "...", "code": "...", "serverUrl": "..." }
+
+        Guid pairingId;
+        string code;
+        string serverUrl;
+
+        try
+        {
+            if (scannedData.Trim().StartsWith("{"))
+            {
+                var json = System.Text.Json.JsonDocument.Parse(scannedData);
+                pairingId = Guid.Parse(json.RootElement.GetProperty("pairingId").GetString()!);
+                code = json.RootElement.GetProperty("code").GetString()!;
+                serverUrl = json.RootElement.GetProperty("serverUrl").GetString()!;
+            }
+            else
+            {
+                var parts = scannedData.Split('|');
+                if (parts.Length < 3) return false;
+                pairingId = Guid.Parse(parts[0]);
+                code = parts[1];
+                serverUrl = parts[2];
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse claim code");
+            return false;
+        }
+
+        var baseUri = BuildBaseUri(serverUrl);
+        var request = new PairRedeemRequest(pairingId, code);
+
+        // We use a custom response record here since the shared contract doesn't include tokens yet
+        // but the server now returns them.
+        var response = await PostJsonAsync<PairRedeemRequest, RedeemResponseEx>(baseUri, "/v1/auth/pake/pair/redeem", request, cancellationToken);
+
+        if (response != null && !string.IsNullOrEmpty(response.AccessToken))
+        {
+             await _tokenStore.SaveAsync(response.UserId, response.AccessToken, response.RefreshToken);
+             _lastBaseUri = baseUri;
+             SetAccessToken(response.AccessToken);
+
+             // If vault is present, we should ideally import it, but we need the password.
+             // For now, we just authenticate. The vault will remain locked until the user enters the password (if we implement that flow later).
+             // Or maybe we can prompt for password *after* successful login.
+
+             if (!string.IsNullOrEmpty(response.VaultDataBase64))
+             {
+                 // Store vault temporarily or just acknowledge we have it?
+                 // Current MobileVaultService expects password to import.
+             }
+
+             await RefreshCurrentTenantAsync(cancellationToken);
+             return true;
+        }
+
+        return false;
+    }
+
+    private class RedeemResponseEx
+    {
+        public string UserId { get; set; } = "";
+        public string AccessToken { get; set; } = "";
+        public string RefreshToken { get; set; } = "";
+        public string? VaultDataBase64 { get; set; }
     }
 }

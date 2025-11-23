@@ -45,11 +45,45 @@ public partial class ProvisioningPage : ContentPage
 		});
 	}
 
+	private bool _isProcessing = false;
+
 	private void BarcodesDetected(object sender, BarcodeDetectionEventArgs e)
 	{
-		MainThread.BeginInvokeOnMainThread(() =>
+		var result = e.Results?.FirstOrDefault()?.Value;
+		if (string.IsNullOrEmpty(result) || _isProcessing) return;
+
+		MainThread.BeginInvokeOnMainThread(async () =>
 		{
-			resultLabel.Text = $"{e.Results[0].Value}";
+			if (_isProcessing) return; // Double check on UI thread
+			_isProcessing = true;
+			barcodeReader.IsDetecting = false;
+			toggleScannerButton.Text = "Processing...";
+			resultLabel.Text = "Redeeming code...";
+
+			try
+			{
+				var success = await _authService.RedeemClaimCodeAsync(result);
+				if (success)
+				{
+					resultLabel.Text = "Success! Logging in...";
+					await Task.Delay(1000);
+					await Shell.Current.GoToAsync("//MainPage"); // Or wherever the home is
+				}
+				else
+				{
+					resultLabel.Text = "Failed to redeem code.";
+					barcodeReader.IsDetecting = true;
+					toggleScannerButton.Text = "Stop Scanner";
+					_isProcessing = false;
+				}
+			}
+			catch (Exception ex)
+			{
+				resultLabel.Text = $"Error: {ex.Message}";
+				barcodeReader.IsDetecting = true;
+				toggleScannerButton.Text = "Stop Scanner";
+				_isProcessing = false;
+			}
 		});
 	}
 
