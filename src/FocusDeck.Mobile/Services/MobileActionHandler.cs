@@ -41,19 +41,19 @@ public class MobileActionHandler
             {
                 switch (e.Kind)
                 {
-                    case "ShowToast":
+                    case AndroidCapabilities.ShowToast:
                         var message = e.Payload?.ToString() ?? "Notification";
                         await _notificationService.SendLocalNotificationAsync("FocusDeck", message, 0);
                         break;
 
-                    case "OpenUrl":
+                    case AndroidCapabilities.OpenUrl:
                         if (e.Payload is string url && Uri.TryCreate(url, UriKind.Absolute, out var uri))
                         {
                             await Launcher.OpenAsync(uri);
                         }
                         break;
 
-                    case "OpenNote":
+                    case AndroidCapabilities.OpenNote:
                         // Stub: just notify for now
                         await _notificationService.SendLocalNotificationAsync("Open Note", $"Requested note: {e.Payload}", 0);
                         break;

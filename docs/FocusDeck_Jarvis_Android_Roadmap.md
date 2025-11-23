@@ -66,8 +66,8 @@ Android/Mobile should only start once the server and Windows client are in produ
 
 **Goal:** Extend the device agent concept from Windows to Android (optional advanced phase).
 
-- [ ] Define Android capabilities (e.g., open app, open note, show pill/notification) as skills.
-- [ ] If needed, mirror the Windows agent job bundle and map a subset of skills to Android.
+- [x] Define Android capabilities (e.g., open app, open note, show pill/notification) as skills. (Defined in `AndroidCapabilities.cs` and handled by `MobileActionHandler`).
+- [ ] If needed, mirror the Windows agent job bundle and map a subset of skills to Android. (No explicit Job Bundle mechanism exists in server yet; capabilities are defined statically in client).
 
 > This phase is optional and should come only after the Windows agent is stable.
 
