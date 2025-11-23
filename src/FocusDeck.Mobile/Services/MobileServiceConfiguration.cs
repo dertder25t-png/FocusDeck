@@ -49,8 +49,8 @@ public static class MobileServiceConfiguration
         
         services.AddSingleton<IDevicePairingService, DevicePairingService>();
         
-        // Register WebSocket client service
-        services.AddSingleton<IWebSocketClientService, WebSocketClientService>();
+        // Register SignalR client service
+        services.AddSingleton<ISignalRService, SignalRClientService>();
         
         // Register heartbeat service (disabled by default)
         services.AddSingleton<IHeartbeatService, HeartbeatService>();
@@ -72,6 +72,8 @@ public static class MobileServiceConfiguration
         services.AddSingleton<IMobileActivitySignalClient, MobileActivitySignalClient>();
         services.AddSingleton<IMobilePrivacyGate, MobilePrivacyGate>();
         
+        services.AddSingleton<MobileActionHandler>();
+
         return services;
     }
 

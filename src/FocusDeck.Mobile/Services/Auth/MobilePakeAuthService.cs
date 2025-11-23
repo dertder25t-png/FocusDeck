@@ -28,18 +28,20 @@ public class MobilePakeAuthService : IMobileAuthService
     private readonly IDeviceIdService _deviceIdService;
     private readonly MobileTokenStore _tokenStore;
     private readonly MobileVaultService _vaultService;
+    private readonly ISignalRService _signalRService;
     private readonly ILogger<MobilePakeAuthService> _logger;
     private Uri? _lastBaseUri;
     private string? _accessToken;
     private CurrentTenantDto? _currentTenant;
 
-    public MobilePakeAuthService(HttpClient httpClient, IDeviceIdService deviceIdService, MobileTokenStore tokenStore, MobileVaultService vaultService, ILogger<MobilePakeAuthService> logger)
+    public MobilePakeAuthService(HttpClient httpClient, IDeviceIdService deviceIdService, MobileTokenStore tokenStore, MobileVaultService vaultService, ISignalRService signalRService, ILogger<MobilePakeAuthService> logger)
     {
         _httpClient = httpClient;
         _httpClient.Timeout = TimeSpan.FromSeconds(30);
         _deviceIdService = deviceIdService;
         _tokenStore = tokenStore;
         _vaultService = vaultService;
+        _signalRService = signalRService;
         _logger = logger;
     }
 
@@ -154,6 +156,19 @@ public class MobilePakeAuthService : IMobileAuthService
         SetAccessToken(finishResponse.AccessToken);
         await RefreshCurrentTenantAsync(cancellationToken);
 
+        // Connect to SignalR
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _signalRService.ConnectAsync(_lastBaseUri.ToString(), finishResponse.AccessToken, userId, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to connect to SignalR after login");
+            }
+        }, cancellationToken);
+
         return new MobileAuthResult(
             userId,
             finishResponse.AccessToken,
@@ -164,6 +179,7 @@ public class MobilePakeAuthService : IMobileAuthService
 
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
     {
+        await _signalRService.DisconnectAsync();
         var userId = await _tokenStore.GetUserIdAsync();
         if (userId == null) return;
 
@@ -328,6 +344,20 @@ public class MobilePakeAuthService : IMobileAuthService
              }
 
              await RefreshCurrentTenantAsync(cancellationToken);
+
+             // Connect to SignalR
+             _ = Task.Run(async () =>
+             {
+                 try
+                 {
+                     await _signalRService.ConnectAsync(_lastBaseUri.ToString(), response.AccessToken, response.UserId, cancellationToken);
+                 }
+                 catch (Exception ex)
+                 {
+                     _logger.LogWarning(ex, "Failed to connect to SignalR after redemption");
+                 }
+             }, cancellationToken);
+
              return true;
         }
 

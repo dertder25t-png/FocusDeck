@@ -51,12 +51,13 @@ Android/Mobile should only start once the server and Windows client are in produ
 
 **Goal:** Allow the Android client to receive Jarvis workflow updates and act on them.
 
-- [ ] Implement the SignalR client for `NotificationsHub` so Android can receive `JarvisRunUpdated` notifications. (Current implementation uses raw WebSocket and does not handle `JarvisRunUpdated`).
-- [ ] Map basic actions (show toast, start/pause, open URL, open note) to mobile UI elements.
+- [x] Implement the SignalR client for `NotificationsHub` so Android can receive `JarvisRunUpdated` notifications. (Replaced raw WebSocket with `Microsoft.AspNetCore.SignalR.Client`).
+- [x] Map basic actions (show toast, start/pause, open URL, open note) to mobile UI elements.
 
 **Files**
 
-- `src/FocusDeck.Mobile/.../SignalR/**`
+- `src/FocusDeck.Mobile/Services/SignalRClientService.cs`
+- `src/FocusDeck.Mobile/Services/MobileActionHandler.cs`
 - Any platform-specific notification or navigation helpers
 
 ---
