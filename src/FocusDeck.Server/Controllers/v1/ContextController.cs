@@ -14,12 +14,18 @@ namespace FocusDeck.Server.Controllers.v1;
 public class ContextController : ControllerBase
 {
     private readonly IContextAggregationService _aggregator;
+    private readonly FocusDeck.Services.Context.IContextSnapshotService _snapshotService;
     private readonly AutomationDbContext _db;
     private readonly ILogger<ContextController> _logger;
 
-    public ContextController(IContextAggregationService aggregator, AutomationDbContext db, ILogger<ContextController> logger)
+    public ContextController(
+        IContextAggregationService aggregator,
+        FocusDeck.Services.Context.IContextSnapshotService snapshotService,
+        AutomationDbContext db,
+        ILogger<ContextController> logger)
     {
         _aggregator = aggregator;
+        _snapshotService = snapshotService;
         _db = db;
         _logger = logger;
     }
@@ -41,6 +47,18 @@ public class ContextController : ControllerBase
     {
         var state = await _aggregator.GetAggregatedActivityAsync(ct);
         return Ok(ActivityStateDto.FromState(state));
+    }
+
+    /// <summary>
+    /// Trigger an immediate context capture (Phase 1.5)
+    /// </summary>
+    [HttpPost("capture")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<Guid>> CaptureNow(CancellationToken ct)
+    {
+        var userId = Guid.Parse(GetUserId());
+        var snapshot = await _snapshotService.CaptureNowAsync(userId, ct);
+        return Ok(snapshot.Id);
     }
 
     [HttpGet("timeline")]

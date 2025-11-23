@@ -259,23 +259,23 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 > **Implementation Guide:** See [`docs/CONTEXT_SNAPSHOT_PIPELINE.md`](docs/CONTEXT_SNAPSHOT_PIPELINE.md) for the full design. The following steps will complete the skeleton system:
 
-- [ ] **Implement the `EfContextSnapshotRepository`:**
+- [x] **Implement the `EfContextSnapshotRepository`:**
     - Wire up the `AddAsync`, `GetByIdAsync`, and `GetLatestForUserAsync` methods to use the `AutomationDbContext`.
     - Add a `DbSet<ContextSnapshot>` to the `AutomationDbContext`.
     - Create a new EF Core migration to add the `ContextSnapshots` table.
-- [ ] **Implement the `ContextSnapshotService`:**
+- [x] **Implement the `ContextSnapshotService`:**
     - Inject all `IContextSnapshotSource` implementations into the service.
     - Implement the `CaptureNowAsync` method to:
         - Call all sources to get context slices.
         - Merge the slices in order of priority.
         - Save the final snapshot to the repository.
         - Enqueue a background job for vectorization.
-- [ ] **Implement the `ContextController`:**
+- [x] **Implement the `ContextController`:**
     - Inject the `IContextSnapshotService` into the controller.
     - Wire up the controller actions to call the service.
-- [ ] **Implement the Snapshot Sources:**
-    - Replace the fake data in the snapshot sources with real data from the corresponding APIs (Google Calendar, Canvas, Spotify, etc.).
-- [ ] **Connect to the System:**
+- [x] **Implement the Snapshot Sources:**
+    - Replace the fake data in the snapshot sources with real data from the corresponding APIs (Google Calendar, Canvas, Spotify, etc.). (GCal implemented; others stubbed).
+- [x] **Connect to the System:**
     - Register the new services and repositories in the dependency injection container in `src/FocusDeck.Server/Startup.cs`.
     - Add the new `DbContext` changes to the `AutomationDbContext`.
 

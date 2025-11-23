@@ -251,6 +251,7 @@ public sealed class Startup
         services.AddScoped<IEfContextSnapshotRepository, EfContextSnapshotRepository>();
         services.AddScoped<IContextSnapshotRepository, EfContextSnapshotRepository>();
         services.AddScoped<IActivitySignalRepository, FocusDeck.Persistence.Repositories.EfActivitySignalRepository>();
+        services.AddScoped<IEventCacheRepository, EfEventCacheRepository>();
         // Context snapshot infrastructure
         services.AddSingleton<FocusDeck.Server.Services.Context.IContextEventBus, FocusDeck.Server.Services.Context.ContextEventBus>();
         services.AddScoped<FocusDeck.Contracts.Services.Context.IContextRetrievalService, FocusDeck.Server.Services.Context.ContextRetrievalService>();
