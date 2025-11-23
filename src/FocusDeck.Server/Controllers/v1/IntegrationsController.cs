@@ -2,6 +2,7 @@ using Asp.Versioning;
 using FocusDeck.Domain.Entities.Automations;
 using FocusDeck.Persistence;
 using FocusDeck.Server.Services.Integrations;
+using FocusDeck.Services.Abstractions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,12 +19,14 @@ public class IntegrationsController : ControllerBase
     private readonly AutomationDbContext _db;
     private readonly CanvasService _canvas;
     private readonly ILogger<IntegrationsController> _logger;
+    private readonly IEncryptionService _encryptionService;
 
-    public IntegrationsController(AutomationDbContext db, CanvasService canvas, ILogger<IntegrationsController> logger)
+    public IntegrationsController(AutomationDbContext db, CanvasService canvas, ILogger<IntegrationsController> logger, IEncryptionService encryptionService)
     {
         _db = db;
         _canvas = canvas;
         _logger = logger;
+        _encryptionService = encryptionService;
     }
 
     /// <summary>
@@ -68,14 +71,18 @@ public class IntegrationsController : ControllerBase
         var existing = await _db.ConnectedServices
             .FirstOrDefaultAsync(s => s.UserId == userId && s.Service == serviceType, ct);
 
+        var accessToken = !string.IsNullOrEmpty(request.AccessToken) ? _encryptionService.Encrypt(request.AccessToken) : "";
+        var refreshToken = !string.IsNullOrEmpty(request.RefreshToken) ? _encryptionService.Encrypt(request.RefreshToken) : "";
+
         if (existing != null)
         {
             // Update
-            existing.AccessToken = request.AccessToken ?? existing.AccessToken;
-            existing.RefreshToken = request.RefreshToken ?? existing.RefreshToken;
+            if (!string.IsNullOrEmpty(request.AccessToken)) existing.AccessToken = accessToken;
+            if (!string.IsNullOrEmpty(request.RefreshToken)) existing.RefreshToken = refreshToken;
+
             existing.MetadataJson = request.MetadataJson ?? existing.MetadataJson;
             existing.ExpiresAt = request.ExpiresAt;
-            existing.IsConfigured = true; // Assuming if we are saving it, it's configured
+            existing.IsConfigured = true;
             existing.ConnectedAt = DateTime.UtcNow;
         }
         else
@@ -86,8 +93,8 @@ public class IntegrationsController : ControllerBase
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Service = serviceType,
-                AccessToken = request.AccessToken ?? string.Empty,
-                RefreshToken = request.RefreshToken ?? string.Empty,
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
                 MetadataJson = request.MetadataJson,
                 ExpiresAt = request.ExpiresAt,
                 IsConfigured = true,
@@ -153,7 +160,7 @@ public class IntegrationsController : ControllerBase
             return BadRequest(new { error = "Canvas domain missing in connection metadata" });
         }
 
-        var token = svc.AccessToken;
+        var token = !string.IsNullOrEmpty(svc.AccessToken) ? _encryptionService.Decrypt(svc.AccessToken) : "";
         if (string.IsNullOrWhiteSpace(token))
         {
             return BadRequest(new { error = "Canvas access token missing in connection" });

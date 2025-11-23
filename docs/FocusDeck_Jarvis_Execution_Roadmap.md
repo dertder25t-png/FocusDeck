@@ -442,17 +442,17 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ### 4.1 Google OAuth + incremental sync (+ push optional)
 
-- [ ] Scopes: `userinfo.email`, `calendar.readonly` (offline access → refresh token)
-- [ ] Entities: `CalendarSource`, `EventCache`, `CourseIndex`
+- [x] Scopes: `userinfo.email`, `calendar.readonly` (offline access → refresh token)
+- [x] Entities: `CalendarSource`, `EventCache`, `CourseIndex`
 - [ ] Job: `CalendarWarmSyncJob` (every 30m) next 14 days (incremental with `syncToken`)
 - [ ] Optional: watch + webhook for near-real-time
 
 ### 4.2 Resolver logic (server)
 
-- [ ] Window `now − 15m … now + 10m` in user TZ
-- [ ] Rank: ongoing > imminent > recent; score by course code/keywords/recurrence/primary calendar
-- [ ] Attach: set `note.courseId`, `note.eventId`, title `"{Course} – {Topic} – {Date Time}"`
-- [ ] Fallbacks: “Unassigned” + top-3 picker from time-pattern
+- [x] Window `now − 15m … now + 10m` in user TZ
+- [x] Rank: ongoing > imminent > recent; score by course code/keywords/recurrence/primary calendar
+- [x] Attach: set `note.courseId`, `note.eventId`, title `"{Course} – {Topic} – {Date Time}"`
+- [x] Fallbacks: “Unassigned” + top-3 picker from time-pattern
 
 **Files**
 

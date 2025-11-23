@@ -364,6 +364,10 @@ public sealed class Startup
         services.Configure<JwtSettings>(jwtSection);
         services.AddSingleton(jwtSettings);
 
+        // Google Auth
+        services.Configure<GoogleOptions>(_configuration.GetSection(GoogleOptions.SectionName));
+        services.AddScoped<GoogleAuthService>();
+
         if (_environment.IsProduction())
         {
             var vaultUrl = _configuration["Azure:KeyVault:VaultUrl"];

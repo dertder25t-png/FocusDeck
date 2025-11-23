@@ -44,11 +44,12 @@ const parseYaml = (yaml: string): { trigger: Trigger; actions: Action[] } => {
         if (line.startsWith('type:')) {
            trigger.type = line.split(':')[1].trim()
         } else if (line.startsWith('time:')) { // time settings
-           trigger.settings['time'] = line.split(':')[1].trim().replace(/"/g, '')
+           // Fix: handle colons in time values (e.g., "09:30")
+           trigger.settings['time'] = line.split(':').slice(1).join(':').trim().replace(/"/g, '')
         } else if (line.startsWith('minutes:')) { // interval settings
            trigger.settings['minutes'] = line.split(':')[1].trim()
         } else if (line.startsWith('app:') || line.startsWith('name:')) { // app settings
-           trigger.settings['app'] = line.split(':')[1].trim().replace(/"/g, '')
+           trigger.settings['app'] = line.split(':').slice(1).join(':').trim().replace(/"/g, '')
         }
       } else if (currentSection === 'actions') {
         if (line.startsWith('- type:')) {

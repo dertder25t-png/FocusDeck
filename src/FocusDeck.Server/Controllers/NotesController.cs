@@ -263,21 +263,6 @@ namespace FocusDeck.Server.Controllers
             note.EventId = updatedNote.EventId;
             note.LastModified = DateTime.UtcNow;
 
-            // Update sources logic (simple replacement for now, could be optimized)
-            // Note: AcademicSources handling removed as part of revert for cleaner PR
-            // If this feature is re-added, uncomment or implement proper source management
-            /*
-            if (updatedNote.Type == NoteType.AcademicPaper && updatedNote.Sources != null)
-            {
-                _db.AcademicSources.RemoveRange(note.Sources);
-                foreach (var source in updatedNote.Sources)
-                {
-                    source.Id = Guid.NewGuid(); // Reset ID to treat as new
-                    source.NoteId = note.Id;
-                    _db.AcademicSources.Add(source);
-                }
-            }
-            */
 
             await _db.SaveChangesAsync();
 
