@@ -279,6 +279,10 @@ public sealed class Startup
         services.AddScoped<IJarvisRunJob, JarvisRunJob>();
         services.AddScoped<FocusDeck.Server.Jobs.Jarvis.PatternRecognitionJob>();
 
+        // Behavioral Clustering
+        services.AddScoped<FocusDeck.Server.Services.Jarvis.Clustering.IBehavioralClusteringService, FocusDeck.Server.Services.Jarvis.Clustering.RuleBasedClusteringService>();
+        services.AddScoped<FocusDeck.Server.Services.Jarvis.PatternRecognitionJob>();
+
         // Hangfire
         var hangfireConnection = _configuration.GetConnectionString("HangfireConnection")
             ?? _configuration.GetConnectionString("DefaultConnection")
@@ -555,7 +559,9 @@ public sealed class Startup
                 job => job.ExecuteAsync(CancellationToken.None),
                 "*/1 * * * *"); // Run every minute
 
-            RecurringJob.AddOrUpdate<FocusDeck.Server.Jobs.Jarvis.PatternRecognitionJob>(
+            // Note: Use the new service-based PatternRecognitionJob, not the old job namespace if it existed.
+            // The file created was in FocusDeck.Server.Services.Jarvis namespace.
+            RecurringJob.AddOrUpdate<FocusDeck.Server.Services.Jarvis.PatternRecognitionJob>(
                 "pattern-recognition-job",
                 job => job.ExecuteAsync(CancellationToken.None),
                 "0 * * * *"); // Run every hour
