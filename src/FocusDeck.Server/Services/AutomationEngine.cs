@@ -144,6 +144,34 @@ namespace FocusDeck.Server.Services
                      }
                 }
             }
+            else if (automation.Trigger.Type == "CalendarEvent" || automation.Trigger.TriggerType == "CalendarEvent")
+            {
+                var calendarSlice = snapshot.Slices.FirstOrDefault(s => s.SourceType == ContextSourceType.GoogleCalendar);
+                if (calendarSlice != null && calendarSlice.Data != null)
+                {
+                    try
+                    {
+                        var eventTitle = calendarSlice.Data["event"]?.ToString();
+                        var keyword = automation.Trigger.Settings.GetValueOrDefault("keyword")
+                                      ?? automation.Trigger.Settings.GetValueOrDefault("contains");
+
+                        if (string.IsNullOrEmpty(keyword))
+                        {
+                            // Trigger on ANY calendar event if no keyword specified
+                            return true;
+                        }
+
+                        if (!string.IsNullOrEmpty(eventTitle) && eventTitle.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return true;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse calendar slice data.");
+                    }
+                }
+            }
 
             return false;
         }

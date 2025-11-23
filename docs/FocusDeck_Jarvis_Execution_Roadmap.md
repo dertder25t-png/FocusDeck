@@ -359,9 +359,9 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - [ ] **Automation Core:**
     - `AutomationEngine`: The background service that listens for triggers and executes actions.
     - `YamlLoader`: Parses YAML definitions into executable `Automation` objects.
-    - `TriggerSystem`: Event bus for `TimeTrigger`, `StateChangeTrigger` (e.g., "Focus Mode ON"), `EventTrigger` (e.g., "Calendar Event Started").
+    - `TriggerSystem`: Event bus for `TimeTrigger`, `StateChangeTrigger` (e.g., "Focus Mode ON"), `EventTrigger` (e.g., "Calendar Event Started"). (Implemented via `AutomationEngine` and `ContextEventBus`).
     - `ActionSystem`: Registry of executable actions (e.g., `Obsidian.AppendNote`, `Spotify.Play`, `Windows.OpenApp`).
-- [ ] **Integration Registry:**
+- [x] **Integration Registry:**
     - System for users to add/configure integrations (Google, Spotify, Obsidian, etc.) which expose Triggers and Actions.
 - [ ] **Web UI (Automation Center):**
     - Dashboard showing active automations.

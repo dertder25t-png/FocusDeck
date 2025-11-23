@@ -181,7 +181,43 @@ namespace FocusDeck.Server.Controllers.v1
 
             return Ok(history);
         }
+
+        /// <summary>
+        /// Gets metadata about available triggers and actions for the builder.
+        /// </summary>
+        [HttpGet("metadata")]
+        public ActionResult<AutomationMetadataDto> GetMetadata()
+        {
+            // In the future, this should be aggregated from registered services/plugins.
+            var metadata = new AutomationMetadataDto(
+                Triggers: new List<TriggerMetadataDto>
+                {
+                    new("AppOpen", "Application Opened", new List<FieldDto> { new("app", "string", "Application Name") }),
+                    new("Time", "At Specific Time", new List<FieldDto> { new("time", "time", "Time (HH:mm)") }),
+                    new("Interval", "Recurring Interval", new List<FieldDto> { new("minutes", "number", "Minutes") }),
+                    new("CalendarEvent", "Calendar Event Started", new List<FieldDto>
+                    {
+                        new("keyword", "string", "Title Keyword (Optional)"),
+                        new("calendar", "string", "Calendar Name (Optional)")
+                    })
+                },
+                Actions: new List<ActionMetadataDto>
+                {
+                    new("ShowToast", "Show Notification", new List<FieldDto> { new("message", "string", "Message") }),
+                    new("OpenUrl", "Open URL", new List<FieldDto> { new("url", "string", "URL") }),
+                    new("OpenNote", "Open Note", new List<FieldDto> { new("title", "string", "Note Title") }),
+                    new("PlayMusic", "Play Music", new List<FieldDto> { new("track", "string", "Track URI") })
+                }
+            );
+
+            return Ok(metadata);
+        }
     }
+
+    public record AutomationMetadataDto(List<TriggerMetadataDto> Triggers, List<ActionMetadataDto> Actions);
+    public record TriggerMetadataDto(string Type, string Name, List<FieldDto> Fields);
+    public record ActionMetadataDto(string Type, string Name, List<FieldDto> Fields);
+    public record FieldDto(string Key, string Type, string Label);
 
     public record AutomationDto(
         Guid Id,
