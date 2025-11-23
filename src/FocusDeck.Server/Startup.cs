@@ -229,6 +229,7 @@ public sealed class Startup
 
         // Jobs
         services.AddScoped<VectorizePendingSnapshotsJob>();
+        services.AddScoped<CalendarWarmSyncJob>();
 
         // Version service
         services.AddSingleton<VersionService>();
@@ -558,6 +559,11 @@ public sealed class Startup
                 "pattern-recognition-job",
                 job => job.ExecuteAsync(CancellationToken.None),
                 "0 * * * *"); // Run every hour
+
+            RecurringJob.AddOrUpdate<CalendarWarmSyncJob>(
+                "calendar-warm-sync",
+                job => job.ExecuteAsync(CancellationToken.None),
+                "*/30 * * * *"); // Run every 30 minutes
         }
 
         app.UseEndpoints(endpoints =>

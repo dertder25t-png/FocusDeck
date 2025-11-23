@@ -444,7 +444,7 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 - [x] Scopes: `userinfo.email`, `calendar.readonly` (offline access → refresh token)
 - [x] Entities: `CalendarSource`, `EventCache`, `CourseIndex`
-- [ ] Job: `CalendarWarmSyncJob` (every 30m) next 14 days (incremental with `syncToken`)
+- [x] Job: `CalendarWarmSyncJob` (every 30m) next 14 days (incremental with `syncToken`)
 - [ ] Optional: watch + webhook for near-real-time
 
 ### 4.2 Resolver logic (server)

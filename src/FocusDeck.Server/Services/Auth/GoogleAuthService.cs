@@ -46,6 +46,29 @@ namespace FocusDeck.Server.Services.Auth
             var json = await response.Content.ReadAsStringAsync();
             return JsonSerializer.Deserialize<GoogleTokenResponse>(json);
         }
+
+        public async Task<GoogleTokenResponse?> RefreshTokenAsync(string refreshToken)
+        {
+            var client = _httpClientFactory.CreateClient();
+            var content = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("client_id", _options.ClientId),
+                new KeyValuePair<string, string>("client_secret", _options.ClientSecret),
+                new KeyValuePair<string, string>("refresh_token", refreshToken),
+                new KeyValuePair<string, string>("grant_type", "refresh_token")
+            });
+
+            var response = await client.PostAsync("https://oauth2.googleapis.com/token", content);
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to refresh Google token: {Error}", error);
+                return null;
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<GoogleTokenResponse>(json);
+        }
     }
 
     public class GoogleTokenResponse
