@@ -1,6 +1,7 @@
 using FocusDeck.Domain.Entities.Automations;
 using FocusDeck.Persistence;
 using FocusDeck.Server.Services.ActionHandlers;
+using FocusDeck.Server.Services.ActionHandlers.Email;
 using FocusDeck.Server.Services.Integrations;
 
 namespace FocusDeck.Server.Services
@@ -30,9 +31,9 @@ namespace FocusDeck.Server.Services
 
             // Core Integrations
             // For MVP, we're using stubbed providers. In production, these would be injected.
-            _handlers["Email"] = new EmailActionHandler(new GmailProvider(httpClientFactory));
+            _handlers["Email"] = new EmailActionHandler(new IEmailProvider[] { new GmailProvider(httpClientFactory) });
             _handlers["GitHub"] = new GitHubActionHandler();
-            _handlers["Storage"] = new FileStorageActionHandler(_serviceProvider);
+            _handlers["Storage"] = new FileStorageActionHandler(new IFileStorageProvider[] { new GoogleDriveProvider(httpClientFactory) });
 
             _handlers["Spotify"] = new SpotifyActionHandler(httpClientFactory);
             _handlers["HomeAssistant"] = new HomeAssistantActionHandler(httpClientFactory);
