@@ -33,6 +33,11 @@ namespace FocusDeck.Domain.Entities.Context
         /// <summary>
         /// A suggestive context source.
         /// </summary>
-        SuggestiveContext
+        SuggestiveContext,
+
+        /// <summary>
+        /// Represents a state change in the system (e.g. Focus Session started).
+        /// </summary>
+        SystemStateChange
     }
 }

@@ -199,6 +199,12 @@ namespace FocusDeck.Server.Controllers.v1
                     {
                         new("keyword", "string", "Title Keyword (Optional)"),
                         new("calendar", "string", "Calendar Name (Optional)")
+                    }),
+                    new("StateChange", "System State Change", new List<FieldDto>
+                    {
+                        new("type", "string", "Entity Type (e.g. FocusSession)"),
+                        new("state", "string", "State (e.g. Active)"),
+                        new("change", "string", "Change Type (e.g. Started)")
                     })
                 },
                 Actions: new List<ActionMetadataDto>

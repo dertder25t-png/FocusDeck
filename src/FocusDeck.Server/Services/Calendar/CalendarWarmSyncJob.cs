@@ -83,8 +83,8 @@ namespace FocusDeck.Server.Services.Calendar
 
             var calendarId = "primary"; // Assuming primary calendar for now, or source.ExternalId if multiple
             var request = service.Events.List(calendarId);
-            request.TimeMin = DateTime.UtcNow.AddMinutes(-15);
-            request.TimeMax = DateTime.UtcNow.AddDays(14);
+            request.TimeMinDateTimeOffset = DateTimeOffset.UtcNow.AddMinutes(-15);
+            request.TimeMaxDateTimeOffset = DateTimeOffset.UtcNow.AddDays(14);
             request.SingleEvents = true;
             request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
 
@@ -113,8 +113,8 @@ namespace FocusDeck.Server.Services.Calendar
                     // Skip cancelled/deleted if returned (SingleEvents=true usually filters them unless showDeleted=true)
                     if (evt.Status == "cancelled") continue;
 
-                    var start = evt.Start.DateTime ?? evt.Start.Date != null ? DateTime.Parse(evt.Start.Date) : DateTime.MinValue;
-                    var end = evt.End.DateTime ?? evt.End.Date != null ? DateTime.Parse(evt.End.Date) : DateTime.MinValue;
+                    var start = evt.Start.DateTimeDateTimeOffset?.UtcDateTime ?? (evt.Start.Date != null ? DateTime.Parse(evt.Start.Date).ToUniversalTime() : DateTime.MinValue);
+                    var end = evt.End.DateTimeDateTimeOffset?.UtcDateTime ?? (evt.End.Date != null ? DateTime.Parse(evt.End.Date).ToUniversalTime() : DateTime.MinValue);
 
                     // Google API DateTime is typically DateTimeOffset-ish or local. Convert to UTC.
                     if (evt.Start.DateTimeRaw != null) start = DateTime.Parse(evt.Start.DateTimeRaw).ToUniversalTime();

@@ -172,6 +172,39 @@ namespace FocusDeck.Server.Services
                     }
                 }
             }
+            else if (automation.Trigger.Type == "StateChange" || automation.Trigger.TriggerType == "StateChange")
+            {
+                var stateSlice = snapshot.Slices.FirstOrDefault(s => s.SourceType == ContextSourceType.SystemStateChange);
+                if (stateSlice != null && stateSlice.Data != null)
+                {
+                    try
+                    {
+                        var type = stateSlice.Data["type"]?.ToString();
+                        var state = stateSlice.Data["state"]?.ToString();
+                        var change = stateSlice.Data["change"]?.ToString();
+
+                        var targetType = automation.Trigger.Settings.GetValueOrDefault("entityType")
+                                         ?? automation.Trigger.Settings.GetValueOrDefault("type");
+                        var targetState = automation.Trigger.Settings.GetValueOrDefault("state");
+                        var targetChange = automation.Trigger.Settings.GetValueOrDefault("change");
+
+                        if (!string.IsNullOrEmpty(targetType) && !string.Equals(type, targetType, StringComparison.OrdinalIgnoreCase))
+                            return false;
+
+                        if (!string.IsNullOrEmpty(targetState) && !string.Equals(state, targetState, StringComparison.OrdinalIgnoreCase))
+                            return false;
+
+                        if (!string.IsNullOrEmpty(targetChange) && !string.Equals(change, targetChange, StringComparison.OrdinalIgnoreCase))
+                            return false;
+
+                        return true;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse system state slice data.");
+                    }
+                }
+            }
 
             return false;
         }

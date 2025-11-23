@@ -589,7 +589,7 @@ public class AuthPakeController : ControllerBase
         // Register the new refresh token (and device)
         var deviceId = session.TargetDeviceId ?? "mobile-pairing-" + session.Id.ToString()[..8];
         var deviceName = "Mobile Device";
-        var devicePlatform = DevicePlatform.Android; // Assume Android since this flow is primarily for it
+        var devicePlatform = DevicePlatform.Android.ToString(); // Assume Android since this flow is primarily for it
 
         var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
         var clientFingerprint = _tokenService.ComputeClientFingerprint(deviceId, userAgent);
@@ -612,7 +612,7 @@ public class AuthPakeController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(deviceId))
         {
-            await UpsertDeviceRegistrationAsync(session.UserId, session.TenantId, deviceId, deviceName, devicePlatform.ToString());
+            await UpsertDeviceRegistrationAsync(session.UserId, session.TenantId, deviceId, deviceName, devicePlatform);
         }
 
         session.Status = PairingStatus.Completed;

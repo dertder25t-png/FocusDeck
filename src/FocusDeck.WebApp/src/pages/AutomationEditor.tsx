@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import Editor from '@monaco-editor/react'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { AutomationVisualBuilder } from './AutomationVisualBuilder'
@@ -147,16 +148,27 @@ actions:
                 onYamlChange={setYaml}
               />
             ) : (
-              <div className="flex flex-col min-h-[400px]">
-                <textarea
+              <div className="flex flex-col min-h-[400px] border border-gray-800 rounded-lg overflow-hidden">
+                <Editor
+                  height="400px"
+                  defaultLanguage="yaml"
+                  theme="vs-dark"
                   value={yaml}
-                  onChange={e => setYaml(e.target.value)}
-                  className="flex-1 w-full bg-gray-950 border border-gray-800 rounded-lg p-4 font-mono text-sm text-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-700 resize-none h-[400px]"
-                  spellCheck={false}
+                  onChange={(value) => setYaml(value || '')}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    padding: { top: 16, bottom: 16 }
+                  }}
                 />
-                <p className="text-xs text-gray-500 mt-2">
-                  Advanced mode: Edit the raw YAML definition directly.
-                </p>
+                <div className="bg-gray-900 p-2 border-t border-gray-800">
+                  <p className="text-xs text-gray-500">
+                    Advanced mode: Edit the raw YAML definition directly.
+                  </p>
+                </div>
               </div>
             )}
           </div>

@@ -9,6 +9,8 @@ using FocusDeck.Persistence;
 using FocusDeck.Server.Controllers.v1;
 using FocusDeck.Server.Hubs;
 using FocusDeck.Services.Activity;
+using FocusDeck.Server.Services.Context;
+using FocusDeck.Domain.Entities.Context;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -23,6 +25,7 @@ public class FocusSessionTests : IDisposable
     private readonly AutomationDbContext _db;
     private readonly FocusController _controller;
     private readonly TestHubContext _hubContext;
+    private readonly IContextEventBus _eventBus;
 
     public FocusSessionTests()
     {
@@ -35,10 +38,14 @@ public class FocusSessionTests : IDisposable
         // Setup test hub context
         _hubContext = new TestHubContext();
 
+        // Mock event bus
+        _eventBus = new TestContextEventBus();
+
         _controller = new FocusController(
             _db,
             NullLogger<FocusController>.Instance,
-            _hubContext);
+            _hubContext,
+            _eventBus);
 
         // Set up a mock HttpContext with test user
         var httpContext = new DefaultHttpContext();
@@ -46,6 +53,21 @@ public class FocusSessionTests : IDisposable
         {
             HttpContext = httpContext
         };
+    }
+
+    private class TestContextEventBus : IContextEventBus
+    {
+        public event Func<ContextSnapshot, Task> OnContextSnapshotCreated;
+
+        public Task PublishAsync(ContextSnapshot snapshot)
+        {
+            // Just invoke event for testing
+            if (OnContextSnapshotCreated != null)
+            {
+                return OnContextSnapshotCreated(snapshot);
+            }
+            return Task.CompletedTask;
+        }
     }
 
     public void Dispose()
