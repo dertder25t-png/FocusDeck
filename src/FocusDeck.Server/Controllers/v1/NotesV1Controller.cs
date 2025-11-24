@@ -1,5 +1,6 @@
 using FocusDeck.Persistence;
 using FocusDeck.Domain.Entities;
+using FocusDeck.Server.Services.Calendar;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,11 +15,65 @@ public class NotesV1Controller : ControllerBase
 {
     private readonly AutomationDbContext _db;
     private readonly ILogger<NotesV1Controller> _logger;
+    private readonly CalendarResolver _calendarResolver;
 
-    public NotesV1Controller(AutomationDbContext db, ILogger<NotesV1Controller> logger)
+    public NotesV1Controller(AutomationDbContext db, ILogger<NotesV1Controller> logger, CalendarResolver calendarResolver)
     {
         _db = db;
         _logger = logger;
+        _calendarResolver = calendarResolver;
+    }
+
+    // POST: v1/notes/start
+    [HttpPost("start")]
+    public async Task<ActionResult> StartNote([FromBody] CreateNoteDto? request)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var tenantIdStr = User.FindFirst("app_tenant_id")?.Value;
+
+        if (string.IsNullOrEmpty(userId) || !Guid.TryParse(tenantIdStr, out var tenantId))
+        {
+            return Unauthorized();
+        }
+
+        // Resolve context (Auto-Tag)
+        var (evt, course) = await _calendarResolver.ResolveCurrentContextAsync(tenantId);
+
+        var note = new Note
+        {
+            Id = Guid.NewGuid().ToString(),
+            Title = request?.Title ?? "Untitled Note",
+            Content = request?.Content ?? "",
+            CreatedDate = DateTime.UtcNow,
+            TenantId = tenantId
+        };
+
+        if (evt != null)
+        {
+            note.EventId = evt.Id; // Note: EventCache ID, not external ID
+            // Auto-title if no specific title provided
+            if (string.IsNullOrEmpty(request?.Title))
+            {
+                var topic = !string.IsNullOrEmpty(evt.Title) ? evt.Title : "Session";
+                var courseCode = course?.Code ?? "General";
+                note.Title = $"{courseCode} - {topic} - {DateTime.Now:MM/dd HH:mm}";
+            }
+        }
+        else if (string.IsNullOrEmpty(request?.Title))
+        {
+             note.Title = $"Note - {DateTime.Now:MM/dd HH:mm}";
+        }
+
+        if (course != null)
+        {
+            note.CourseId = course.Id;
+            note.Tags.Add(course.Code);
+        }
+
+        _db.Notes.Add(note);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { noteId = note.Id, title = note.Title, context = new { eventId = evt?.Id, courseId = course?.Id } });
     }
 
     // GET: v1/notes/list

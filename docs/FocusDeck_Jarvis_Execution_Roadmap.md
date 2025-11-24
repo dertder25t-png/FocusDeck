@@ -407,8 +407,8 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 #### 3.5.1 Dual-Mode Editor Architecture
 - [x] **Architecture Fork:** Split `Note` entity into `QuickNote` (Markdown) and `AcademicPaper` (Structured Document).
-- [ ] **Paper Mode UI:** Implement WPF `FlowDocument` viewer for true pagination, headers, and footers (Google Docs style).
-- [ ] **Smart Mode Switcher:** Toggle context: "Speed Mode" (Notes) vs. "Format Mode" (Paper).
+- [x] **Paper Mode UI:** Implement WPF `FlowDocument` viewer for true pagination, headers, and footers (Google Docs style).
+- [x] **Smart Mode Switcher:** Toggle context: "Speed Mode" (Notes) vs. "Format Mode" (Paper).
 
 #### 3.5.2 Native Citation Engine (Deterministic/No-LLM)
 - [x] **Structured Source Database:** Create `AcademicSource` entity to store metadata (Author, Year, Publisher) separate from text.
