@@ -281,8 +281,8 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ### 2. On-Device Feature Engineering & Enhanced Depth
 
-- [ ] Extend clients and bridges (Desktop system tray monitor, VS Code extension, Browser Bridge) to enrich snapshots with behavioral metrics (`TypingVelocity`, `MouseEntropy`, `ContextSwitchCount`) and environment signals (`DevicePosture`, `AudioContext`, `PhysicalLocation`).
-- [ ] Implement local aggregation so raw keystroke/mouse data stays on device; send `FeatureSummary` payloads with optional `ApplicationStateDetails` JSON blob.
+- [x] Extend clients and bridges (Desktop system tray monitor, VS Code extension, Browser Bridge) to enrich snapshots with behavioral metrics (`TypingVelocity`, `MouseEntropy`, `ContextSwitchCount`) and environment signals (`DevicePosture`, `AudioContext`, `PhysicalLocation`).
+- [x] Implement local aggregation so raw keystroke/mouse data stays on device; send `FeatureSummary` payloads with optional `ApplicationStateDetails` JSON blob.
 - [ ] Ensure capture SDK respects device power profiles—offer adaptive sampling rates to minimize CPU/battery on laptops while scaling up on high-performance desktops.
 
 ### 3. Real-Time Vectorization & Storage (skeleton complete)
