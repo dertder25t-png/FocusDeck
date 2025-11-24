@@ -298,7 +298,6 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 > **Implementation Guide:** See [`docs/SuggestionAPI-Implementation-Notes.md`](docs/SuggestionAPI-Implementation-Notes.md) for details on completing the implementation.
 
 - [x] Implement `/v1/jarvis/suggest` with a rule-based MVP, then upgrade to vector-driven retrieval via `VectorSearchService`. _(Skeleton implemented)_
-- [ ] Integrate MCP Gateway tool (`jarvis.analyze_context`) to allow LLM reasoning over layered context.
 - [x] Return `{ action, parameters, confidence, evidence[] }` payloads and surface "Why?" UI that fetches referenced snapshot summaries. _(Skeleton implemented)_
 
 ### 5. Feedback & Reinforcement Loop (skeleton complete)
@@ -311,7 +310,7 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ### 6. Layered Context Builder & Prompt Templates
 
-- [ ] Build `LayeredContextService` to compose Immediate → Session → Project → Seasonal context layers and register prompt templates with the MCP Gateway.
+- [ ] Build `LayeredContextService` to compose Immediate → Session → Project → Seasonal context layers.
 - [ ] Generate dynamic few-shot examples via `ExampleGenerator` (top three similar events) and enforce confidence thresholds (`<0.7 → insufficient_context`).
 
 ### 7. Performance & Resource Adaptation
@@ -323,22 +322,22 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 - [ ] Simulate ≥100 contexts across personas (e.g., "CS Student", "Designer", "Gamer") to benchmark precision/recall against Jarvis Classic.
 - [ ] Implement adversarial testing to catch false positives and monitor dashboards for precision, recall, reward curves, and vectorization lag.
-- [ ] Store successful workflow runs as training signals and ensure MCP audit logs correlate tool calls with context evidence.
+- [ ] Store successful workflow runs as training signals.
 
 ### Deliverables
 
 - ✅ Privacy & consent dashboard live before capture hooks
 - ✅ Decoupled snapshot ingestion with on-device feature summaries
 - ✅ Real-time vector index + embedding pipeline with explainable suggestions
-- ✅ `/v1/jarvis/suggest` + `/v1/jarvis/feedback` APIs wired to MCP Gateway
+- ✅ `/v1/jarvis/suggest` + `/v1/jarvis/feedback` APIs
 - ✅ Performance-aware Jarvis runtime configuration (Eco/Balanced/Performance)
 - ✅ Learning metrics and validation dashboards (precision/recall/reward)
 
 ---
 
-## Phase 2 — Observability + MCP Server/Gateway (Sprint 5)
+## Phase 2 — Observability (Sprint 5)
 
-**Goal:** Production-grade telemetry and the MCP tool plane so LLMs can safely call your app’s tools.
+**Goal:** Production-grade telemetry.
 
 ### 2.1 Observability
 
@@ -675,22 +674,6 @@ Configure rules (“auto-save all ChatGPT convos tagged ‘FocusDeck’”)
 **Risks:** Nginx/Cloudflare misroutes → ensure root path.  
 **Tests:** Curl `/`, `/notes` (200 OK, returns SPA HTML).
 
-### Card: MCP Server + Gateway (Phase 2.2)
-
-**Intent:** Give LLMs controlled tools into FocusDeck + external APIs.  
-**Touch:** `tools/mcp/**`, `docs/MCP_TOOLS.md`
-
-**Steps:**
-
-1. Define JSON tool specs for notes/lectures/jarvis/calendar.
-2. Implement MCP server (authZ by tenant).
-3. Spin gateway (Docker) aggregating multiple MCP servers.
-4. Configure Copilot/GPT to point at gateway with user headers.
-
-**Done-when:** `mcp:list_tools` shows FocusDeck tools; `notes.create` works.  
-**Risks:** tool auth; rate limits.  
-**Tests:** E2E: run `jarvis.runWorkflow` via MCP; see job queued.
-
 ### Card: Auto-tag notes from Calendar (Phase 4)
 
 **Intent:** Attach new notes/recordings to the right class automatically.  
@@ -713,7 +696,7 @@ Configure rules (“auto-save all ChatGPT convos tagged ‘FocusDeck’”)
 - **P0 Gate:** `dotnet build -c Release` produces server + SPA at root; desktop connects to `:5000`; EF canonical migration applies cleanly.
 - **P1 Gate:** Multi-tenant reads/writes; Web/Desktop can login/register/pair; Linux deploy serves SPA at `/`.
 - **P1.5 Gate:** Privacy dashboard enabled; contextual snapshots captured with consent; `/v1/jarvis/suggest` returns explainable, resource-aware recommendations with feedback loop online.
-- **P2 Gate:** OTLP traces + Prom metrics + central logs visible; MCP tools usable from Copilot/GPT.
+- **P2 Gate:** OTLP traces + Prom metrics + central logs visible.
 - **P3 Gate:** `/v1/jarvis/*` live; job runs BMAD; clients receive SignalR actions.
 - **P4 Gate:** Notes start auto-attach to class with ≥95% accuracy in tests.
 - **P5–P7 Gates:** Device agent executes bundles on connect; Memory Vault & Save States usable.
@@ -727,7 +710,6 @@ Configure rules (“auto-save all ChatGPT convos tagged ‘FocusDeck’”)
 - [ ] `[SERVER] Canonical EF migration; remove manual DDL`
 - [ ] `[DESKTOP] BaseAddress = http://localhost:5000`
 - [ ] `[OBS] OTLP+Prom+Serilog production pipeline`
-- [ ] `[MCP] FocusDeck MCP server + gateway`
 - [ ] `[JARVIS] Contextual learning loop (privacy, snapshots, suggest API)`
 - [ ] `[JARVIS] API + Hangfire runner + SignalR dispatch`
 - [ ] `[JARVIS] Smart Start Note workflow (current class)`

@@ -255,6 +255,7 @@ public sealed class Startup
         services.AddScoped<IActivitySignalRepository, FocusDeck.Persistence.Repositories.EfActivitySignalRepository>();
         services.AddScoped<IEventCacheRepository, EfEventCacheRepository>();
         services.AddScoped<AmbientService>();
+        services.AddScoped<KnowledgeVaultService>();
         // Context snapshot infrastructure
         services.AddSingleton<FocusDeck.Server.Services.Context.IContextEventBus, FocusDeck.Server.Services.Context.ContextEventBus>();
         services.AddScoped<FocusDeck.Contracts.Services.Context.IContextRetrievalService, FocusDeck.Server.Services.Context.ContextRetrievalService>();
@@ -574,6 +575,11 @@ public sealed class Startup
                 "calendar-warm-sync",
                 job => job.ExecuteAsync(CancellationToken.None),
                 "*/30 * * * *"); // Run every 30 minutes
+
+            RecurringJob.AddOrUpdate<SummarizeCapturedContentJob>(
+                "summarize-captured-content",
+                job => job.ExecuteAsync(CancellationToken.None),
+                "*/15 * * * *"); // Run every 15 minutes
         }
 
         app.UseEndpoints(endpoints =>

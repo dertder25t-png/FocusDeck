@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../lib/utils';
 import { Card, CardContent } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { EmptyState } from '../components/States';
@@ -23,7 +24,7 @@ export function MorningBriefingPage() {
 
     useEffect(() => {
         const offset = new Date().getTimezoneOffset(); // Returns minutes, positive for West
-        fetch(`/v1/ambient/briefing?offset=${offset}`)
+        apiFetch(`/v1/ambient/briefing?offset=${offset}`)
             .then(res => {
                 if (res.ok) return res.json();
                 throw new Error('Failed to fetch briefing');

@@ -16,6 +16,8 @@ namespace FocusDeck.Domain.Entities
         public string Url { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
         public string? Content { get; set; }
+        public string? Summary { get; set; }
+        public string TagsJson { get; set; } = "[]";
         public CapturedItemType Kind { get; set; }
 
         public Guid? ProjectId { get; set; }
