@@ -15,7 +15,7 @@
 - [x] Phase 0.4: CI produces a single `focusdeck-server-with-spa` artifact that stitches WebApp output and server builds into one deployable.
 - [x] Phase 1: Foundations are ready—multi-tenant plumbing is wired (null tenant default, factory coverage, stubbed tenant membership for auth tests) so focus can shift to tenant-aware APIs/UI and the `/` SPA launch on Linux.
 - [x] Phase 3.1: Jarvis "The Architect" (Proactive Automation Generation) - Retrieval Layer & Proposal Engine complete.
-- [x] Phase 2.2/3.5: Automation Execution Engine (Local Runtime) - In Progress.
+- [x] Phase 2.2/3.5: Automation Execution Engine (Local Runtime) - Complete.
 
 ## Verifications
 
@@ -356,18 +356,18 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 ### 2.2 Native Automation Engine (YAML + Local Execution)
 **Goal:** A Home Assistant-style automation engine where behaviors are defined in YAML and executed locally. This maximizes token efficiency (AI writes the YAML once; engine runs it forever) and privacy.
 
-- [ ] **Automation Core:**
+- [x] **Automation Core:**
     - `AutomationEngine`: The background service that listens for triggers and executes actions.
     - `YamlLoader`: Parses YAML definitions into executable `Automation` objects.
     - `TriggerSystem`: Event bus for `TimeTrigger`, `StateChangeTrigger` (e.g., "Focus Mode ON"), `EventTrigger` (e.g., "Calendar Event Started"). (Implemented via `AutomationEngine` and `ContextEventBus`).
     - `ActionSystem`: Registry of executable actions (e.g., `Obsidian.AppendNote`, `Spotify.Play`, `Windows.OpenApp`).
 - [x] **Integration Registry:**
     - System for users to add/configure integrations (Google, Spotify, Obsidian, etc.) which expose Triggers and Actions.
-- [ ] **Web UI (Automation Center):**
+- [x] **Web UI (Automation Center):**
     - Dashboard showing active automations.
-    - **YAML Editor:** Monaco-based editor for raw YAML editing.
+    - [x] **YAML Editor:** Monaco-based editor for raw YAML editing.
     - [x] **Visual Builder:** Form-based UI for editing triggers/actions (generates YAML).
-    - **Run History:** Logs of when automations ran and their output.
+    - [x] **Run History:** Logs of when automations ran and their output.
 
 **Files**
 - `src/FocusDeck.Server/Services/Automation/**`
@@ -393,9 +393,9 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - **Auto Mode:** Jarvis creates and enables automations automatically based on confidence thresholds.
 
 ### 3.2 The "Architect" Loop
-- [ ] **Context Review Job:** Scheduled job (user-defined interval) where Jarvis analyzes `ContextSnapshots` and `ActivitySignals`.
-- [ ] **Automation Generator:** LLM prompt pipeline that outputs valid YAML automations based on the user's habits (e.g., "I see you always open VS Code and Spotify at 9 AM; here is an automation to do that").
-- [ ] **Suggestion UI:** Interface for the user to review, diff, and accept Jarvis-generated automations.
+- [x] **Context Review Job:** Scheduled job (user-defined interval) where Jarvis analyzes `ContextSnapshots` and `ActivitySignals`.
+- [x] **Automation Generator:** LLM prompt pipeline that outputs valid YAML automations based on the user's habits (e.g., "I see you always open VS Code and Spotify at 9 AM; here is an automation to do that").
+- [x] **Suggestion UI:** Interface for the user to review, diff, and accept Jarvis-generated automations.
 
 ### 3.3 Jarvis API
 - `POST /v1/jarvis/architect/analyze` -> Triggers an ad-hoc review.

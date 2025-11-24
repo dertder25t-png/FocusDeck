@@ -272,6 +272,7 @@ public sealed class Startup
         services.AddHostedService<ImplicitFeedbackMonitor>();
         services.AddScoped<ILayeredContextService, LayeredContextService>();
         services.AddScoped<IExampleGenerator, ExampleGenerator>();
+        services.AddScoped<FocusDeck.Server.Services.Writing.ICitationEngine, FocusDeck.Server.Services.Writing.CitationEngine>();
         services.AddScoped<IJarvisRunRepository, EfJarvisRunRepository>();
         services.AddScoped<IJarvisRunService, JarvisRunService>();
         services.AddScoped<IJarvisActionDispatcher, JarvisActionDispatcher>();
