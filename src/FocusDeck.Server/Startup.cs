@@ -219,7 +219,7 @@ public sealed class Startup
 
         // Transcription & TextGen
         services.AddSingleton<FocusDeck.Server.Services.Transcription.IWhisperAdapter, FocusDeck.Server.Services.Transcription.StubWhisperAdapter>();
-        services.AddSingleton<FocusDeck.Server.Services.TextGeneration.ITextGen, FocusDeck.Server.Services.TextGeneration.StubTextGen>();
+        services.AddScoped<FocusDeck.Server.Services.TextGeneration.ITextGen, FocusDeck.Server.Services.TextGeneration.GeminiTextGenService>();
         services.AddScoped<FocusDeck.Contracts.Services.Context.IEmbeddingGenerationService, FocusDeck.Server.Services.Context.GeminiEmbeddingService>();
 
         // Automation
@@ -274,6 +274,7 @@ public sealed class Startup
         services.AddScoped<ILayeredContextService, LayeredContextService>();
         services.AddScoped<IExampleGenerator, ExampleGenerator>();
         services.AddScoped<FocusDeck.Server.Services.Writing.ICitationEngine, FocusDeck.Server.Services.Writing.CitationEngine>();
+        services.AddScoped<FocusDeck.Server.Services.Writing.LectureSynthesisService>();
         services.AddScoped<IJarvisRunRepository, EfJarvisRunRepository>();
         services.AddScoped<IJarvisRunService, JarvisRunService>();
         services.AddScoped<IJarvisActionDispatcher, JarvisActionDispatcher>();

@@ -4,7 +4,9 @@ using FocusDeck.Domain.Entities;
 using FocusDeck.Persistence;
 using FocusDeck.Server.Jobs;
 using FocusDeck.Server.Services.Storage;
+using FocusDeck.Server.Services.Writing;
 using FocusDeck.SharedKernel;
+using FocusDeck.SharedKernel.Tenancy;
 using Hangfire;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,6 +25,8 @@ public class LecturesController : ControllerBase
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
     private readonly IBackgroundJobClient _backgroundJobClient;
+    private readonly LectureSynthesisService _synthesisService;
+    private readonly ICurrentTenant _currentTenant;
     private readonly ILogger<LecturesController> _logger;
 
     public LecturesController(
@@ -31,6 +35,8 @@ public class LecturesController : ControllerBase
         IIdGenerator idGenerator,
         IClock clock,
         IBackgroundJobClient backgroundJobClient,
+        LectureSynthesisService synthesisService,
+        ICurrentTenant currentTenant,
         ILogger<LecturesController> logger)
     {
         _context = context;
@@ -38,6 +44,8 @@ public class LecturesController : ControllerBase
         _idGenerator = idGenerator;
         _clock = clock;
         _backgroundJobClient = backgroundJobClient;
+        _synthesisService = synthesisService;
+        _currentTenant = currentTenant;
         _logger = logger;
     }
 
@@ -230,6 +238,34 @@ public class LecturesController : ControllerBase
             jobId = jobId,
             status = "Queued for transcription"
         });
+    }
+
+    /// <summary>
+    /// Synthesize a note from a lecture transcript
+    /// </summary>
+    [HttpPost("synthesize")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SynthesizeLectureNote([FromBody] SynthesizeLectureDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Transcript))
+        {
+            return BadRequest(new { message = "Transcript cannot be empty" });
+        }
+
+        var userId = Guid.Parse(User.FindFirst("sub")?.Value ?? throw new UnauthorizedAccessException());
+        var tenantId = _currentTenant.TenantId ?? throw new InvalidOperationException("Tenant context required");
+
+        var note = await _synthesisService.SynthesizeNoteAsync(
+            dto.Transcript,
+            dto.CourseId,
+            dto.EventId,
+            dto.Timestamp,
+            userId,
+            tenantId
+        );
+
+        return Created($"/v1/notes/{note.Id}", new { noteId = note.Id, title = note.Title });
     }
 
     private static LectureDto MapToDto(Lecture lecture)

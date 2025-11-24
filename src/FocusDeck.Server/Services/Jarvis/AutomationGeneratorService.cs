@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using FocusDeck.Domain.Entities.Automations;
 using FocusDeck.Domain.Entities.Context;
 using FocusDeck.Persistence;
+using FocusDeck.Server.Services.TextGeneration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -15,18 +16,16 @@ namespace FocusDeck.Server.Services.Jarvis
 {
     public class AutomationGeneratorService : IAutomationGeneratorService
     {
-        private readonly HttpClient _httpClient;
+        private readonly ITextGen _textGenService;
         private readonly AutomationDbContext _dbContext;
         private readonly ILogger<AutomationGeneratorService> _logger;
 
-        private const string BaseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
-
         public AutomationGeneratorService(
-            HttpClient httpClient,
+            ITextGen textGenService,
             AutomationDbContext dbContext,
             ILogger<AutomationGeneratorService> logger)
         {
-            _httpClient = httpClient;
+            _textGenService = textGenService;
             _dbContext = dbContext;
             _logger = logger;
         }
@@ -39,40 +38,31 @@ namespace FocusDeck.Server.Services.Jarvis
                 return;
             }
 
-            // 1. Get API Key
-            var apiKey = await GetApiKeyAsync();
-            if (string.IsNullOrEmpty(apiKey))
-            {
-                _logger.LogWarning("Gemini API Key not configured. Skipping automation generation.");
-                return;
-            }
-
-            // 2. Construct Prompt
+            // 1. Construct Prompt
             var prompt = ConstructPrompt(cluster);
 
-            // 3. Call Gemini API
-            var yamlResponse = await CallGeminiAsync(apiKey, prompt);
-            if (string.IsNullOrEmpty(yamlResponse))
+            // 2. Call Generation Service
+            var yamlResponse = await _textGenService.GenerateAsync(prompt, maxTokens: 1000);
+
+            // Clean up Markdown if present
+            if (!string.IsNullOrEmpty(yamlResponse))
             {
-                _logger.LogError("Failed to generate automation YAML from Gemini.");
+                yamlResponse = CleanYaml(yamlResponse);
+            }
+
+            if (string.IsNullOrEmpty(yamlResponse) || yamlResponse.StartsWith("[Stub Response]"))
+            {
+                _logger.LogWarning("Failed to generate automation YAML (or stub returned).");
                 return;
             }
 
-            // 4. Parse and Save Proposal
+            // 3. Parse and Save Proposal
             await SaveProposalAsync(cluster.First().UserId.ToString(), yamlResponse);
         }
 
         public async Task<AutomationProposal> GenerateProposalFromIntentAsync(string intent, string userId)
         {
-             // 1. Get API Key
-            var apiKey = await GetApiKeyAsync();
-            if (string.IsNullOrEmpty(apiKey))
-            {
-                _logger.LogWarning("Gemini API Key not configured. Skipping automation generation.");
-                throw new InvalidOperationException("Gemini API Key not configured.");
-            }
-
-            // 2. Construct Prompt
+            // 1. Construct Prompt
             var prompt = $"User Intent: {intent}\n\n" +
                          "Write a FocusDeck YAML automation that achieves this intent.\n" +
                          "Format: YAML only. No markdown code blocks.\n" +
@@ -80,23 +70,27 @@ namespace FocusDeck.Server.Services.Jarvis
                          "Available Action Types: email.Send, storage.SaveFile, github.OpenBrowser, spotify.Play, focusdeck.ShowNotification, focusdeck.StartTimer.\n" +
                          "Return ONLY the YAML definition.";
 
-            // 3. Call Gemini API
-            var yamlResponse = await CallGeminiAsync(apiKey, prompt);
-            if (string.IsNullOrEmpty(yamlResponse))
+            // 2. Call Generation Service
+            var yamlResponse = await _textGenService.GenerateAsync(prompt, maxTokens: 1000);
+
+            // Clean up Markdown if present
+            if (!string.IsNullOrEmpty(yamlResponse))
             {
-                throw new InvalidOperationException("Failed to generate automation YAML from Gemini.");
+                yamlResponse = CleanYaml(yamlResponse);
             }
 
-            // 4. Parse and Save Proposal
+            if (string.IsNullOrEmpty(yamlResponse) || yamlResponse.StartsWith("[Stub Response]"))
+            {
+                throw new InvalidOperationException("Failed to generate automation YAML (or stub returned).");
+            }
+
+            // 3. Parse and Save Proposal
             return await SaveProposalAsync(userId, yamlResponse);
         }
 
-        private async Task<string?> GetApiKeyAsync()
+        private string CleanYaml(string input)
         {
-            var config = await _dbContext.ServiceConfigurations
-                .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.ServiceName == "Gemini");
-            return config?.ApiKey;
+            return input.Replace("```yaml", "").Replace("```", "").Trim();
         }
 
         private string ConstructPrompt(List<ContextSnapshot> cluster)
@@ -127,59 +121,6 @@ namespace FocusDeck.Server.Services.Jarvis
             return sb.ToString();
         }
 
-        private async Task<string?> CallGeminiAsync(string apiKey, string prompt)
-        {
-            var requestUrl = $"{BaseUrl}?key={apiKey}";
-
-            var requestBody = new
-            {
-                contents = new[]
-                {
-                    new { parts = new[] { new { text = prompt } } }
-                }
-            };
-
-            var json = JsonSerializer.Serialize(requestBody);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            try
-            {
-                var response = await _httpClient.PostAsync(requestUrl, content);
-                if (!response.IsSuccessStatusCode)
-                {
-                    var error = await response.Content.ReadAsStringAsync();
-                    _logger.LogError("Gemini API Error: {StatusCode} - {Error}", response.StatusCode, error);
-                    return null;
-                }
-
-                var responseString = await response.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(responseString);
-
-                // Response structure: candidates[0].content.parts[0].text
-                if (doc.RootElement.TryGetProperty("candidates", out var candidates) && candidates.GetArrayLength() > 0)
-                {
-                    var firstCandidate = candidates[0];
-                    if (firstCandidate.TryGetProperty("content", out var contentElem) &&
-                        contentElem.TryGetProperty("parts", out var parts) && parts.GetArrayLength() > 0)
-                    {
-                        var text = parts[0].GetProperty("text").GetString();
-                        // Strip markdown if present
-                        if (text != null)
-                        {
-                            text = text.Replace("```yaml", "").Replace("```", "").Trim();
-                        }
-                        return text;
-                    }
-                }
-
-                return null;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Exception calling Gemini API");
-                return null;
-            }
-        }
 
         private async Task<AutomationProposal> SaveProposalAsync(string userId, string yaml)
         {

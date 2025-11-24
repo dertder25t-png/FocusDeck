@@ -465,7 +465,7 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - [ ] **Geofence Triggers:** Service detects "On Campus" location + "Class Time" (Calendar).
 - [ ] **Passive Audio Sentinel:** Low-power listening for dominant voice frequencies (Professor speaking) when in class context.
 - [ ] **Auto-Record & Transcribe:** Automatically starts local audio recording and processes via local Whisper model (no cloud costs).
-- [ ] **Smart Synthesis:** Converts transcript into a structured `Note` with bullet points, "Key Terms," and "Homework Mentions."
+- [x] **Smart Synthesis:** Converts transcript into a structured `Note` with bullet points, "Key Terms," and "Homework Mentions."
 
 **Deliverables:**
 - `IGeoLocationService` (Platform-specific geofencing)
