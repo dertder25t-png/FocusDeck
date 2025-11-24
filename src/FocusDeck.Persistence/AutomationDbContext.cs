@@ -92,7 +92,6 @@ public class AutomationDbContext : DbContext
     // Browser Bridge & Memory Vault
     public DbSet<Project> Projects { get; set; }
     public DbSet<CapturedItem> CapturedItems { get; set; }
-    public DbSet<BrowserSession> BrowserSessions { get; set; }
 
     // Context aggregation snapshots
     public DbSet<FocusDeck.Domain.Entities.StudentContext> StudentContexts { get; set; }

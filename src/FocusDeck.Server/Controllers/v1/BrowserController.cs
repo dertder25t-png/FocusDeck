@@ -59,30 +59,6 @@ namespace FocusDeck.Server.Controllers.v1
             var id = await _browserService.CaptureItemAsync(item);
             return Ok(new { id });
         }
-
-        [HttpPost("bind")]
-        public async Task<IActionResult> BindSession([FromBody] BindSessionDto request)
-        {
-            if (!_currentTenant.HasTenant) return Unauthorized();
-
-            // Allow client to send explicit device ID, or fallback to header
-            var deviceId = request.DeviceId ?? Request.Headers["X-Device-ID"].FirstOrDefault();
-            if (string.IsNullOrEmpty(deviceId)) return BadRequest("Device ID is required");
-
-            await _browserService.BindSessionAsync(deviceId, request.ProjectId, _currentTenant.TenantId!.Value);
-            return Ok();
-        }
-
-        [HttpGet("restore")]
-        public async Task<ActionResult<CapturedItem>> RestoreSession([FromQuery] Guid projectId)
-        {
-            if (!_currentTenant.HasTenant) return Unauthorized();
-
-            var bundle = await _browserService.GetRestoreSessionAsync(projectId, _currentTenant.TenantId!.Value);
-            if (bundle == null) return NotFound("No saved session found for this project.");
-
-            return Ok(bundle);
-        }
     }
 
     public class TabSnapshotDto
@@ -99,11 +75,5 @@ namespace FocusDeck.Server.Controllers.v1
         public string? Content { get; set; }
         public CapturedItemType Kind { get; set; }
         public Guid? ProjectId { get; set; }
-    }
-
-    public class BindSessionDto
-    {
-        public string? DeviceId { get; set; }
-        public Guid ProjectId { get; set; }
     }
 }
