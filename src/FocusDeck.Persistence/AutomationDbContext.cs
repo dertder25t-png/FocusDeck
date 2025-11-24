@@ -67,6 +67,7 @@ public class AutomationDbContext : DbContext
     // Remote control tables
     public DbSet<DeviceLink> DeviceLinks { get; set; }
     public DbSet<RemoteAction> RemoteActions { get; set; }
+    public DbSet<DeviceJob> DeviceJobs { get; set; }
 
     // Focus session tables
     public DbSet<FocusSession> FocusSessions { get; set; }

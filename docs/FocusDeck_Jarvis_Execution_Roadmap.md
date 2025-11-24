@@ -478,10 +478,10 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ### 5.1 Job schema & agent skeleton (Windows)
 
-- [ ] JSON job bundle (idempotent steps, `expires_at`, safety preview)
+- [x] JSON job bundle (idempotent steps, `expires_at`, safety preview)
 - [ ] Windows agent: service + WebSocket client; capabilities advertised to server
 - [ ] Skills: `arrange_layout`, `open_url`, `open_notes_page`, `arm_audio_recording`, `show_pill`
-- [ ] Server endpoint: queue jobs to device; status graph (queued → dispatched → done/failed)
+- [x] Server endpoint: queue jobs to device; status graph (queued → dispatched → done/failed)
 
 **Files**
 
