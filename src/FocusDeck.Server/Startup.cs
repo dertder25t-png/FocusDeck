@@ -256,6 +256,7 @@ public sealed class Startup
         // Context snapshot infrastructure
         services.AddSingleton<FocusDeck.Server.Services.Context.IContextEventBus, FocusDeck.Server.Services.Context.ContextEventBus>();
         services.AddScoped<FocusDeck.Contracts.Services.Context.IContextRetrievalService, FocusDeck.Server.Services.Context.ContextRetrievalService>();
+        services.AddScoped<FocusDeck.Server.Services.Browser.IBrowserContextService, FocusDeck.Server.Services.Browser.BrowserContextService>();
         services.AddScoped<IContextSnapshotService, ContextSnapshotService>();
         services.AddScoped<IContextSnapshotSource, DesktopActiveWindowSource>();
         services.AddScoped<IContextSnapshotSource, GoogleCalendarSource>();

@@ -498,7 +498,7 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 **Deliverables:**
 - `FocusDeck.BrowserExt` (Manifest V3 extension)
-- `IBrowserContextService` (Manage tab groups/persistence)
+- [x] `IBrowserContextService` (Manage tab groups/persistence)
 
 #### 5.4 The Ambient Horizon (Subconscious Deadline Awareness)
 **Goal:** Replace stressful notification spam with subtle, peripheral awareness of time.

@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
 using FocusDeck.Domain.Entities;
-using FocusDeck.Server.Controllers.V1;
+using FocusDeck.Server.Controllers.v1;
 using Microsoft.EntityFrameworkCore;
 using FocusDeck.Persistence;
+using FocusDeck.Server.Services.Browser;
 using Xunit;
 
 namespace FocusDeck.Server.Tests.Controllers
@@ -19,7 +20,8 @@ namespace FocusDeck.Server.Tests.Controllers
 
             using (var context = new AutomationDbContext(options))
             {
-                var controller = new BrowserController(context, new StubCurrentTenant());
+                var service = new BrowserContextService(context);
+                var controller = new BrowserController(service, new StubCurrentTenant());
                 Assert.NotNull(controller);
             }
         }

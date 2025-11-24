@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace FocusDeck.Server.Controllers.V1
+namespace FocusDeck.Server.Controllers.v1
 {
     [ApiController]
     [Route("v1/projects")]
@@ -33,7 +33,7 @@ namespace FocusDeck.Server.Controllers.V1
         }
 
         [HttpPost]
-        public async Task<ActionResult<Project>> CreateProject([FromBody] CreateProjectRequest request)
+        public async Task<ActionResult<Project>> CreateProject([FromBody] CreateProjectRequestDto request)
         {
             if (string.IsNullOrWhiteSpace(request.Title))
             {
@@ -60,7 +60,7 @@ namespace FocusDeck.Server.Controllers.V1
         }
     }
 
-    public class CreateProjectRequest
+    public class CreateProjectRequestDto
     {
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
