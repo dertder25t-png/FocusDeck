@@ -20,6 +20,7 @@ import { cn } from './lib/utils'
 import { DevicesPage } from './pages/DevicesPage'
 import { logout } from './lib/utils'
 import { PairingPage } from './pages/Auth/PairingPage'
+import { MorningBriefingPage } from './pages/MorningBriefingPage'
 import ProvisioningPage from './pages/ProvisioningPage'
 import { useCurrentTenant } from './hooks/useCurrentTenant'
 import { ProtectedRoute } from './pages/Auth/ProtectedRoute'
@@ -35,6 +36,7 @@ function AppLayout() {
 
   const navigation: NavigationItem[] = useMemo(() => [
     { name: 'Dashboard', path: '/', icon: '📊', exact: true },
+    { name: 'Morning', path: '/morning', icon: '🌅' },
     { name: 'Lectures', path: '/lectures', icon: '🎓' },
     { name: 'Focus', path: '/focus', icon: '⚡' },
     { name: 'Notes', path: '/notes', icon: '📝' },
@@ -197,6 +199,7 @@ function App() {
             <Route element={<AppLayout />}>
               {/* Dashboard */}
               <Route index element={<DashboardPage />} />
+              <Route path="morning" element={<MorningBriefingPage />} />
               
               {/* Main Features */}
               <Route path="lectures" element={<LecturesPage />} />

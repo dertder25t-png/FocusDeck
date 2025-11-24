@@ -502,11 +502,11 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 #### 5.4 The Ambient Horizon (Subconscious Deadline Awareness)
 **Goal:** Replace stressful notification spam with subtle, peripheral awareness of time.
-- [ ] **Visual Urgency Engine:** Tints UI accents (Dock border, wallpaper glow) based on `TimeRemaining / WorkRemaining`.
+- [x] **Visual Urgency Engine:** Tints UI accents (Dock border, wallpaper glow) based on `TimeRemaining / WorkRemaining`.
     - *Cool Blue:* Safe (> 3 days).
     - *Warm Orange:* Warning (< 24 hours).
     - *Critical Red:* Immediate (< 4 hours).
-- [ ] **The "Morning Rundown" Protocol:**
+- [x] **The "Morning Rundown" Protocol:**
     - Optional "Morning Meeting" mode where Jarvis greets you with a visual summary of the day's "Horizon" colors.
     - User choice: "Show me the raw list" vs. "Just give me the vibe (colors)."
 - [ ] **Granular Customization:**

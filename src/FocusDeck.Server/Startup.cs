@@ -12,6 +12,7 @@ using FocusDeck.Server.Middleware;
 using FocusDeck.Server.Services;
 using FocusDeck.Server.Services.Automations;
 using FocusDeck.Server.Services.Calendar;
+using FocusDeck.Server.Services.Context;
 using FocusDeck.Server.Services.Auditing;
 using FocusDeck.Server.Services.Auth;
 using FocusDeck.Server.Configuration;
@@ -253,6 +254,7 @@ public sealed class Startup
         services.AddScoped<IContextSnapshotRepository, EfContextSnapshotRepository>();
         services.AddScoped<IActivitySignalRepository, FocusDeck.Persistence.Repositories.EfActivitySignalRepository>();
         services.AddScoped<IEventCacheRepository, EfEventCacheRepository>();
+        services.AddScoped<AmbientService>();
         // Context snapshot infrastructure
         services.AddSingleton<FocusDeck.Server.Services.Context.IContextEventBus, FocusDeck.Server.Services.Context.ContextEventBus>();
         services.AddScoped<FocusDeck.Contracts.Services.Context.IContextRetrievalService, FocusDeck.Server.Services.Context.ContextRetrievalService>();
