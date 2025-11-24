@@ -59,7 +59,36 @@ namespace FocusDeck.Server.Services.Jarvis
             }
 
             // 4. Parse and Save Proposal
-            await SaveProposalAsync(cluster.First(), yamlResponse);
+            await SaveProposalAsync(cluster.First().UserId.ToString(), yamlResponse);
+        }
+
+        public async Task<AutomationProposal> GenerateProposalFromIntentAsync(string intent, string userId)
+        {
+             // 1. Get API Key
+            var apiKey = await GetApiKeyAsync();
+            if (string.IsNullOrEmpty(apiKey))
+            {
+                _logger.LogWarning("Gemini API Key not configured. Skipping automation generation.");
+                throw new InvalidOperationException("Gemini API Key not configured.");
+            }
+
+            // 2. Construct Prompt
+            var prompt = $"User Intent: {intent}\n\n" +
+                         "Write a FocusDeck YAML automation that achieves this intent.\n" +
+                         "Format: YAML only. No markdown code blocks.\n" +
+                         "Structure: Title, Description, Trigger (default to Manual/AppOpen if unclear), Actions.\n" +
+                         "Available Action Types: email.Send, storage.SaveFile, github.OpenBrowser, spotify.Play, focusdeck.ShowNotification, focusdeck.StartTimer.\n" +
+                         "Return ONLY the YAML definition.";
+
+            // 3. Call Gemini API
+            var yamlResponse = await CallGeminiAsync(apiKey, prompt);
+            if (string.IsNullOrEmpty(yamlResponse))
+            {
+                throw new InvalidOperationException("Failed to generate automation YAML from Gemini.");
+            }
+
+            // 4. Parse and Save Proposal
+            return await SaveProposalAsync(userId, yamlResponse);
         }
 
         private async Task<string?> GetApiKeyAsync()
@@ -152,11 +181,11 @@ namespace FocusDeck.Server.Services.Jarvis
             }
         }
 
-        private async Task SaveProposalAsync(ContextSnapshot representative, string yaml)
+        private async Task<AutomationProposal> SaveProposalAsync(string userId, string yaml)
         {
             // Parse title/desc from yaml simply for now
             var title = "New Automation Proposal";
-            var description = "Auto-generated based on your habits.";
+            var description = "Auto-generated.";
 
             // Simple parsing heuristics
             var lines = yaml.Split('\n');
@@ -176,13 +205,14 @@ namespace FocusDeck.Server.Services.Jarvis
                 ConfidenceScore = 0.85f, // Placeholder/Mock score
                 CreatedAt = DateTime.UtcNow,
                 TenantId = Guid.Empty, // Should infer from context/user
-                UserId = representative.UserId.ToString()
+                UserId = userId
             };
 
             _dbContext.AutomationProposals.Add(proposal);
             await _dbContext.SaveChangesAsync();
 
             _logger.LogInformation("Created Automation Proposal {Id}: {Title}", proposal.Id, proposal.Title);
+            return proposal;
         }
     }
 }

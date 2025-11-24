@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Asp.Versioning;
 using FocusDeck.Contracts.DTOs;
 using FocusDeck.Server.Services.Jarvis;
@@ -30,6 +31,7 @@ public sealed class JarvisController : ControllerBase
     private readonly FocusDeck.Contracts.Services.Context.IContextRetrievalService _retrievalService;
     private readonly FocusDeck.Persistence.AutomationDbContext _dbContext;
     private readonly FocusDeck.SharedKernel.Tenancy.ICurrentTenant _currentTenant;
+    private readonly IAutomationGeneratorService _automationGenerator;
 
     public JarvisController(
         IJarvisWorkflowRegistry registry,
@@ -39,7 +41,8 @@ public sealed class JarvisController : ControllerBase
         IFeedbackService feedbackService,
         FocusDeck.Contracts.Services.Context.IContextRetrievalService retrievalService,
         FocusDeck.Persistence.AutomationDbContext dbContext,
-        FocusDeck.SharedKernel.Tenancy.ICurrentTenant currentTenant)
+        FocusDeck.SharedKernel.Tenancy.ICurrentTenant currentTenant,
+        IAutomationGeneratorService automationGenerator)
     {
         _registry = registry;
         _logger = logger;
@@ -49,6 +52,7 @@ public sealed class JarvisController : ControllerBase
         _retrievalService = retrievalService;
         _dbContext = dbContext;
         _currentTenant = currentTenant;
+        _automationGenerator = automationGenerator;
     }
 
     /// <summary>
@@ -191,4 +195,29 @@ public sealed class JarvisController : ControllerBase
         var similarMoments = await _retrievalService.GetSimilarMomentsAsync(latestSnapshot);
         return Ok(similarMoments);
     }
+
+    /// <summary>
+    /// Generates an automation proposal based on user intent (Architect mode).
+    /// </summary>
+    [HttpPost("architect/generate")]
+    public async Task<ActionResult> GenerateFromIntent([FromBody] GenerateIntentRequest request)
+    {
+        if (!_isEnabled) return NotFound(new { error = "Jarvis is disabled" });
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        try
+        {
+            var proposal = await _automationGenerator.GenerateProposalFromIntentAsync(request.Intent, userId);
+            return Ok(new { proposalId = proposal.Id, yaml = proposal.YamlDefinition });
+        }
+        catch (System.Exception ex)
+        {
+            _logger.LogError(ex, "Failed to generate automation from intent");
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
 }
+
+public record GenerateIntentRequest(string Intent);

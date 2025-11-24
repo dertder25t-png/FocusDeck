@@ -125,10 +125,6 @@ export function AutomationVisualBuilder({ initialYaml, onYamlChange }: VisualBui
     setActions([...actions, { type: 'focusdeck.ShowNotification', settings: { title: 'New Notification', message: 'Hello' } }])
   }
 
-  const addEmailAction = () => {
-    setActions([...actions, { type: 'email.Send', settings: { to: '', subject: '', body: '' } }])
-  }
-
   const removeAction = (index: number) => {
     const newActions = [...actions]
     newActions.splice(index, 1)

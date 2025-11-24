@@ -6,11 +6,13 @@ import { AutomationVisualBuilder } from './AutomationVisualBuilder'
 
 interface AutomationEditorProps {
   automationId?: string | null
+  proposalId?: string | null
+  initialYaml?: string
   onClose: () => void
   onSaved: () => void
 }
 
-export function AutomationEditor({ automationId, onClose, onSaved }: AutomationEditorProps) {
+export function AutomationEditor({ automationId, proposalId, initialYaml, onClose, onSaved }: AutomationEditorProps) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [yaml, setYaml] = useState('')
@@ -21,6 +23,12 @@ export function AutomationEditor({ automationId, onClose, onSaved }: AutomationE
   useEffect(() => {
     if (automationId) {
       loadAutomation(automationId)
+    } else if (proposalId && initialYaml) {
+      // Pre-fill from proposal
+      setYaml(initialYaml)
+      // We don't have name/desc in this context unless passed props, but we can default
+      setName("From Proposal")
+      setDescription("Edited proposal")
     } else {
       // Default template
       setYaml(`trigger:
@@ -34,7 +42,7 @@ actions:
       title: "Good Morning"
       message: "Time to focus!"`)
     }
-  }, [automationId])
+  }, [automationId, proposalId, initialYaml])
 
   const loadAutomation = async (id: string) => {
     setLoading(true)
@@ -58,7 +66,14 @@ actions:
     setError(null)
 
     try {
-      const url = automationId ? `/v1/automations/${automationId}` : '/v1/automations'
+      // If we have a proposal ID, we want to "accept" it but with the *new* YAML
+      // The accept endpoint creates the automation. However, standard accept doesn't take body.
+      // So for editing a proposal, we should probably just Create a New Automation and Delete the Proposal?
+      // OR: We call Accept on the proposal, and then Update the automation immediately?
+      // Simpler: Treat it as creating a new automation from scratch, and then (optionally) delete the proposal.
+      // For MVP: Just Create New Automation. The user can delete the proposal later or we can add a 'fromProposal' query param to the create endpoint to handle cleanup.
+
+      let url = automationId ? `/v1/automations/${automationId}` : '/v1/automations'
       const method = automationId ? 'PUT' : 'POST'
 
       const res = await fetch(url, {
@@ -68,6 +83,10 @@ actions:
       })
 
       if (res.ok) {
+        // If we saved successfully and came from a proposal, we should probably delete/accept the proposal to clean up.
+        if (proposalId) {
+            await fetch(`/v1/automations/proposals/${proposalId}/accept`, { method: 'POST' })
+        }
         onSaved()
       } else {
         const data = await res.json()

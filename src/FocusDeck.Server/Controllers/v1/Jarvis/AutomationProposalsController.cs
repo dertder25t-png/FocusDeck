@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Asp.Versioning;
 using FocusDeck.Domain.Entities.Automations;
 using FocusDeck.Persistence;
+using FocusDeck.Server.Services;
+using FocusDeck.Server.Services.Automations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,10 +20,17 @@ namespace FocusDeck.Server.Controllers.v1.Jarvis
     public class AutomationProposalsController : ControllerBase
     {
         private readonly AutomationDbContext _dbContext;
+        private readonly ActionExecutor _actionExecutor;
+        private readonly IYamlAutomationLoader _yamlLoader;
 
-        public AutomationProposalsController(AutomationDbContext dbContext)
+        public AutomationProposalsController(
+            AutomationDbContext dbContext,
+            ActionExecutor actionExecutor,
+            IYamlAutomationLoader yamlLoader)
         {
             _dbContext = dbContext;
+            _actionExecutor = actionExecutor;
+            _yamlLoader = yamlLoader;
         }
 
         /// <summary>
@@ -115,6 +124,45 @@ namespace FocusDeck.Server.Controllers.v1.Jarvis
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             return NoContent();
+        }
+
+        /// <summary>
+        /// Executes the actions defined in a proposal immediately (One-time run).
+        /// </summary>
+        [HttpPost("{id}/execute")]
+        public async Task<IActionResult> ExecuteProposal(System.Guid id, CancellationToken cancellationToken)
+        {
+            var proposal = await _dbContext.AutomationProposals.FindAsync(new object[] { id }, cancellationToken);
+            if (proposal == null) return NotFound("Proposal not found");
+
+            // Parse YAML to get actions
+            try
+            {
+                var parsed = _yamlLoader.Parse(proposal.YamlDefinition);
+                if (parsed.Actions == null || parsed.Actions.Count == 0)
+                {
+                     return BadRequest("No actions defined in proposal.");
+                }
+
+                var results = new List<object>();
+                foreach (var actionDto in parsed.Actions)
+                {
+                    var action = new FocusDeck.Domain.Entities.Automations.AutomationAction
+                    {
+                        ActionType = actionDto.Type,
+                        Settings = actionDto.Settings ?? new Dictionary<string, string>()
+                    };
+
+                    var result = await _actionExecutor.ExecuteActionAsync(action, _dbContext);
+                    results.Add(new { type = action.ActionType, success = result.Success, message = result.Message });
+                }
+
+                return Ok(new { success = true, actionResults = results });
+            }
+            catch (System.Exception ex)
+            {
+                return BadRequest($"Failed to execute proposal: {ex.Message}");
+            }
         }
     }
 

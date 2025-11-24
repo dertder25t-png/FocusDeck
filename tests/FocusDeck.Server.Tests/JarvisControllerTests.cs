@@ -41,7 +41,8 @@ public class JarvisControllerTests
             new StubFeedbackService(),
             new StubContextRetrievalService(),
             new AutomationDbContext(new DbContextOptionsBuilder<AutomationDbContext>().UseInMemoryDatabase("JarvisControllerTests").Options),
-            new StubCurrentTenant())
+            new StubCurrentTenant(),
+            new StubAutomationGeneratorService())
         {
             ControllerContext = new ControllerContext
             {
@@ -259,3 +260,10 @@ file sealed class StubCurrentTenant : FocusDeck.SharedKernel.Tenancy.ICurrentTen
 }
 
 file sealed class StubDisposable : IDisposable { public void Dispose() {} }
+
+file sealed class StubAutomationGeneratorService : IAutomationGeneratorService
+{
+    public Task GenerateProposalAsync(List<FocusDeck.Domain.Entities.Context.ContextSnapshot> cluster) => Task.CompletedTask;
+    public Task<FocusDeck.Domain.Entities.Automations.AutomationProposal> GenerateProposalFromIntentAsync(string intent, string userId)
+        => Task.FromResult(new FocusDeck.Domain.Entities.Automations.AutomationProposal { Id = Guid.NewGuid(), Title = "Generated Proposal", YamlDefinition = "yaml" });
+}
