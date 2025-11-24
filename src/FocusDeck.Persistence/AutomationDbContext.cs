@@ -85,6 +85,9 @@ public class AutomationDbContext : DbContext
     public DbSet<DesignProject> DesignProjects { get; set; }
     public DbSet<DesignIdea> DesignIdeas { get; set; }
 
+    // Academic Writing
+    public DbSet<AcademicSource> AcademicSources { get; set; }
+
     // Browser Bridge & Memory Vault
     public DbSet<Project> Projects { get; set; }
     public DbSet<CapturedItem> CapturedItems { get; set; }

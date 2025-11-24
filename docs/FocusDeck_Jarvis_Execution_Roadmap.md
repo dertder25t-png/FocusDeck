@@ -406,13 +406,13 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 **Goal:** Build the "Body" for Jarvis to inhabit. Create a professional-grade writing environment that supports complex academic work natively (Zero-Token) so Jarvis has a structured target for generation later.
 
 #### 3.5.1 Dual-Mode Editor Architecture
-- [ ] **Architecture Fork:** Split `Note` entity into `QuickNote` (Markdown) and `AcademicPaper` (Structured Document).
+- [x] **Architecture Fork:** Split `Note` entity into `QuickNote` (Markdown) and `AcademicPaper` (Structured Document).
 - [ ] **Paper Mode UI:** Implement WPF `FlowDocument` viewer for true pagination, headers, and footers (Google Docs style).
 - [ ] **Smart Mode Switcher:** Toggle context: "Speed Mode" (Notes) vs. "Format Mode" (Paper).
 
 #### 3.5.2 Native Citation Engine (Deterministic/No-LLM)
-- [ ] **Structured Source Database:** Create `AcademicSource` entity to store metadata (Author, Year, Publisher) separate from text.
-- [ ] **The "Cite-o-matic" Logic:** C# service to generate APA/MLA/Chicago strings deterministically (No AI tokens used).
+- [x] **Structured Source Database:** Create `AcademicSource` entity to store metadata (Author, Year, Publisher) separate from text.
+- [x] **The "Cite-o-matic" Logic:** C# service to generate APA/MLA/Chicago strings deterministically (No AI tokens used).
 - [ ] **"Find & Cite" Tool:** Paste a quote $\to$ Engine finds text position $\to$ Injects citation ID $\to$ Auto-updates Bibliography footer.
 - [ ] **Hot-Swap Styles:** Change paper from APA to MLA instantly by re-rendering the footer (not rewriting text).
 

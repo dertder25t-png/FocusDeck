@@ -59,6 +59,9 @@ public class NotesV1Controller : ControllerBase
             n.Tags,
             n.CreatedDate,
             n.LastModified,
+            n.Type,
+            n.Sources,
+            n.CitationStyle,
             CoveragePercent = CalculateCoverage(n) // Stub calculation
         });
 
@@ -224,6 +227,50 @@ public class NotesV1Controller : ControllerBase
             score = coverage,
             timestamp = DateTime.UtcNow
         });
+    }
+
+    // PUT: v1/notes/{id}
+    [HttpPut("{id}")]
+    public async Task<ActionResult> UpdateNote(string id, [FromBody] UpdateNoteDto request)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        var note = await _db.Notes.FirstOrDefaultAsync(n => n.Id == id);
+        if (note == null)
+        {
+            return NotFound(new { code = "NOTE_NOT_FOUND", message = "Note not found" });
+        }
+
+        if (request.Content != null) note.Content = request.Content;
+        if (request.Type.HasValue) note.Type = request.Type.Value;
+        if (request.CitationStyle != null) note.CitationStyle = request.CitationStyle;
+
+        if (request.Sources != null)
+        {
+            // Simple replace strategy for MVP (or merge if desired)
+            // Assuming request sends full list
+            _db.AcademicSources.RemoveRange(note.Sources);
+            note.Sources = request.Sources.Select(s => new AcademicSource
+            {
+                Id = Guid.TryParse(s.Id, out var sid) ? sid : Guid.NewGuid(),
+                Title = s.Title,
+                Author = s.Author,
+                Publisher = s.Publisher,
+                Year = s.Year,
+                Url = s.Url,
+                NoteId = note.Id,
+                TenantId = note.TenantId
+            }).ToList();
+        }
+
+        note.LastModified = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Note updated" });
     }
 
     private double CalculateCoverage(Note note)
