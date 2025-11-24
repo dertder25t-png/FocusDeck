@@ -230,6 +230,7 @@ public sealed class Startup
         // Jobs
         services.AddScoped<VectorizePendingSnapshotsJob>();
         services.AddScoped<CalendarWarmSyncJob>();
+        services.AddScoped<BrowserTabCleanupJob>();
 
         // Version service
         services.AddSingleton<VersionService>();
@@ -573,6 +574,11 @@ public sealed class Startup
                 "calendar-warm-sync",
                 job => job.ExecuteAsync(CancellationToken.None),
                 "*/30 * * * *"); // Run every 30 minutes
+
+            RecurringJob.AddOrUpdate<BrowserTabCleanupJob>(
+                "browser-tab-cleanup",
+                job => job.ExecuteAsync(),
+                "0 */1 * * *"); // Run every hour
         }
 
         app.UseEndpoints(endpoints =>

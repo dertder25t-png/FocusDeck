@@ -425,40 +425,7 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - [ ] Bibliography generates correctly for 50+ sources in < 100ms.
 - [ ] Switching Citation Style updates all footnotes without breaking text.
 
-### Phase 3.6 — The Knowledge Forge (Flashcard RPG) (Sprint 7.5)
-
-**Goal:** Transform study from a chore into a game. Replace standard flashcards with 3D "Holo-Cards" and a "Forge Mode" that tracks exactly which parts of your notes have been captured, preventing duplication and visualizing mastery.
-
-#### 3.6.1 Backend: The Memory Core
-- [ ] **Entity Upgrade:** Create `Flashcard` entity implementing `IMustHaveTenant`.
-    - Fields: `Front`, `Back`, `Rarity` (Common/Rare/Legendary), `SourceNoteId`, `SourceStartIndex`, `SourceLength` (for the tracker), `NextReviewUtc` (SRS).
-- [ ] **Persistence:** Add `DbSet<Flashcard>` to `AutomationDbContext` and run migrations.
-- [ ] **API:** Create `/v1/flashcards` controller with endpoints for `Forge` (Create) and `Review` (Update SRS score).
-
-**Files**
-- `src/FocusDeck.Domain/Entities/Flashcard.cs`
-- `src/FocusDeck.Persistence/AutomationDbContext.cs`
-- `src/FocusDeck.Server/Controllers/v1/FlashcardsController.cs`
-
-#### 3.6.2 Frontend: Holo-Cards & Visuals
-- [ ] **HoloCard Component:** Build `HoloCard.tsx` using CSS 3D transforms.
-    - Features: Mouse-tracking tilt, dynamic glare/foil effect, rarity border styles (Gray/Blue/Gold).
-- [ ] **Tailwind Config:** Extend `tailwind.config.js` with `perspective` and `rotate-x/y` utilities if needed.
-
-**Files**
-- `src/FocusDeck.WebApp/src/components/HoloCard.tsx`
-- `src/FocusDeck.WebApp/tailwind.config.js`
-
-#### 3.6.3 Frontend: The Forge (Tracker UI)
-- [ ] **Forge Mode View:** Create a split-screen component (`ForgeMode.tsx`).
-    - **Left Pane (Source):** Read-only view of the note that highlights ranges already converted to flashcards (Green underline = "Captured").
-    - **Right Pane (Anvil):** Card preview area. When text is selected on the left, it auto-fills the card.
-- [ ] **Mastery Bar:** Visual progress bar showing `% of note text captured` into cards.
-- [ ] **Integration:** Add a "Toggle Forge" button to the main `NoteEditor` toolbar to switch views.
-
-**Files**
-- `src/FocusDeck.WebApp/src/components/ForgeMode.tsx`
-- `src/FocusDeck.WebApp/src/pages/NotesPage.tsx`
+------
 
 ## Phase 4 — Auto-Tag Notes to Class (GCal) + Calendar Planner (Sprint 8)
 
@@ -525,9 +492,9 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 #### 5.3 The Tab Shepherd (Browser Clutter Killer)
 **Goal:** Eliminate "Tab Hoarding" anxiety by treating browser tabs as transient context, not permanent storage.
 - [ ] **Browser Extension:** Build Chrome/Edge extension to communicate active tabs to FocusDeck Desktop via SignalR.
-- [ ] **Context Binding:** "Bind" a set of tabs to a specific Project or FocusDeck Task.
-- [ ] **Auto-Fold:** If a tab group hasn't been touched in 2 hours, auto-close it and save it as a "Session Bundle" in the project history.
-- [ ] **Instant Restore:** When opening the project again, one click restores the exact browser state (scroll position + open tabs).
+- [x] **Context Binding:** "Bind" a set of tabs to a specific Project or FocusDeck Task.
+- [x] **Auto-Fold:** If a tab group hasn't been touched in 2 hours, auto-close it and save it as a "Session Bundle" in the project history.
+- [x] **Instant Restore:** When opening the project again, one click restores the exact browser state (scroll position + open tabs).
 
 **Deliverables:**
 - `FocusDeck.BrowserExt` (Manifest V3 extension)

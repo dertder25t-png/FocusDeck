@@ -7,7 +7,8 @@ namespace FocusDeck.Domain.Entities
         Page,
         AiChat,
         CodeSnippet,
-        ResearchArticle
+        ResearchArticle,
+        SessionBundle
     }
 
     public class CapturedItem : IMustHaveTenant

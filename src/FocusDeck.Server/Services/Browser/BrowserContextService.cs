@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using FocusDeck.Domain.Entities;
 using FocusDeck.Persistence;
@@ -11,6 +13,8 @@ namespace FocusDeck.Server.Services.Browser
     {
         Task ProcessTabSnapshotAsync(string deviceId, List<TabSnapshot> tabs, Guid tenantId);
         Task<Guid> CaptureItemAsync(CapturedItem item);
+        Task BindSessionAsync(string deviceId, Guid projectId, Guid tenantId);
+        Task<CapturedItem?> GetRestoreSessionAsync(Guid projectId, Guid tenantId);
     }
 
     public class TabSnapshot
@@ -31,12 +35,24 @@ namespace FocusDeck.Server.Services.Browser
 
         public async Task ProcessTabSnapshotAsync(string deviceId, List<TabSnapshot> tabs, Guid tenantId)
         {
-            // In a real implementation, this would update a "BrowserSession" entity
-            // or track active tabs for context. For MVP, we might just log or store transiently.
-            // Let's create/update a ContextSnapshot source for this.
+            var session = await _db.BrowserSessions
+                .FirstOrDefaultAsync(s => s.DeviceId == deviceId && s.TenantId == tenantId);
 
-            // For now, we'll just log it as a stub implementation
-            await Task.CompletedTask;
+            if (session == null)
+            {
+                session = new BrowserSession
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    DeviceId = deviceId,
+                    TenantId = tenantId
+                };
+                _db.BrowserSessions.Add(session);
+            }
+
+            session.TabsJson = JsonSerializer.Serialize(tabs);
+            session.LastUpdated = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
         }
 
         public async Task<Guid> CaptureItemAsync(CapturedItem item)
@@ -48,6 +64,38 @@ namespace FocusDeck.Server.Services.Browser
             await _db.SaveChangesAsync();
 
             return item.Id;
+        }
+
+        public async Task BindSessionAsync(string deviceId, Guid projectId, Guid tenantId)
+        {
+            var session = await _db.BrowserSessions
+                .FirstOrDefaultAsync(s => s.DeviceId == deviceId && s.TenantId == tenantId);
+
+            if (session == null)
+            {
+                // Create a session placeholder if it doesn't exist yet
+                session = new BrowserSession
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    DeviceId = deviceId,
+                    TenantId = tenantId,
+                    TabsJson = "[]",
+                    LastUpdated = DateTime.UtcNow
+                };
+                _db.BrowserSessions.Add(session);
+            }
+
+            session.BoundProjectId = projectId;
+            await _db.SaveChangesAsync();
+        }
+
+        public async Task<CapturedItem?> GetRestoreSessionAsync(Guid projectId, Guid tenantId)
+        {
+            // Find the most recent "SessionBundle" captured item for this project
+            return await _db.CapturedItems
+                .Where(c => c.TenantId == tenantId && c.ProjectId == projectId && c.Kind == CapturedItemType.SessionBundle)
+                .OrderByDescending(c => c.CapturedAt)
+                .FirstOrDefaultAsync();
         }
     }
 }
