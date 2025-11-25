@@ -1,9 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
+
+// Placeholder function to simulate passing context to the Jarvis LLM
+const sendContextToJarvis = (context: string) => {
+  console.log(`Jarvis context: ${context}`);
+};
 
 export function JarvisSidebar() {
   const [isPinned, setIsPinned] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    sendContextToJarvis(`I am looking at the ${location.pathname} page.`);
+  }, [location]);
 
   const isOpen = isPinned || isHovered;
 
@@ -39,6 +50,7 @@ export function JarvisSidebar() {
           <div className="flex-1 overflow-y-auto">
             {/* Jarvis content placeholder */}
             <p className="text-sm text-gray-400">Context-aware AI assistant.</p>
+            <p className="text-xs text-gray-500 mt-2">Current context: {location.pathname}</p>
           </div>
         </div>
       </aside>

@@ -73,7 +73,7 @@ actions:
       // Simpler: Treat it as creating a new automation from scratch, and then (optionally) delete the proposal.
       // For MVP: Just Create New Automation. The user can delete the proposal later or we can add a 'fromProposal' query param to the create endpoint to handle cleanup.
 
-      let url = automationId ? `/v1/automations/${automationId}` : '/v1/automations'
+      const url = automationId ? `/v1/automations/${automationId}` : '/v1/automations'
       const method = automationId ? 'PUT' : 'POST'
 
       const res = await fetch(url, {

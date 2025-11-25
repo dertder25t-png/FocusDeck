@@ -7,11 +7,11 @@ export default function ProvisioningPage() {
   const [scannedData, setScannedData] = useState<string | null>(null);
 
   const handleScan = (result: any, error: any) => {
-    if (!!result) {
+    if (result) {
       setScannedData(result?.text);
     }
 
-    if (!!error) {
+    if (error) {
       console.info(error);
     }
   };

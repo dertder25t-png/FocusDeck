@@ -59,8 +59,9 @@ export function LoginPage() {
       
       // Redirect to original page or dashboard
       navigate(redirectUrl, { replace: true })
-    } catch (err: any) {
-      const rawMessage = err?.message || 'Authentication failed'
+    } catch (err) {
+      const error = err as { message?: string };
+      const rawMessage = error?.message || 'Authentication failed'
       // Map server-side auth errors to friendly UI messages
       let friendly = rawMessage
       if (rawMessage === 'Missing KDF salt') {
