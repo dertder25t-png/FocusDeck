@@ -527,6 +527,17 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 - [ ] Commands: open tabs set, close aged, screenshot page, send content to FocusDeck
 - [ ] Link captured items to active project/code path
 
+### 6.1.5 Universal Project "Box" (Folders & Auto-Sort)
+**Goal:** A universal "Project Box" that holds everything: web tabs, Windows folders, Adobe project files, GitHub repos, Canvas tasks, notes, and flashcards.
+
+- [ ] **Universal Schema:** Extend `Project` to bind multiple resource types (URLs, Paths, AppIDs) via `ProjectResource` entity.
+- [ ] **Project Organizer Agent:** A Jarvis skill that analyzes new items (tabs, files) and suggests the correct "Project Box".
+- [ ] **Sorting Modes (Settings):**
+    - **Auto:** Automatically moves/tags items into the project.
+    - **Review:** Queues items for user approval ("Is this related to Project X?").
+    - **Off:** Manual organization only.
+- [ ] **Review UI:** Interface to approve/reject sorting proposals.
+
 ### 6.2 AI Memory Vault + Project Timeline
 
 - [x] Store meaningful AI chats (title, tags, gist, links) (CapturedItem entity & logic)

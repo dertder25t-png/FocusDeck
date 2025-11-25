@@ -23,6 +23,11 @@ namespace FocusDeck.Domain.Entities
         public Guid? ProjectId { get; set; }
         public Project? Project { get; set; }
 
+        // For "Review" mode:
+        public Guid? SuggestedProjectId { get; set; }
+        public double? SuggestionConfidence { get; set; }
+        public string? SuggestionReason { get; set; }
+
         public DateTime CapturedAt { get; set; } = DateTime.UtcNow;
 
         public Guid TenantId { get; set; }

@@ -3,6 +3,7 @@ using System;
 using FocusDeck.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FocusDeck.Persistence.Migrations
 {
     [DbContext(typeof(AutomationDbContext))]
-    partial class AutomationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251125043339_AddCapturedItemSummaries")]
+    partial class AddCapturedItemSummaries
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.10");
@@ -1425,9 +1428,6 @@ namespace FocusDeck.Persistence.Migrations
                     b.Property<string>("RepoSlug")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("SortingMode")
-                        .HasColumnType("INTEGER");
-
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT");
 
@@ -1441,38 +1441,6 @@ namespace FocusDeck.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Projects");
-                });
-
-            modelBuilder.Entity("FocusDeck.Domain.Entities.ProjectResource", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("ProjectId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("ResourceType")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ResourceValue")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Title")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProjectId");
-
-                    b.ToTable("ProjectResources");
                 });
 
             modelBuilder.Entity("FocusDeck.Domain.Entities.RefreshToken", b =>
@@ -2462,17 +2430,6 @@ namespace FocusDeck.Persistence.Migrations
                     b.Navigation("Note");
                 });
 
-            modelBuilder.Entity("FocusDeck.Domain.Entities.ProjectResource", b =>
-                {
-                    b.HasOne("FocusDeck.Domain.Entities.Project", "Project")
-                        .WithMany("Resources")
-                        .HasForeignKey("ProjectId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Project");
-                });
-
             modelBuilder.Entity("FocusDeck.Domain.Entities.ReviewSession", b =>
                 {
                     b.HasOne("FocusDeck.Domain.Entities.ReviewPlan", "ReviewPlan")
@@ -2558,11 +2515,6 @@ namespace FocusDeck.Persistence.Migrations
             modelBuilder.Entity("FocusDeck.Domain.Entities.Note", b =>
                 {
                     b.Navigation("Sources");
-                });
-
-            modelBuilder.Entity("FocusDeck.Domain.Entities.Project", b =>
-                {
-                    b.Navigation("Resources");
                 });
 
             modelBuilder.Entity("FocusDeck.Domain.Entities.ReviewPlan", b =>

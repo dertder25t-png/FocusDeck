@@ -20,7 +20,8 @@ namespace FocusDeck.Server.Tests.Controllers
 
             using (var context = new AutomationDbContext(options))
             {
-                var service = new BrowserContextService(context);
+                var sortingService = new FocusDeck.Server.Services.Jarvis.ProjectSortingService(context, new Microsoft.Extensions.Logging.Abstractions.NullLogger<FocusDeck.Server.Services.Jarvis.ProjectSortingService>());
+                var service = new BrowserContextService(context, sortingService);
                 var controller = new BrowserController(service, new StubCurrentTenant());
                 Assert.NotNull(controller);
             }

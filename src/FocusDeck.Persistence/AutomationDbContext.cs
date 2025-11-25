@@ -91,6 +91,7 @@ public class AutomationDbContext : DbContext
 
     // Browser Bridge & Memory Vault
     public DbSet<Project> Projects { get; set; }
+    public DbSet<ProjectResource> ProjectResources { get; set; }
     public DbSet<CapturedItem> CapturedItems { get; set; }
 
     // Context aggregation snapshots

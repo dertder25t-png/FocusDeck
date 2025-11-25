@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
 using FocusDeck.Domain.Entities.Context;
+using FocusDeck.Contracts.Repositories;
 
 namespace FocusDeck.Services.Context.Sources
 {

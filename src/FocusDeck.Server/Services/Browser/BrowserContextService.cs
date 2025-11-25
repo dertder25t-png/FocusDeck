@@ -24,10 +24,12 @@ namespace FocusDeck.Server.Services.Browser
     public class BrowserContextService : IBrowserContextService
     {
         private readonly AutomationDbContext _db;
+        private readonly FocusDeck.Server.Services.Jarvis.IProjectSortingService _sortingService;
 
-        public BrowserContextService(AutomationDbContext db)
+        public BrowserContextService(AutomationDbContext db, FocusDeck.Server.Services.Jarvis.IProjectSortingService sortingService)
         {
             _db = db;
+            _sortingService = sortingService;
         }
 
         public async Task<BrowserSession> ProcessTabSnapshotAsync(string deviceId, List<TabSnapshot> tabs, Guid tenantId)
@@ -49,6 +51,11 @@ namespace FocusDeck.Server.Services.Browser
         {
             item.Id = Guid.NewGuid();
             item.CapturedAt = DateTime.UtcNow;
+
+            if (!item.ProjectId.HasValue)
+            {
+                await _sortingService.SortItemAsync(item, CancellationToken.None);
+            }
 
             _db.CapturedItems.Add(item);
             await _db.SaveChangesAsync();

@@ -264,6 +264,7 @@ public sealed class Startup
         services.AddScoped<IEfContextSnapshotRepository, EfContextSnapshotRepository>();
         services.AddScoped<IContextSnapshotRepository, EfContextSnapshotRepository>();
         services.AddScoped<IActivitySignalRepository, FocusDeck.Persistence.Repositories.EfActivitySignalRepository>();
+        services.AddSingleton<IVectorStore, VectorStoreStub>();
         services.AddScoped<IEventCacheRepository, EfEventCacheRepository>();
         services.AddScoped<AmbientService>();
         services.AddScoped<KnowledgeVaultService>();
@@ -288,6 +289,7 @@ public sealed class Startup
         services.AddHostedService<ImplicitFeedbackMonitor>();
         services.AddScoped<ILayeredContextService, LayeredContextService>();
         services.AddScoped<IExampleGenerator, ExampleGenerator>();
+        services.AddScoped<IProjectSortingService, ProjectSortingService>();
         services.AddScoped<FocusDeck.Server.Services.Writing.ICitationEngine, FocusDeck.Server.Services.Writing.CitationEngine>();
         services.AddScoped<IJarvisRunRepository, EfJarvisRunRepository>();
         services.AddScoped<IJarvisRunService, JarvisRunService>();
