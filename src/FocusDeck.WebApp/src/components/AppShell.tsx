@@ -1,4 +1,4 @@
-import { Outlet, useLocation, useNavigate, NavLink } from 'react-router-dom';
+import { Outlet, useNavigate, NavLink } from 'react-router-dom';
 import { JarvisSidebar } from './Jarvis/JarvisSidebar';
 import { useCurrentTenant } from '../hooks/useCurrentTenant';
 import { logout } from '../lib/utils';
@@ -54,6 +54,19 @@ export function AppShell() {
               </NavLink>
             ))}
           </nav>
+        </div>
+        <div className="p-4 mt-auto">
+          <NavLink
+            to="/customize"
+            className={({ isActive }) =>
+              cn(
+                'block px-4 py-2 rounded-md',
+                isActive ? 'bg-primary/10 text-primary' : 'hover:bg-surface-100'
+              )
+            }
+          >
+            Customize
+          </NavLink>
         </div>
       </aside>
 

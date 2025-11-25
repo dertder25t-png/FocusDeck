@@ -23,6 +23,9 @@ import { ProtectedRoute } from './pages/Auth/ProtectedRoute';
 import { SignalRProvider } from './contexts/signalR';
 import { AppShell } from './components/AppShell';
 import { KanbanPage } from './pages/KanbanPage';
+import { CustomizationPage } from './pages/CustomizationPage';
+import { PageBuilder } from './pages/PageBuilder';
+import { WidgetBuilder } from './pages/WidgetBuilder';
 
 function App() {
   useActivitySignals();
@@ -53,6 +56,9 @@ function App() {
                 <Route path="automations" element={<AutomationsPage />} />
                 <Route path="automations/proposals" element={<AutomationProposalsPage />} />
                 <Route path="projects/:projectId/board" element={<KanbanPage />} />
+                <Route path="customize" element={<CustomizationPage />} />
+                <Route path="customize/pages/new" element={<PageBuilder />} />
+                <Route path="customize/widgets/new" element={<WidgetBuilder />} />
 
                 {/* Settings & Management */}
                 <Route path="settings" element={<SettingsPage />} />

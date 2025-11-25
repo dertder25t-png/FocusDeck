@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/Card';
 import { Button } from '../components/Button';
-import { Badge } from '../components/Badge';
 import { Link } from 'react-router-dom';
 import { AutomationEditor } from './AutomationEditor';
 import { AutomationHistory } from './AutomationHistory';
