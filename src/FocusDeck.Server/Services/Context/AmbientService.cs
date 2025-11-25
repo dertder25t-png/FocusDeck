@@ -33,7 +33,9 @@ namespace FocusDeck.Server.Services.Context
             var nowUtc = _clock.UtcNow;
             var localNow = nowUtc.AddMinutes(-timeZoneOffsetMinutes);
 
-            var endOfDayUtc = nowUtc.Date.AddDays(1).AddTicks(-1); // Approximation for now
+            // Calculate end of day in LOCAL time, then convert back to UTC for query
+            var localEndOfDay = localNow.Date.AddDays(1).AddTicks(-1);
+            var endOfDayUtc = localEndOfDay.AddMinutes(timeZoneOffsetMinutes);
             var horizon = nowUtc.AddDays(3);
 
             // 1. Fetch Calendar Events (Next 24h)

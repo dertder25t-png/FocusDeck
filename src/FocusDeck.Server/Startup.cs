@@ -57,6 +57,7 @@ using Azure.Identity;
 using Azure.Security.KeyVault.Secrets;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using OpenTelemetry.Metrics;
 using Serilog;
 using StackExchange.Redis;
 
@@ -75,7 +76,7 @@ public sealed class Startup
 
     public void ConfigureServices(IServiceCollection services)
     {
-        // OpenTelemetry (tracing only, as in Program)
+        // OpenTelemetry (Tracing + Metrics)
         services.AddOpenTelemetry()
             .WithTracing(tracerProviderBuilder =>
             {
@@ -89,7 +90,17 @@ public sealed class Startup
                         options.SetDbStatementForText = true;
                         options.SetDbStatementForStoredProcedure = true;
                     })
-                    .AddConsoleExporter();
+                    .AddConsoleExporter()
+                    .AddOtlpExporter();
+            })
+            .WithMetrics(metricsProviderBuilder =>
+            {
+                metricsProviderBuilder
+                    .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("FocusDeck.Server"))
+                    .AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation()
+                    .AddRuntimeInstrumentation()
+                    .AddPrometheusExporter();
             });
 
         // MVC controllers
@@ -464,6 +475,9 @@ public sealed class Startup
 
         // Rate limiting
         app.UseRateLimiter();
+
+        // Prometheus metrics
+        app.UseOpenTelemetryPrometheusScrapingEndpoint();
 
         // Forwarded headers
         app.UseForwardedHeaders(new ForwardedHeadersOptions

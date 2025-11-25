@@ -341,9 +341,9 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ### 2.1 Observability
 
-- [ ] OpenTelemetry traces → OTLP exporter (collector/Tempo/Jaeger)
-- [ ] Metrics → Prometheus (`/metrics`)
-- [ ] Serilog → OTLP/Seq sink
+- [x] OpenTelemetry traces → OTLP exporter (collector/Tempo/Jaeger)
+- [x] Metrics → Prometheus (`/metrics`)
+- [x] Serilog → OTLP/Seq sink
 - [ ] Minimal dashboards (RPS, 4xx/5xx, job failures)
 
 **Files**

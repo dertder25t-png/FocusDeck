@@ -56,11 +56,8 @@ namespace FocusDeck.Server.Services.Context
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Failed to summarize CapturedItem {Id}", item.Id);
-                    // Mark as processed with error or skip?
-                    // For now, we leave it null to retry later, or set a flag.
-                    // Ideally, we should have a 'ProcessingStatus' field.
-                    // To avoid infinite loops on failure, let's set a dummy summary if failed repeatedly.
-                    // MVP: Just log.
+                    // Prevent infinite loop by setting an error message
+                    item.Summary = "Error generating summary. Check logs.";
                 }
             }
 
