@@ -8,24 +8,28 @@ export default {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#512BD4',
-          50: '#E8E1FB',
-          100: '#D5C6F7',
-          200: '#AF91EF',
-          300: '#895CE7',
-          400: '#6327DF',
-          500: '#512BD4',
-          600: '#3F22A6',
-          700: '#2D1978',
-          800: '#1B104A',
-          900: '#09061C',
+          DEFAULT: 'hsl(260, 100%, 75%)', // Vibrant Lavender
+          foreground: 'hsl(0, 0%, 100%)',
         },
+        secondary: {
+          DEFAULT: 'hsl(210, 40%, 96.1%)',
+          foreground: 'hsl(210, 40%, 9.8%)',
+        },
+        background: 'hsl(224, 71%, 4%)', // Deep Midnight Blue
+        foreground: 'hsl(213, 31%, 91%)',
         surface: {
-          DEFAULT: '#0F0F10',
-          50: '#2A2A2C',
-          100: '#1F1F21',
-          200: '#141416',
-          300: '#0F0F10',
+          DEFAULT: 'hsla(224, 71%, 10%, 0.7)', // Glassmorphism Surface
+          100: 'hsla(224, 71%, 15%, 0.7)',
+          200: 'hsla(224, 71%, 20%, 0.7)',
+        },
+        border: 'hsla(213, 31%, 85%, 0.1)',
+        accent: {
+          DEFAULT: 'hsl(190, 100%, 50%)', // Cyan Glow
+          foreground: 'hsl(224, 71%, 4%)',
+        },
+        destructive: {
+          DEFAULT: 'hsl(0, 84%, 60%)',
+          foreground: 'hsl(0, 0%, 100%)',
         },
       },
       spacing: {
