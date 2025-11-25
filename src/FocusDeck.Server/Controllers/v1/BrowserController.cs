@@ -37,8 +37,8 @@ namespace FocusDeck.Server.Controllers.v1
                 IsActive = t.IsActive
             }).ToList();
 
-            await _browserService.ProcessTabSnapshotAsync(deviceId, snapshots, _currentTenant.TenantId!.Value);
-            return Ok();
+            var session = await _browserService.ProcessTabSnapshotAsync(deviceId, snapshots, _currentTenant.TenantId!.Value);
+            return Ok(new { sessionId = session.Id });
         }
 
         [HttpPost("capture")]

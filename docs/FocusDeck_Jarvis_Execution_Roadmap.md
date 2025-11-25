@@ -523,14 +523,14 @@ Use this mini-plan to steer Sprint 3–4 work now that Phase 0 plumbing is stabl
 
 ### 6.1 Browser Bridge (extension + bridge API)
 
-- [ ] Capture open tabs, detect AI chat pages, long code blocks
+- [x] Capture open tabs, detect AI chat pages, long code blocks (Backend entities & endpoints ready)
 - [ ] Commands: open tabs set, close aged, screenshot page, send content to FocusDeck
 - [ ] Link captured items to active project/code path
 
 ### 6.2 AI Memory Vault + Project Timeline
 
-- [ ] Store meaningful AI chats (title, tags, gist, links)
-- [ ] Auto-summarize research queries into “Developer Knowledge Notebook”
+- [x] Store meaningful AI chats (title, tags, gist, links) (CapturedItem entity & logic)
+- [x] Auto-summarize research queries into “Developer Knowledge Notebook” (KnowledgeVaultService)
 - [ ] Show “last next step” reminder when you revisit code area
 Browser extension (Firefox/Zen)
 
@@ -643,7 +643,7 @@ Configure rules (“auto-save all ChatGPT convos tagged ‘FocusDeck’”)
 
 **Goal:** One hotkey to save/restore whole-OS working sets; auto-apply preferred layouts per activity.
 
-- [ ] Save snapshot: windows, tabs, current notes, audio timestamp, current task
+- [x] Save snapshot: windows, tabs, current notes, audio timestamp, current task (Backend logic: WorkspaceSnapshot, BrowserSession)
 - [ ] Restore snapshot; nightly “Park Today” + morning “Restore Suggestion”
 - [ ] Learn per-course/per-project layout; apply automatically with soft preview & Undo
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading.Tasks;
 using FocusDeck.Domain.Entities;
 using FocusDeck.Persistence;
@@ -9,7 +10,7 @@ namespace FocusDeck.Server.Services.Browser
 {
     public interface IBrowserContextService
     {
-        Task ProcessTabSnapshotAsync(string deviceId, List<TabSnapshot> tabs, Guid tenantId);
+        Task<BrowserSession> ProcessTabSnapshotAsync(string deviceId, List<TabSnapshot> tabs, Guid tenantId);
         Task<Guid> CaptureItemAsync(CapturedItem item);
     }
 
@@ -29,14 +30,19 @@ namespace FocusDeck.Server.Services.Browser
             _db = db;
         }
 
-        public async Task ProcessTabSnapshotAsync(string deviceId, List<TabSnapshot> tabs, Guid tenantId)
+        public async Task<BrowserSession> ProcessTabSnapshotAsync(string deviceId, List<TabSnapshot> tabs, Guid tenantId)
         {
-            // In a real implementation, this would update a "BrowserSession" entity
-            // or track active tabs for context. For MVP, we might just log or store transiently.
-            // Let's create/update a ContextSnapshot source for this.
+            var session = new BrowserSession
+            {
+                TenantId = tenantId,
+                DeviceId = deviceId,
+                CreatedAt = DateTime.UtcNow,
+                TabsJson = JsonSerializer.Serialize(tabs)
+            };
 
-            // For now, we'll just log it as a stub implementation
-            await Task.CompletedTask;
+            _db.BrowserSessions.Add(session);
+            await _db.SaveChangesAsync();
+            return session;
         }
 
         public async Task<Guid> CaptureItemAsync(CapturedItem item)

@@ -272,6 +272,7 @@ public sealed class Startup
         services.AddScoped<FocusDeck.Contracts.Services.Context.IContextRetrievalService, FocusDeck.Server.Services.Context.ContextRetrievalService>();
         services.AddScoped<FocusDeck.Server.Services.Browser.IBrowserContextService, FocusDeck.Server.Services.Browser.BrowserContextService>();
         services.AddScoped<IContextSnapshotService, ContextSnapshotService>();
+        services.AddScoped<IWorkspaceSnapshotService, WorkspaceSnapshotService>();
         services.AddScoped<IContextSnapshotSource, DesktopActiveWindowSource>();
         services.AddScoped<IContextSnapshotSource, GoogleCalendarSource>();
         services.AddScoped<IContextSnapshotSource, CanvasAssignmentsSource>();
