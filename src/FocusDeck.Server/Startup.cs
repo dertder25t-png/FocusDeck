@@ -259,6 +259,7 @@ public sealed class Startup
         services.AddSingleton<FocusDeck.Server.Services.Context.IContextAggregationService, FocusDeck.Server.Services.Context.ContextAggregationService>();
         services.AddHostedService<FocusDeck.Server.Services.Context.ContextBroadcastService>();
         services.AddScoped<IPrivacyService, PrivacyService>();
+        services.AddScoped<FocusDeck.Contracts.Services.Privacy.IPrivacyDataNotifier, SignalRPrivacyDataNotifier>();
         services.AddScoped<IBurnoutAnalysisService, BurnoutAnalysisService>();
         services.AddScoped<FocusDeck.Server.Services.Context.ISnapshotIngestService, FocusDeck.Server.Services.Context.SnapshotIngestService>();
         services.AddScoped<IEfContextSnapshotRepository, EfContextSnapshotRepository>();
