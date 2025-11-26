@@ -12,27 +12,37 @@
     .hidden { display: none; }
   </style>
 </head>
-<body>
-  <h3>FocusDeck Bridge</h3>
+<body style="width: 350px; padding: 15px; background-color: #1a1a1a; color: #f0f0f0;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+    <h3 style="margin: 0; font-size: 1.2em;">FocusDeck Bridge</h3>
+    <a href="#" id="dashboardLink" target="_blank" style="font-size: 0.8em; color: #007bff; text-decoration: none;">Dashboard</a>
+  </div>
 
-  <label for="serverUrl">Server URL</label>
-  <input type="text" id="serverUrl" placeholder="http://localhost:5000">
+  <div class="section">
+    <label for="serverUrl">Server URL</label>
+    <input type="text" id="serverUrl" placeholder="http://localhost:5000">
 
-  <label for="apiKey">API Key (Optional)</label>
-  <input type="password" id="apiKey" placeholder="Bearer token">
+    <label for="apiKey">API Key</label>
+    <input type="password" id="apiKey" placeholder="Bearer token from FocusDeck">
+  </div>
 
-  <label for="projectSelect">Active Project</label>
-  <select id="projectSelect">
-    <option value="">Select Project...</option>
-  </select>
-  <button id="refreshProjects">Refresh Projects</button>
+  <div class="section">
+    <label for="projectSelect">Active Project</label>
+    <div style="display: flex; gap: 5px;">
+      <select id="projectSelect" style="flex-grow: 1;">
+        <option value="">Select Project...</option>
+      </select>
+      <button id="refreshProjects" title="Refresh Projects">🔄</button>
+    </div>
+  </div>
 
-  <hr>
+  <div class="section" style="margin-top: 20px; border-top: 1px solid #333; padding-top: 15px;">
+    <button id="capturePage">Capture Page to Project</button>
+    <button id="snapshotTabs">Snapshot Open Tabs</button>
+    <button id="closeOldTabs">Close Old Tabs</button>
+  </div>
 
-  <button id="capturePage">Capture Page</button>
-  <button id="snapshotTabs">Snapshot Open Tabs</button>
-
-  <div id="status" class="status"></div>
+  <div id="status" class="status" style="text-align: center; margin-top: 15px; min-height: 20px;"></div>
 
   <script src="popup.js"></script>
 </body>

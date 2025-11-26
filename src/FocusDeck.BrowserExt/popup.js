@@ -5,21 +5,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     const refreshProjectsBtn = document.getElementById('refreshProjects');
     const capturePageBtn = document.getElementById('capturePage');
     const snapshotTabsBtn = document.getElementById('snapshotTabs');
+    const closeOldTabsBtn = document.getElementById('closeOldTabs');
+    const dashboardLink = document.getElementById('dashboardLink');
     const statusDiv = document.getElementById('status');
 
-    // Load settings
+    // Load settings and update UI
     const stored = await chrome.storage.sync.get(['serverUrl', 'apiKey', 'selectedProjectId']);
-    if (stored.serverUrl) serverUrlInput.value = stored.serverUrl;
-    if (stored.apiKey) apiKeyInput.value = stored.apiKey;
+    serverUrlInput.value = stored.serverUrl || 'http://localhost:5000';
+    apiKeyInput.value = stored.apiKey || '';
+    updateDashboardLink(serverUrlInput.value);
 
-    // Initial load of projects if server url is present
-    if (stored.serverUrl) {
-        loadProjects(stored.serverUrl, stored.apiKey, stored.selectedProjectId);
+    if (serverUrlInput.value) {
+        loadProjects(serverUrlInput.value, apiKeyInput.value, stored.selectedProjectId);
     }
 
-    // Save settings when changed
+    // Save settings and update UI
     serverUrlInput.addEventListener('change', () => {
-        chrome.storage.sync.set({ serverUrl: serverUrlInput.value });
+        const newUrl = serverUrlInput.value;
+        chrome.storage.sync.set({ serverUrl: newUrl });
+        updateDashboardLink(newUrl);
     });
     apiKeyInput.addEventListener('change', () => {
         chrome.storage.sync.set({ apiKey: apiKeyInput.value });
@@ -51,21 +55,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     snapshotTabsBtn.addEventListener('click', async () => {
-        const tabs = await chrome.tabs.query({ currentWindow: true });
-        const payload = {
-            tabs: tabs.map(t => ({ url: t.url, title: t.title })),
-            projectId: projectSelect.value
-        };
-
         try {
-            await postData('/v1/browser/snapshot', payload); // Fixed endpoint path
+            statusDiv.textContent = 'Snapshotting tabs...';
+            const tabs = await chrome.tabs.query({ currentWindow: true });
+            const payload = {
+                tabs: tabs.map(t => ({ url: t.url, title: t.title })),
+                projectId: projectSelect.value
+            };
+            await postData('/v1/browser/tabs/snapshot', payload);
             statusDiv.textContent = "Tabs snapshot saved!";
-            statusDiv.className = "status";
         } catch (e) {
-            statusDiv.textContent = "Error: " + e.message;
-            statusDiv.className = "status error";
+            showError("Error: " + e.message);
         }
     });
+
+    closeOldTabsBtn.addEventListener('click', async () => {
+        try {
+            statusDiv.textContent = 'Closing old tabs...';
+            const tabs = await chrome.tabs.query({ currentWindow: true, pinned: false });
+            // Close tabs that are not active and older than 1 hour
+            const oneHourAgo = Date.now() - (1000 * 60 * 60);
+            const tabsToClose = tabs.filter(t => !t.active && t.lastAccessed < oneHourAgo);
+            if(tabsToClose.length > 0) {
+                 const tabIds = tabsToClose.map(({ id }) => id);
+                 await chrome.tabs.remove(tabIds);
+                 statusDiv.textContent = `Closed ${tabsToClose.length} old tabs.`;
+            } else {
+                 statusDiv.textContent = "No old tabs to close.";
+            }
+        } catch (e) {
+            showError("Error: " + e.message);
+        }
+    });
+
+    function updateDashboardLink(baseUrl) {
+        if (baseUrl) {
+            dashboardLink.href = baseUrl;
+        }
+    }
 
     async function loadProjects(baseUrl, apiKey, selectedId) {
         try {
@@ -88,41 +115,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         } catch (e) {
             console.error(e);
-            statusDiv.textContent = "Could not load projects.";
-            statusDiv.className = "status error";
+            showError("Could not load projects.");
         }
     }
 
     async function sendCapture(contentData, tab) {
-        const payload = {
-            url: tab.url,
-            title: tab.title,
-            content: contentData.content,
-            kind: contentData.kind || 'page',
-            projectId: projectSelect.value
-        };
-
         try {
+            statusDiv.textContent = 'Capturing...';
+            const payload = {
+                url: tab.url,
+                title: tab.title,
+                content: contentData.content,
+                kind: contentData.kind || 'page',
+                projectId: projectSelect.value
+            };
             await postData('/v1/browser/capture', payload);
             statusDiv.textContent = "Page captured!";
-            statusDiv.className = "status";
         } catch (e) {
-            statusDiv.textContent = "Error: " + e.message;
-            statusDiv.className = "status error";
+            showError("Error: " + e.message);
         }
     }
 
     async function postData(endpoint, data) {
         const baseUrl = serverUrlInput.value;
         const apiKey = apiKeyInput.value;
-
         if (!baseUrl) throw new Error("Server URL is missing.");
 
         const res = await fetch(`${baseUrl}${endpoint}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': apiKey ? `Bearer ${apiKey}` : ''
+                'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify(data)
         });
@@ -131,5 +154,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             const text = await res.text();
             throw new Error(`Server error: ${res.statusText} - ${text}`);
         }
+    }
+
+    function showError(message) {
+        statusDiv.textContent = message;
+        statusDiv.className = 'status error';
     }
 });

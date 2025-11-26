@@ -7,34 +7,52 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 function scrapePage() {
-    // Basic heuristics for now
     let kind = 'page';
     let content = document.body.innerText;
 
-    // Detect AI Chat interfaces
-    if (window.location.hostname.includes('chatgpt.com') || window.location.hostname.includes('openai.com')) {
-        kind = 'ai_chat';
-        // Try to find chat container
-        // This is brittle and will need updates, but serves as a placeholder
-        // Look for common chat selectors
-        const chatElements = document.querySelectorAll('[data-message-author-role="assistant"], [data-message-author-role="user"]');
-        if (chatElements.length > 0) {
-            content = Array.from(chatElements).map(el => {
+    // AI Chat Scraping
+    const chatScrapers = {
+        'chatgpt.com': () => {
+            const chatElements = document.querySelectorAll('[data-message-author-role]');
+            if (!chatElements.length) return null;
+            return Array.from(chatElements).map(el => {
                 const role = el.getAttribute('data-message-author-role');
+                const innerContent = el.querySelector('div.prose') || el;
+                return `[${role.toUpperCase()}]:\n${innerContent.innerText}`;
+            }).join('\n\n---\n\n');
+        },
+        'claude.ai': () => {
+            const chatElements = document.querySelectorAll('.font-user-message, .font-claude-message');
+            if (!chatElements.length) return null;
+            return Array.from(chatElements).map(el => el.innerText).join('\n\n---\n\n');
+        },
+        'gemini.google.com': () => {
+            const chatElements = document.querySelectorAll('.user-query, .model-response-text');
+            if (!chatElements.length) return null;
+            return Array.from(chatElements).map(el => {
+                const role = el.classList.contains('user-query') ? 'user' : 'assistant';
                 return `[${role.toUpperCase()}]:\n${el.innerText}`;
             }).join('\n\n---\n\n');
         }
-    } else if (window.location.hostname.includes('claude.ai')) {
-        kind = 'ai_chat';
-        // Claude selectors (approximate)
-        const chatElements = document.querySelectorAll('.font-user-message, .font-claude-message');
-         if (chatElements.length > 0) {
-            content = Array.from(chatElements).map(el => el.innerText).join('\n\n---\n\n');
+    };
+
+    for (const domain in chatScrapers) {
+        if (window.location.hostname.includes(domain)) {
+            const chatContent = chatScrapers[domain]();
+            if (chatContent) {
+                kind = 'ai_chat';
+                content = chatContent;
+                return { kind, content };
+            }
         }
     }
 
-    return {
-        kind: kind,
-        content: content
-    };
+    // Code Block Scraping
+    const codeBlocks = document.querySelectorAll('pre > code');
+    if (codeBlocks.length > 0) {
+        kind = 'code_snippet';
+        content = Array.from(codeBlocks).map(el => el.innerText).join('\n\n---\n\n');
+    }
+
+    return { kind, content };
 }
