@@ -4,13 +4,32 @@ import { Button } from '../components/Button'
 import { Badge } from '../components/Badge'
 import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { usePrivacySettings } from '../contexts/privacySettings'
+import { usePrivacySettings } from '../hooks/usePrivacySettings'
+import { usePrivacyActions } from '../hooks/usePrivacyActions'
 import type { PrivacySetting } from '../types/privacy'
 
+interface SystemInfo {
+  version: string;
+  gitSha: string;
+  environment: string;
+  uptime: {
+    days: number;
+    hours: number;
+    minutes: number;
+  };
+  queue: {
+    enqueued: number;
+    processing: number;
+    scheduled: number;
+    failed: number;
+  };
+}
+
 export function SettingsPage() {
-  const [systemInfo, setSystemInfo] = useState<any>(null)
+  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null)
   const [activeTab, setActiveTab] = useState<'profile' | 'tenant' | 'integrations' | 'privacy' | 'system'>('profile')
   const { settings: privacySettings, loading: privacyLoading, updateSetting } = usePrivacySettings()
+  const { exportAllData, deleteAllData, isExporting, isDeleting } = usePrivacyActions()
   const [pendingPrivacy, setPendingPrivacy] = useState<string[]>([])
   const [geminiKey, setGeminiKey] = useState('')
   const [geminiKeySaved, setGeminiKeySaved] = useState(false)
@@ -321,9 +340,22 @@ export function SettingsPage() {
       {activeTab === 'privacy' && (
         <div className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle>Privacy & Consent</CardTitle>
-              <CardDescription>Toggle which contextual sensors are allowed to capture data.</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Privacy & Consent</CardTitle>
+                <CardDescription>Toggle which contextual sensors are allowed to capture data.</CardDescription>
+              </div>
+              <div className="flex space-x-2">
+                <Link to="/settings/privacy">
+                  <Button variant="outline" size="sm">Live Data Preview</Button>
+                </Link>
+                <Button variant="secondary" size="sm" onClick={exportAllData} disabled={isExporting}>
+                  {isExporting ? 'Exporting...' : 'Export All'}
+                </Button>
+                <Button variant="danger" size="sm" onClick={deleteAllData} disabled={isDeleting}>
+                  {isDeleting ? 'Deleting...' : 'Delete All Data'}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {privacyLoading ? (
@@ -345,19 +377,21 @@ export function SettingsPage() {
                           </div>
                         </div>
 
-                        <Button
-                          size="sm"
-                          variant={setting.isEnabled ? 'secondary' : 'primary'}
-                          onClick={() => toggleSetting(setting)}
-                          disabled={pendingPrivacy.includes(setting.contextType)}
-                          aria-pressed={setting.isEnabled}
-                        >
-                          {pendingPrivacy.includes(setting.contextType)
-                            ? 'Updating…'
-                            : setting.isEnabled
-                            ? 'Enabled'
-                            : 'Enable'}
-                        </Button>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            size="sm"
+                            variant={setting.isEnabled ? 'secondary' : 'primary'}
+                            onClick={() => toggleSetting(setting)}
+                            disabled={pendingPrivacy.includes(setting.contextType)}
+                            aria-pressed={setting.isEnabled}
+                          >
+                            {pendingPrivacy.includes(setting.contextType)
+                              ? 'Updating…'
+                              : setting.isEnabled
+                              ? 'Enabled'
+                              : 'Enable'}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}

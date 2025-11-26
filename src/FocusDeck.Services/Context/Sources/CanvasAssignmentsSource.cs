@@ -1,16 +1,25 @@
 using System;
 using System.Text.Json.Nodes;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using FocusDeck.Domain.Entities.Context;
+using FocusDeck.Server.Hubs;
+using Microsoft.AspNetCore.SignalR;
 
 namespace FocusDeck.Services.Context.Sources
 {
     public class CanvasAssignmentsSource : IContextSnapshotSource
     {
+        private readonly IHubContext<PrivacyDataHub> _hubContext;
         public string SourceName => "CanvasAssignments";
 
-        public Task<ContextSlice?> CaptureAsync(Guid userId, CancellationToken ct)
+        public CanvasAssignmentsSource(IHubContext<PrivacyDataHub> hubContext)
+        {
+            _hubContext = hubContext;
+        }
+
+        public async Task<ContextSlice?> CaptureAsync(Guid userId, CancellationToken ct)
         {
             // TODO: Implement the logic to capture the user's upcoming Canvas assignment.
             // This will involve using the Canvas API.
@@ -26,7 +35,11 @@ namespace FocusDeck.Services.Context.Sources
                 Timestamp = DateTimeOffset.UtcNow,
                 Data = data
             };
-            return Task.FromResult<ContextSlice?>(slice);
+
+            // Send the data to the PrivacyDataHub
+            await _hubContext.Clients.User(userId.ToString()).SendAsync("ReceivePrivacyData", "CanvasAssignments", data.ToJsonString(), ct);
+
+            return slice;
         }
     }
 }

@@ -6,18 +6,22 @@ using System.Threading;
 using System.Threading.Tasks;
 using FocusDeck.Contracts.Repositories;
 using FocusDeck.Domain.Entities.Context;
+using FocusDeck.Server.Hubs;
+using Microsoft.AspNetCore.SignalR;
 
 namespace FocusDeck.Services.Context.Sources
 {
     public class GoogleCalendarSource : IContextSnapshotSource
     {
         private readonly IEventCacheRepository _repository;
+        private readonly IHubContext<PrivacyDataHub> _hubContext;
 
         public string SourceName => "GoogleCalendar";
 
-        public GoogleCalendarSource(IEventCacheRepository repository)
+        public GoogleCalendarSource(IEventCacheRepository repository, IHubContext<PrivacyDataHub> hubContext)
         {
             _repository = repository;
+            _hubContext = hubContext;
         }
 
         public async Task<ContextSlice?> CaptureAsync(Guid userId, CancellationToken ct)
@@ -30,6 +34,9 @@ namespace FocusDeck.Services.Context.Sources
             {
                 return null;
             }
+
+            // Send the data to the PrivacyDataHub
+            await _hubContext.Clients.User(userId.ToString()).SendAsync("ReceivePrivacyData", "GoogleCalendar", JsonSerializer.Serialize(currentEvent), ct);
 
             var data = new JsonObject
             {

@@ -2,7 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useActivitySignals } from './hooks/useActivitySignals';
 import { LoginPage } from './pages/Auth/LoginPage';
 import { RegisterPage } from './pages/Auth/RegisterPage';
-import { ToastProvider, ToastViewport } from './components/Toast';
+import { ToastViewport } from './components/Toast';
+import { ToastProvider } from './contexts/ToastContext';
 import { DashboardPage } from './pages/DashboardPage';
 import { LecturesPage } from './pages/LecturesPage';
 import { FocusPage } from './pages/FocusPage';
@@ -11,6 +12,7 @@ import { DesignPage } from './pages/DesignPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { JarvisPage } from './pages/JarvisPage';
 import { SettingsPage } from './pages/SettingsPage';
+import PrivacyDashboardPage from './pages/PrivacyDashboardPage';
 import { TenantsPage } from './pages/TenantsPage';
 import { JobsPage } from './pages/JobsPage';
 import { AutomationsPage } from './pages/AutomationsPage';
@@ -26,6 +28,7 @@ import { KanbanPage } from './pages/KanbanPage';
 import { CustomizationPage } from './pages/CustomizationPage';
 import { PageBuilder } from './pages/PageBuilder';
 import { WidgetBuilder } from './pages/WidgetBuilder';
+import { PrivacyDataProvider } from './contexts/PrivacyDataProvider';
 
 function App() {
   useActivitySignals();
@@ -62,6 +65,7 @@ function App() {
 
                 {/* Settings & Management */}
                 <Route path="settings" element={<SettingsPage />} />
+                <Route path="settings/privacy" element={<PrivacyDataProvider><PrivacyDashboardPage /></PrivacyDataProvider>} />
                 <Route path="devices" element={<DevicesPage />} />
                 <Route path="pairing" element={<PairingPage />} />
                 <Route path="provisioning" element={<ProvisioningPage />} />

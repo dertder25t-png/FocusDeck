@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { apiFetch } from '../lib/utils'
 import type { PrivacySetting } from '../types/privacy'
@@ -83,10 +83,3 @@ export function PrivacySettingsProvider({ children }: { children: ReactNode }) {
   )
 }
 
-export function usePrivacySettings() {
-  const context = useContext(PrivacySettingsContext)
-  if (!context) {
-    throw new Error('usePrivacySettings must be used inside PrivacySettingsProvider')
-  }
-  return context
-}

@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using System.Linq;
 using FocusDeck.Domain.Entities.Context;
 using FocusDeck.Contracts.Repositories;
+using FocusDeck.Server.Hubs;
+using Microsoft.AspNetCore.SignalR;
 
 namespace FocusDeck.Services.Context.Sources
 {
@@ -13,10 +15,12 @@ namespace FocusDeck.Services.Context.Sources
         public string SourceName => "DesktopActiveWindow";
 
         private readonly IActivitySignalRepository _repository;
+        private readonly IHubContext<PrivacyDataHub> _hubContext;
 
-        public DesktopActiveWindowSource(IActivitySignalRepository repository)
+        public DesktopActiveWindowSource(IActivitySignalRepository repository, IHubContext<PrivacyDataHub> hubContext)
         {
             _repository = repository;
+            _hubContext = hubContext;
         }
 
         public async Task<ContextSlice?> CaptureAsync(Guid userId, CancellationToken ct)
@@ -28,6 +32,9 @@ namespace FocusDeck.Services.Context.Sources
             {
                 return null;
             }
+
+            // Send the data to the PrivacyDataHub
+            await _hubContext.Clients.User(userId.ToString()).SendAsync("ReceivePrivacyData", "ActiveWindow", latestSignal.SignalValue, ct);
 
             var data = new JsonObject
             {

@@ -606,6 +606,9 @@ public sealed class Startup
             endpoints.MapHub<NotificationsHub>("/hubs/notifications")
                 .RequireAuthorization();
 
+            endpoints.MapHub<PrivacyDataHub>("/hubs/privacydata")
+                .RequireAuthorization();
+
             endpoints.MapGet("/healthz", () => Results.Ok(new { ok = true, time = DateTimeOffset.UtcNow }))
                 .WithName("HealthCheck")
                 .WithMetadata(new Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute());
