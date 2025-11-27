@@ -1,22 +1,20 @@
 using System;
 using System.Text.Json.Nodes;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using FocusDeck.Contracts.Services.Privacy;
 using FocusDeck.Domain.Entities.Context;
-using FocusDeck.Server.Hubs;
-using Microsoft.AspNetCore.SignalR;
 
 namespace FocusDeck.Services.Context.Sources
 {
     public class SpotifySource : IContextSnapshotSource
     {
-        private readonly IHubContext<PrivacyDataHub> _hubContext;
+        private readonly IPrivacyDataNotifier _privacyNotifier;
         public string SourceName => "Spotify";
 
-        public SpotifySource(IHubContext<PrivacyDataHub> hubContext)
+        public SpotifySource(IPrivacyDataNotifier privacyNotifier)
         {
-            _hubContext = hubContext;
+            _privacyNotifier = privacyNotifier;
         }
 
         public async Task<ContextSlice?> CaptureAsync(Guid userId, CancellationToken ct)
@@ -36,8 +34,8 @@ namespace FocusDeck.Services.Context.Sources
                 Data = data
             };
 
-            // Send the data to the PrivacyDataHub
-            await _hubContext.Clients.User(userId.ToString()).SendAsync("ReceivePrivacyData", "Spotify", data.ToJsonString(), ct);
+            // Send the data to the privacy notifier
+            await _privacyNotifier.SendPrivacyDataAsync(userId.ToString(), "Spotify", data.ToJsonString(), ct);
 
             return slice;
         }
