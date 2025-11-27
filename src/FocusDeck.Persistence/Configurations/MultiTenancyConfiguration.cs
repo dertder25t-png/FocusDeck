@@ -4,21 +4,21 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace FocusDeck.Persistence.Configurations;
 
-public class OrganizationConfiguration : IEntityTypeConfiguration<Organization>
+public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
 {
-    public void Configure(EntityTypeBuilder<Organization> builder)
+    public void Configure(EntityTypeBuilder<Tenant> builder)
     {
-        builder.HasKey(o => o.Id);
-        builder.Property(o => o.Name).IsRequired().HasMaxLength(200);
-        builder.Property(o => o.Slug).IsRequired().HasMaxLength(100);
-        builder.HasIndex(o => o.Slug).IsUnique();
-        builder.Property(o => o.CreatedAt).IsRequired();
+        builder.HasKey(t => t.Id);
+        builder.Property(t => t.Name).IsRequired().HasMaxLength(200);
+        builder.Property(t => t.Slug).IsRequired().HasMaxLength(100);
+        builder.HasIndex(t => t.Slug).IsUnique();
+        builder.Property(t => t.CreatedAt).IsRequired();
     }
 }
 
-public class UserConfiguration : IEntityTypeConfiguration<User>
+public class TenantUserConfiguration : IEntityTypeConfiguration<TenantUser>
 {
-    public void Configure(EntityTypeBuilder<User> builder)
+    public void Configure(EntityTypeBuilder<TenantUser> builder)
     {
         builder.HasKey(u => u.Id);
         builder.Property(u => u.Email).IsRequired().HasMaxLength(255);
@@ -29,39 +29,39 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
     }
 }
 
-public class OrgUserConfiguration : IEntityTypeConfiguration<OrgUser>
+public class UserTenantConfiguration : IEntityTypeConfiguration<UserTenant>
 {
-    public void Configure(EntityTypeBuilder<OrgUser> builder)
+    public void Configure(EntityTypeBuilder<UserTenant> builder)
     {
-        builder.HasKey(ou => ou.Id);
-        
-        builder.HasOne(ou => ou.Organization)
-            .WithMany(o => o.Members)
-            .HasForeignKey(ou => ou.OrganizationId)
+        builder.HasKey(ut => ut.Id);
+
+        builder.HasOne(ut => ut.Tenant)
+            .WithMany(t => t.Members)
+            .HasForeignKey(ut => ut.TenantId)
             .OnDelete(DeleteBehavior.Cascade);
-            
-        builder.HasOne(ou => ou.User)
-            .WithMany(u => u.Organizations)
-            .HasForeignKey(ou => ou.UserId)
+
+        builder.HasOne(ut => ut.User)
+            .WithMany(u => u.Tenants)
+            .HasForeignKey(ut => ut.UserId)
             .OnDelete(DeleteBehavior.Cascade);
-            
-        builder.HasIndex(ou => new { ou.OrganizationId, ou.UserId }).IsUnique();
-        builder.Property(ou => ou.Role).IsRequired();
-        builder.Property(ou => ou.JoinedAt).IsRequired();
+
+        builder.HasIndex(ut => new { ut.TenantId, ut.UserId }).IsUnique();
+        builder.Property(ut => ut.Role).IsRequired();
+        builder.Property(ut => ut.JoinedAt).IsRequired();
     }
 }
 
-public class InviteConfiguration : IEntityTypeConfiguration<Invite>
+public class TenantInviteConfiguration : IEntityTypeConfiguration<TenantInvite>
 {
-    public void Configure(EntityTypeBuilder<Invite> builder)
+    public void Configure(EntityTypeBuilder<TenantInvite> builder)
     {
         builder.HasKey(i => i.Id);
-        
-        builder.HasOne(i => i.Organization)
-            .WithMany(o => o.Invites)
-            .HasForeignKey(i => i.OrganizationId)
+
+        builder.HasOne(i => i.Tenant)
+            .WithMany(t => t.Invites)
+            .HasForeignKey(i => i.TenantId)
             .OnDelete(DeleteBehavior.Cascade);
-            
+
         builder.Property(i => i.Email).IsRequired().HasMaxLength(255);
         builder.Property(i => i.Token).IsRequired().HasMaxLength(100);
         builder.HasIndex(i => i.Token).IsUnique();

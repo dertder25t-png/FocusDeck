@@ -65,10 +65,10 @@ Transform FocusDeck from a productivity tracker into **JARVIS for Academics**  a
 **Goal:** Protect student wellness by detecting and preventing burnout
 
 #### 2.1 Pattern Recognition
-- [ ] Track work session length and break frequency
-- [ ] Monitor sleep data integration (if available)
-- [ ] Measure output quality trends (declining quality = fatigue signal)
-- [ ] Analyze work intensity variability
+- [x] Track work session length and break frequency
+- [x] Monitor sleep data integration (if available)
+- [x] Measure output quality trends (declining quality = fatigue signal)
+- [x] Analyze work intensity variability
 
 **Deliverables:**
 - IBurnoutAnalysisService - Weekly pattern analysis
@@ -86,6 +86,8 @@ Transform FocusDeck from a productivity tracker into **JARVIS for Academics**  a
 - Background job: BurnoutCheckJob (runs every 2 hours)
 - SignalR notification: Burnout alert with smart recommendations
 - UI: Wellness dashboard + enforcement controls
+
+> Status: BurnoutCheckJob/StudentWellnessMetrics are in place, so interventions can now hook the unsustainable signal.
 
 ---
 
@@ -230,6 +232,165 @@ Transform FocusDeck from a productivity tracker into **JARVIS for Academics**  a
 - MetricsCalculationJob - Daily at 6pm
 
 ---
+
+##  Jarvis API (Phase 3.1) – Server Slice
+
+**Goal:** Introduce a stable, feature-gated Jarvis API surface without executing real workflows yet.
+
+### Endpoints
+
+- `GET /v1/jarvis/workflows`
+  - Auth: `[Authorize]` – requires a valid JWT with tenant context.
+  - Behavior (Phase 3.1): returns an empty list until `JarvisWorkflowRegistry` is wired to scan `bmad/jarvis/workflows/**`. In the current implementation, `ListWorkflowsAsync` scans `bmad/jarvis/workflows/**/workflow.yaml` for real workflow metadata and returns it.
+- `POST /v1/jarvis/run-workflow`
+  - Auth: `[Authorize]`.
+  - Request: `JarvisRunRequestDto { workflowId, argumentsJson? }`.
+  - Behavior (Phase 3.1): validates `workflowId`, logs the request, and returns a synthetic `runId` without enqueuing a real job.
+- `GET /v1/jarvis/runs/{id}`
+  - Auth: `[Authorize]`.
+  - Behavior (Phase 3.1): returns a stub `JarvisRunStatusDto` with `Status = "Pending"` and a short summary explaining that the runner is not yet wired.
+
+### Feature Flag
+
+- All Jarvis endpoints are gated by `Features:Jarvis` (bool) in configuration.
+  - When `Features:Jarvis = false`, each endpoint returns `404 Not Found` with `error = "Jarvis feature is disabled."`.
+  - When `Features:Jarvis = true`, the endpoints behave as described above.
+
+### Implementation Notes
+
+- Controller: `src/FocusDeck.Server/Controllers/v1/JarvisController.cs`
+  - Decorated with `[ApiController]`, `[ApiVersion("1.0")]`, `[Route("v{version:apiVersion}/jarvis")]`, `[Authorize]`.
+  - Reads `Features:Jarvis` via `IConfiguration` to guard each action.
+- Service: `src/FocusDeck.Server/Services/Jarvis/JarvisWorkflowRegistry.cs`
+  - `IJarvisWorkflowRegistry.ListWorkflowsAsync()` – scans `bmad/jarvis/workflows/**` for `workflow.yaml` files and maps their `name`/`description` fields into `JarvisWorkflowSummaryDto`.
+  - `EnqueueWorkflowAsync()` – creates a `JarvisWorkflowRun`, enqueues a `JarvisWorkflowJob`, and returns a real `RunId`.
+  - `GetRunStatusAsync()` – returns a database-backed `JarvisRunStatusDto` with the latest status and summary.
+- Contracts: `src/FocusDeck.Contracts/DTOs/JarvisDto.cs`
+  - Stable DTOs for workflows, run requests, and run status, intended to remain compatible as Phase 3.2 adds Hangfire + SignalR and persistence.
+
+---
+
+##  Phase 3.2 – Run Persistence & Job Execution
+
+**Goal:** Promote Jarvis from a pure stub to a minimal but real execution pipeline that can queue and track workflow runs.
+
+### New Entity
+
+- `JarvisWorkflowRun` (`src/FocusDeck.Domain/Entities/JarvisWorkflowRun.cs`)
+  - Fields: `Id`, `WorkflowId`, `Status`, `RequestedAtUtc`, `StartedAtUtc`, `CompletedAtUtc`, `TenantId`, `RequestedByUserId`, `LogSummary`, `JobId`.
+  - Implements `IMustHaveTenant` so `AutomationDbContext` stamps `TenantId` and query filters scope reads by tenant.
+  - EF configuration: `JarvisWorkflowRunConfiguration` (`JarvisWorkflowRuns` table) with indexes on `TenantId`, `WorkflowId`, `Status`, `RequestedAtUtc`.
+
+### Hangfire Job
+
+- `JarvisWorkflowJob` (`src/FocusDeck.Server/Services/Jarvis/JarvisWorkflowJob.cs`)
+  - Method: `ExecuteAsync(Guid runId, CancellationToken ct)`, invoked by Hangfire with `runId`.
+  - Behavior (Phase 3.2):
+    - Loads the `JarvisWorkflowRun` row.
+    - Transitions `Status: Queued → Running → Succeeded` (or `Failed` on exception/cancellation).
+    - Updates `StartedAtUtc` / `CompletedAtUtc` and writes a short `LogSummary` such as “Jarvis workflow executed successfully (stub).”
+    - Does not yet call `bmad.ps1` or any external script; this will be added in Phase 3.3 (SignalR + real execution).
+
+### Registry Wiring
+
+- `JarvisWorkflowRegistry` now uses:
+  - `AutomationDbContext` to persist `JarvisWorkflowRun`.
+  - `IBackgroundJobClient` to enqueue `JarvisWorkflowJob`.
+  - `IHttpContextAccessor` to capture `RequestedByUserId` from the current principal.
+- `EnqueueWorkflowAsync`:
+  - Validates `WorkflowId`.
+  - Creates a `JarvisWorkflowRun` with `Status = "Queued"`, stamps timestamps and user.
+  - Enqueues `JarvisWorkflowJob.ExecuteAsync(run.Id, ...)` via Hangfire and stores `JobId`.
+  - Returns `JarvisRunResponseDto` with the new `RunId`.
+- `GetRunStatusAsync`:
+  - Reads the run from the database and maps canonical fields into `JarvisRunStatusDto { RunId, Status, LogSummary }`.
+
+### API Flow (Server Only)
+
+- `POST /v1/jarvis/run-workflow`
+  - Creates a `JarvisWorkflowRun` row and enqueues the Hangfire job.
+  - Returns `runId` immediately.
+- `GET /v1/jarvis/runs/{id}`
+  - Reflects the current status from the database (`Queued`, `Running`, `Succeeded`, `Failed`) plus the last `LogSummary`.
+  - Future phases will add richer logs and SignalR notifications to push updates to clients.
+
+---
+
+##  Phase 3.3 – SignalR + Web UI
+
+**Goal:** Surface Jarvis run status live to the user using the existing SignalR hub and a minimal `/jarvis` page.
+
+### SignalR Notifications
+
+- Contract:
+  - `JarvisRunUpdate` (shared) – `RunId`, `WorkflowId`, `Status`, `Summary`, `UpdatedAtUtc`.
+  - Added to `INotificationClientContract` + `INotificationClient` as `Task JarvisRunUpdated(JarvisRunUpdate payload);`.
+- Hub:
+  - `NotificationsHub` already groups connections by user ID (`user:{userId}`).
+  - `JarvisWorkflowJob` now calls `Clients.Group($"user:{RequestedByUserId}").JarvisRunUpdated(...)` after each status transition (`Running`, `Succeeded`, `Failed`).
+  - Notifications are tenant-scoped via `JarvisWorkflowRun.TenantId` and only broadcast to the requesting user’s group.
+
+### Web UI – `/jarvis` Page
+
+- Route: `/jarvis` (protected via `ProtectedRoute` and the existing app shell).
+- Feature flag:
+  - The underlying API remains guarded by `Features:Jarvis`; the UI is designed to be shown only when the flag is enabled in the environment.
+- Behavior:
+  - Allows the user to trigger `POST /v1/jarvis/run-workflow` with a stub workflow id (e.g., `demo-focus`, `demo-notes`).
+  - Subscribes to `JarvisRunUpdated` over the `NotificationsHub` connection; updates a simple in-memory list of runs:
+    - Columns: `WorkflowId`, `Status`, `Last updated`, `Summary`.
+  - If SignalR is unavailable, falls back to a lightweight polling loop that calls `GET /v1/jarvis/runs/{id}` a few times after enqueue.
+
+### Files
+
+- Server:
+  - `src/FocusDeck.Shared/SignalR/Notifications/INotificationClientContract.cs` – `JarvisRunUpdate` + `JarvisRunUpdated`.
+  - `src/FocusDeck.Server/Hubs/NotificationsHub.cs` – extended typed client interface.
+  - `src/FocusDeck.Server/Services/Jarvis/JarvisWorkflowJob.cs` – emits `JarvisRunUpdated` for the requesting user’s group when status changes.
+- WebApp:
+  - `src/FocusDeck.WebApp/src/pages/JarvisPage.tsx` – minimal run launcher + status table.
+  - `src/FocusDeck.WebApp/src/App.tsx` – imports `JarvisPage` and adds the `/jarvis` route + nav entry.
+
+---
+
+##  Jarvis Operations
+
+**Goal:** Give ops/QA a concise checklist for monitoring and safely rolling out Jarvis.
+
+### Metrics & Logs
+
+- Metrics (meter `FocusDeck.Jarvis`):
+  - `jarvis.runs.started` – count of runs enqueued, tagged by `tenant_id` and `workflow_id`.
+  - `jarvis.runs.succeeded` / `jarvis.runs.failed` – run outcomes, tagged by `tenant_id`, `workflow_id`, and `status`.
+  - `jarvis.runs.duration.seconds` – histogram of run duration from request to completion, tagged by `tenant_id`, `workflow_id`, and `status`.
+- Logs:
+  - `JarvisWorkflowJob` logs state transitions (`Queued → Running → Succeeded/Failed`) with `RunId`, `WorkflowId`, `TenantId`, `RequestedByUserId`, and an error message on failure.
+  - SignalR delivery issues surface as warnings when `JarvisRunUpdated` cannot be sent to the requesting user’s group.
+
+### Rate Limits & Concurrency
+
+- Per-user concurrency guard:
+  - `JarvisWorkflowRegistry` enforces a maximum of **3 active runs** per user (`Status` in `Queued` or `Running`).
+  - When the limit is exceeded, `EnqueueWorkflowAsync` throws `JarvisRunLimitExceededException` and the API returns HTTP **429 Too Many Requests** with a user-friendly error.
+- Operational guidance:
+  - Watch for sustained 429s on `/v1/jarvis/run-workflow` as a signal that users or automations are over-queuing work.
+  - If needed, adjust the limit in `JarvisWorkflowRegistry` once real workflows and capacity are better understood.
+
+### Feature Flag & Canary Rollout
+
+- Server flag:
+  - `Features:Jarvis` (bool) controls all Jarvis APIs on the server.
+  - When `Features:Jarvis = false`:
+    - `JarvisController` returns **404 Not Found** with `error = "Jarvis feature is disabled."` for all `/v1/jarvis/*` endpoints.
+  - When `Features:Jarvis = true`:
+    - `/v1/jarvis/workflows`, `/v1/jarvis/run-workflow`, and `/v1/jarvis/runs/{id}` are enabled for authenticated, tenant-scoped callers.
+- Web UI:
+  - The `/jarvis` page probes `/v1/jarvis/workflows` on load.
+    - 404 → shows a clear “Jarvis is not enabled for this environment” banner and disables workflow buttons.
+    - 200 → lists discovered workflows and allows runs to be triggered.
+- Canary strategy:
+  - Enable `Features:Jarvis` only in canary environments or appsettings overrides used by canary tenants.
+  - Keep the flag **off** in general production until metrics and error rates look healthy for canaries.
 
 ##  Deliverables Summary
 

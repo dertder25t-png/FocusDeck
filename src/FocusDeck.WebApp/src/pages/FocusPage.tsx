@@ -1,3 +1,4 @@
+// const mockDistractions: Distraction[] = []
 import { useState, useEffect } from 'react'
 import { Button } from '../components/Button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/Card'
@@ -36,14 +37,6 @@ interface FocusPolicyTemplate {
   notifyPhone: boolean
   targetDurationMinutes: number | null
 }
-
-interface Distraction {
-  reason: string
-  at: string
-}
-
-// Simulated distractions array for demo purposes
-const mockDistractions: Distraction[] = []
 
 export function FocusPage() {
   const [activeSession, setActiveSession] = useState<FocusSession | null>(null)

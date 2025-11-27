@@ -1,3 +1,4 @@
+using FocusDeck.Server.Configuration;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using Asp.Versioning;
@@ -14,6 +15,8 @@ using Microsoft.AspNetCore.RateLimiting;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using FocusDeck.Server.Services.Auth;
+using FocusDeck.Server.Services.Tenancy;
+using System.Threading.Tasks;
 
 namespace FocusDeck.Server.Controllers.v1;
 
@@ -28,7 +31,9 @@ public class AuthPakeController : ControllerBase
     private readonly FocusDeck.Server.Services.Auth.ITokenService _tokenService;
     private readonly FocusDeck.Server.Services.Auth.ISrpSessionCache _srpSessions;
     private readonly IConfiguration _configuration;
+    private readonly JwtSettings _jwtSettings;
     private readonly IAuthAttemptLimiter _authLimiter;
+    private readonly ITenantMembershipService _tenantMembership;
 
     public AuthPakeController(
         AutomationDbContext db,
@@ -36,23 +41,35 @@ public class AuthPakeController : ControllerBase
         FocusDeck.Server.Services.Auth.ITokenService tokenService,
         FocusDeck.Server.Services.Auth.ISrpSessionCache srpSessions,
         IConfiguration configuration,
-        IAuthAttemptLimiter authLimiter)
+        JwtSettings jwtSettings,
+        IAuthAttemptLimiter authLimiter,
+        ITenantMembershipService tenantMembership)
     {
         _db = db;
         _logger = logger;
         _tokenService = tokenService;
         _srpSessions = srpSessions;
         _configuration = configuration;
+        _jwtSettings = jwtSettings;
         _authLimiter = authLimiter;
+        _tenantMembership = tenantMembership;
     }
 
     [HttpPost("register/start")]
     [AllowAnonymous]
     public IActionResult RegisterStart([FromBody] RegisterStartRequest request)
     {
+        var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var maskedUser = AuthTelemetry.MaskIdentifier(request.UserId);
+        _logger.LogInformation("PAKE register start for {UserId} (platform={Platform}) from {RemoteIp}", maskedUser, request.DevicePlatform ?? "unknown", remoteIp);
+
         if (string.IsNullOrWhiteSpace(request.UserId)) return BadRequest(new { error = "UserId required" });
 
-        var kdfParameters = Srp.GenerateKdfParameters();
+        // Web clients use SHA256 KDF due to browser WASM limitations with Argon2id
+        // Mobile and desktop clients use Argon2id for better security
+        var kdfParameters = request.DevicePlatform?.ToLowerInvariant() == "web"
+            ? Srp.GenerateLegacyKdfParameters()
+            : Srp.GenerateKdfParameters();
         var kdfParametersJson = JsonSerializer.Serialize(kdfParameters);
 
         return Ok(new RegisterStartResponse(kdfParametersJson, Srp.Algorithm, Srp.ModulusHex, (int)Srp.G));
@@ -62,77 +79,149 @@ public class AuthPakeController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> RegisterFinish([FromBody] RegisterFinishRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.UserId) || string.IsNullOrWhiteSpace(request.VerifierBase64) || string.IsNullOrWhiteSpace(request.KdfParametersJson))
+        try
         {
-            await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "Missing fields");
-            return BadRequest(new { error = "Missing fields" });
-        }
+            var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
-        var existing = await _db.PakeCredentials.FindAsync(request.UserId);
-        if (existing != null)
-        {
-            await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "User already registered");
-            return Conflict(new { error = "User already registered" });
-        }
+            if (string.IsNullOrWhiteSpace(request.UserId) || string.IsNullOrWhiteSpace(request.VerifierBase64) || string.IsNullOrWhiteSpace(request.KdfParametersJson))
+            {
+                await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "Missing fields");
+                TrackRegisterFailure("missing-fields", request.UserId, null, remoteIp);
+                return BadRequest(new { error = "Missing fields" });
+            }
 
-        var verifierBytes = Convert.FromBase64String(request.VerifierBase64);
-        var verifier = Srp.FromBigEndian(verifierBytes);
-        if (verifier.Sign <= 0 || verifier >= Srp.N)
-        {
-            await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "Invalid verifier");
-            return BadRequest(new { error = "Invalid verifier" });
-        }
+            var existing = await _db.PakeCredentials.FindAsync(request.UserId);
+            if (existing != null)
+            {
+                await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "User already registered");
+                TrackRegisterFailure("already-registered", request.UserId, null, remoteIp);
+                return Conflict(new { error = "User already registered" });
+            }
 
-        var kdfParams = JsonSerializer.Deserialize<SrpKdfParameters>(request.KdfParametersJson);
-        if (kdfParams == null)
-        {
-            await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "Invalid KDF parameters");
-            return BadRequest(new { error = "Invalid KDF parameters" });
-        }
+            byte[] verifierBytes;
+            try
+            {
+                verifierBytes = Convert.FromBase64String(request.VerifierBase64);
+            }
+            catch
+            {
+                await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "Invalid verifier encoding");
+                TrackRegisterFailure("invalid-verifier-encoding", request.UserId, null, remoteIp);
+                return BadRequest(new { error = "Invalid verifier encoding" });
+            }
 
-        _db.PakeCredentials.Add(new PakeCredential
-        {
-            UserId = request.UserId,
-            SaltBase64 = kdfParams.SaltBase64, // For legacy compat and login start
-            VerifierBase64 = Convert.ToBase64String(Srp.ToBigEndian(verifier)),
-            Algorithm = Srp.Algorithm,
-            ModulusHex = Srp.ModulusHex,
-            Generator = (int)Srp.G,
-            KdfParametersJson = request.KdfParametersJson,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        });
+            var verifier = Srp.FromBigEndian(verifierBytes);
+            if (verifier.Sign <= 0 || verifier >= Srp.N)
+            {
+                await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "Invalid verifier");
+                TrackRegisterFailure("invalid-verifier", request.UserId, null, remoteIp);
+                return BadRequest(new { error = "Invalid verifier" });
+            }
 
-        if (!string.IsNullOrWhiteSpace(request.VaultDataBase64))
-        {
-            _db.KeyVaults.Add(new KeyVault
+            SrpKdfParameters? kdfParams = null;
+            try
+            {
+                kdfParams = JsonSerializer.Deserialize<SrpKdfParameters>(request.KdfParametersJson);
+            }
+            catch
+            {
+                await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "Failed to parse KDF parameters");
+                TrackRegisterFailure("invalid-kdf-json", request.UserId, null, remoteIp);
+                return BadRequest(new { error = "Invalid KDF parameters JSON" });
+            }
+
+            if (kdfParams == null)
+            {
+                await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "Invalid KDF parameters");
+                TrackRegisterFailure("invalid-kdf", request.UserId, null, remoteIp);
+                return BadRequest(new { error = "Invalid KDF parameters" });
+            }
+
+            if (string.IsNullOrWhiteSpace(kdfParams.SaltBase64))
+            {
+                await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "Missing KDF salt");
+                TrackRegisterFailure("missing-kdf-salt", request.UserId, null, remoteIp);
+                return BadRequest(new { error = "Missing salt in KDF parameters" });
+            }
+
+            var tenantId = Guid.NewGuid();
+            
+            _db.PakeCredentials.Add(new PakeCredential
             {
                 UserId = request.UserId,
-                VaultDataBase64 = request.VaultDataBase64,
-                Version = 1,
-                CipherSuite = request.VaultCipherSuite ?? "AES-256-GCM",
-                KdfMetadataJson = request.VaultKdfMetadataJson,
+                SaltBase64 = kdfParams.SaltBase64,
+                VerifierBase64 = Convert.ToBase64String(Srp.ToBigEndian(verifier)),
+                Algorithm = Srp.Algorithm,
+                ModulusHex = Srp.ModulusHex,
+                Generator = (int)Srp.G,
+                KdfParametersJson = request.KdfParametersJson,
                 CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                UpdatedAt = DateTime.UtcNow,
+                TenantId = tenantId
             });
-        }
 
-        await _db.SaveChangesAsync();
-        await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, true, deviceName: null, deviceId: null,
-            metadataJson: request.KdfParametersJson);
-        return Ok(new RegisterFinishResponse(true));
+            if (!string.IsNullOrWhiteSpace(request.VaultDataBase64))
+            {
+                _db.KeyVaults.Add(new KeyVault
+                {
+                    UserId = request.UserId,
+                    VaultDataBase64 = request.VaultDataBase64,
+                    Version = 1,
+                    CipherSuite = request.VaultCipherSuite ?? "AES-256-GCM",
+                    KdfMetadataJson = request.VaultKdfMetadataJson,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    TenantId = tenantId
+                });
+            }
+
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (Exception dbEx)
+            {
+                _logger.LogError(dbEx, "Database SaveChangesAsync failed for user {UserId}. InnerException: {InnerMessage}", request.UserId, dbEx.InnerException?.Message);
+                throw; // Re-throw to be caught by outer catch block
+            }
+            
+            await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, true, deviceName: null, deviceId: null,
+                metadataJson: request.KdfParametersJson);
+            TrackRegisterSuccess(request.UserId, !string.IsNullOrWhiteSpace(request.VaultDataBase64), remoteIp);
+            return Ok(new RegisterFinishResponse(true));
+        }
+        catch (Exception ex)
+        {
+            var userId = request?.UserId;
+            var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            _logger.LogError(ex, "PAKE register finish unhandled exception for {UserId} from {RemoteIp}: {Message} | StackTrace: {StackTrace}", 
+                userId, remoteIp, ex.Message, ex.StackTrace);
+            await LogAuthEventAsync("PAKE_REGISTER_FINISH", userId, false, "Exception", metadataJson: JsonSerializer.Serialize(new { 
+                exception = ex.Message ?? "unknown",
+                exceptionType = ex.GetType().Name,
+                stackTrace = ex.StackTrace
+            }));
+            TrackRegisterFailure("exception", userId, null, remoteIp);
+            return StatusCode(StatusCodes.Status500InternalServerError, new { error = "Internal server error" });
+        }
     }
 
     [HttpPost("login/start")]
     [AllowAnonymous]
     public async Task<IActionResult> LoginStart([FromBody] LoginStartRequest request)
     {
+        try
+        {
+        var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var maskedUser = AuthTelemetry.MaskIdentifier(request.UserId);
+        _logger.LogInformation("PAKE login start for {UserId} (client={ClientId}) from {Platform} @ {RemoteIp}", maskedUser, request.ClientId ?? "unknown", request.DevicePlatform ?? "unknown", remoteIp);
+
         var cred = await _db.PakeCredentials.AsNoTracking().FirstOrDefaultAsync(c => c.UserId == request.UserId);
-        var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString();
 
         if (await _authLimiter.IsBlockedAsync(request.UserId, remoteIp))
         {
             await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Too many failed attempts", request.ClientId, request.DeviceName);
+            TrackLoginFailure("blocked", request.UserId, request.ClientId, request.DevicePlatform);
             return StatusCode(StatusCodes.Status429TooManyRequests, new { error = "Too many attempts. Try again later." });
         }
 
@@ -140,6 +229,7 @@ public class AuthPakeController : ControllerBase
         {
             await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "User not found", request.ClientId, request.DeviceName);
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
+            TrackLoginFailure("user-not-found", request.UserId, request.ClientId, request.DevicePlatform);
             return NotFound(new { error = "User not found" });
         }
 
@@ -147,6 +237,7 @@ public class AuthPakeController : ControllerBase
         {
             await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Unsupported algorithm", request.ClientId, request.DeviceName);
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
+            TrackLoginFailure("unsupported-algorithm", request.UserId, request.ClientId, request.DevicePlatform);
             return BadRequest(new { error = "Unsupported credential algorithm" });
         }
 
@@ -155,6 +246,7 @@ public class AuthPakeController : ControllerBase
         {
             await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Unsupported SRP parameters", request.ClientId, request.DeviceName);
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
+            TrackLoginFailure("unsupported-parameters", request.UserId, request.ClientId, request.DevicePlatform);
             return BadRequest(new { error = "Unsupported SRP parameters" });
         }
 
@@ -167,6 +259,7 @@ public class AuthPakeController : ControllerBase
         {
             await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Invalid client ephemeral", request.ClientId, request.DeviceName);
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
+            TrackLoginFailure("invalid-ephemeral", request.UserId, request.ClientId, request.DevicePlatform);
             return BadRequest(new { error = "Invalid client ephemeral" });
         }
 
@@ -174,11 +267,54 @@ public class AuthPakeController : ControllerBase
         {
             await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Invalid client ephemeral", request.ClientId, request.DeviceName);
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
+            TrackLoginFailure("invalid-ephemeral", request.UserId, request.ClientId, request.DevicePlatform);
             return BadRequest(new { error = "Invalid client ephemeral" });
         }
 
-        var saltBytes = Convert.FromBase64String(cred.SaltBase64);
-        var verifier = Srp.FromBigEndian(Convert.FromBase64String(cred.VerifierBase64));
+        var kdfParametersJson = NormalizeKdfParameters(cred);
+
+        // Some historical credentials may not have a salt stored; attempt to read from
+        // the KDF metadata first and fail gracefully if missing. This prevents a
+        // FormatException and avoids returning HTTP 500 to clients.
+        string? saltBase64 = cred.SaltBase64;
+        if (string.IsNullOrWhiteSpace(saltBase64))
+        {
+            var parsedKdf = TryParseKdf(cred.KdfParametersJson);
+            saltBase64 = parsedKdf?.SaltBase64;
+        }
+
+        if (string.IsNullOrWhiteSpace(saltBase64))
+        {
+            await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Missing KDF salt", request.ClientId, request.DeviceName);
+            await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
+            TrackLoginFailure("missing-salt", request.UserId, request.ClientId, request.DevicePlatform);
+            return BadRequest(new { error = "Missing KDF salt" });
+        }
+
+        byte[] saltBytes;
+        try
+        {
+            saltBytes = Convert.FromBase64String(saltBase64);
+        }
+        catch
+        {
+            await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Invalid KDF salt", request.ClientId, request.DeviceName);
+            await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
+            TrackLoginFailure("invalid-salt", request.UserId, request.ClientId, request.DevicePlatform);
+            return BadRequest(new { error = "Invalid KDF salt" });
+        }
+        BigInteger verifier;
+        try
+        {
+            verifier = Srp.FromBigEndian(Convert.FromBase64String(cred.VerifierBase64));
+        }
+        catch
+        {
+            await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Invalid credential verifier", request.ClientId, request.DeviceName);
+            await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
+            TrackLoginFailure("invalid-verifier", request.UserId, request.ClientId, request.DevicePlatform);
+            return BadRequest(new { error = "Invalid credential verifier" });
+        }
 
         BigInteger serverSecret;
         BigInteger serverPublic;
@@ -193,6 +329,7 @@ public class AuthPakeController : ControllerBase
             {
                 await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "SRP scramble zero", request.ClientId, request.DeviceName);
                 await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
+                TrackLoginFailure("scramble-zero", request.UserId, request.ClientId, request.DevicePlatform);
                 return BadRequest(new { error = "SRP negotiation failed" });
             }
         } while (scramble.Sign == 0);
@@ -209,25 +346,38 @@ public class AuthPakeController : ControllerBase
             request.DeviceName,
             request.DevicePlatform);
 
+        // Use the computed/normalized salt for compatibility: prefer the salt that was
+        // derived from KDF metadata when the stored `SaltBase64` is empty.
+        var returnedSaltBase64 = saltBase64 ?? cred.SaltBase64;
+
         return Ok(new LoginStartResponse(
-            cred.KdfParametersJson, // Null for legacy users, populated for modern users
-            cred.SaltBase64, // Always sent for legacy client compat
+            kdfParametersJson, // Null for legacy users, populated for modern users
+            returnedSaltBase64, // Prefer derived/normalized salt where present
             Convert.ToBase64String(Srp.ToBigEndian(serverPublic)),
             session.SessionId,
             cred.Algorithm,
             modulusHex,
             cred.Generator));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PAKE login start unhandled exception for {UserId}", request.UserId);
+            await _authLimiter.RecordFailureAsync(request.UserId, HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+            await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Exception", request.ClientId, request.DeviceName, JsonSerializer.Serialize(new { exception = ex.Message }));
+            return StatusCode(StatusCodes.Status500InternalServerError, new { error = "Internal server error" });
+        }
     }
 
     [HttpPost("login/finish")]
     [AllowAnonymous]
     public async Task<IActionResult> LoginFinish([FromBody] LoginFinishRequest request)
     {
-        var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
         if (await _authLimiter.IsBlockedAsync(request.UserId, remoteIp))
         {
             await LogAuthEventAsync("PAKE_LOGIN_FINISH", request.UserId, false, "Too many failed attempts", request.ClientId, request.DeviceName);
+            TrackLoginFailure("blocked", request.UserId, request.ClientId, request.DevicePlatform);
             return StatusCode(StatusCodes.Status429TooManyRequests, new { error = "Too many attempts. Try again later." });
         }
 
@@ -235,6 +385,7 @@ public class AuthPakeController : ControllerBase
         {
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
             await LogAuthEventAsync("PAKE_LOGIN_FINISH", request.UserId, false, "Session expired", request.ClientId, request.DeviceName);
+            TrackLoginFailure("session-expired", request.UserId, request.ClientId, request.DevicePlatform);
             return Unauthorized(new { error = "Session expired" });
         }
 
@@ -243,6 +394,7 @@ public class AuthPakeController : ControllerBase
             _srpSessions.Remove(request.SessionId);
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
             await LogAuthEventAsync("PAKE_LOGIN_FINISH", request.UserId, false, "Session user mismatch", request.ClientId, request.DeviceName);
+            TrackLoginFailure("session-user-mismatch", request.UserId, request.ClientId, request.DevicePlatform);
             return Unauthorized(new { error = "Invalid session" });
         }
 
@@ -259,13 +411,15 @@ public class AuthPakeController : ControllerBase
                 _srpSessions.Remove(request.SessionId);
                 await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
                 await LogAuthEventAsync("PAKE_LOGIN_FINISH", request.UserId, false, "Invalid proof", request.ClientId, request.DeviceName);
+                TrackLoginFailure("invalid-proof", request.UserId, request.ClientId, request.DevicePlatform);
                 return Unauthorized(new { error = "Invalid proof" });
             }
 
             var serverProof = Srp.ComputeServerProof(session.ClientPublic, expectedProof, sessionKey);
 
             var roles = new[] { "User" };
-            var accessToken = _tokenService.GenerateAccessToken(session.UserId, roles);
+            var tenantId = await _tenantMembership.EnsureTenantAsync(session.UserId, session.UserId, session.UserId, HttpContext.RequestAborted);
+            var accessToken = await _tokenService.GenerateAccessTokenAsync(session.UserId, roles, tenantId, HttpContext.RequestAborted);
             var refreshToken = _tokenService.GenerateRefreshToken();
 
             var deviceId = request.ClientId ?? session.ClientId ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-device";
@@ -282,17 +436,18 @@ public class AuthPakeController : ControllerBase
                 TokenHash = _tokenService.ComputeTokenHash(refreshToken),
                 ClientFingerprint = clientFingerprint,
                 IssuedUtc = DateTime.UtcNow,
-                ExpiresUtc = DateTime.UtcNow.AddDays(_configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7)),
+                ExpiresUtc = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
                 DeviceId = deviceId,
                 DeviceName = deviceName,
                 DevicePlatform = devicePlatform,
-                LastAccessUtc = DateTime.UtcNow
+                LastAccessUtc = DateTime.UtcNow,
+                TenantId = tenantId
             };
             _db.RefreshTokens.Add(refreshEntity);
 
             if (!string.IsNullOrWhiteSpace(deviceId))
             {
-                await UpsertDeviceRegistrationAsync(session.UserId, deviceId!, deviceName, devicePlatform);
+                await UpsertDeviceRegistrationAsync(session.UserId, tenantId, deviceId!, deviceName, devicePlatform);
             }
 
             await _db.SaveChangesAsync();
@@ -319,12 +474,13 @@ public class AuthPakeController : ControllerBase
 
             await _authLimiter.ResetAsync(session.UserId, remoteIp);
 
+            TrackLoginSuccess(session.UserId, tenantId, deviceId);
             return Ok(new LoginFinishResponse(
                 true,
                 vault != null,
                 accessToken,
                 refreshToken,
-                _configuration.GetValue<int>("Jwt:AccessTokenExpirationMinutes", 60) * 60,
+                _jwtSettings.AccessTokenExpirationMinutes * 60,
                 Convert.ToBase64String(serverProof)));
         }
         catch (Exception ex)
@@ -333,6 +489,7 @@ public class AuthPakeController : ControllerBase
             _logger.LogWarning(ex, "SRP login finish failed");
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
             await LogAuthEventAsync("PAKE_LOGIN_FINISH", request.UserId, false, "Exception", request.ClientId, request.DeviceName, metadataJson: JsonSerializer.Serialize(new { exception = ex.Message }));
+            TrackLoginFailure("exception", request.UserId, request.ClientId, request.DevicePlatform);
             return Unauthorized(new { error = "Invalid proof" });
         }
     }
@@ -425,19 +582,58 @@ public class AuthPakeController : ControllerBase
         if (session.Status != PairingStatus.Ready || string.IsNullOrEmpty(session.VaultDataBase64))
             return BadRequest(new { error = "Not ready" });
 
+        var roles = new[] { "User" };
+        var accessToken = await _tokenService.GenerateAccessTokenAsync(session.UserId, roles, session.TenantId, HttpContext.RequestAborted);
+        var refreshToken = _tokenService.GenerateRefreshToken();
+
+        // Register the new refresh token (and device)
+        var deviceId = session.TargetDeviceId ?? "mobile-pairing-" + session.Id.ToString()[..8];
+        var deviceName = "Mobile Device";
+        var devicePlatform = DevicePlatform.Android.ToString(); // Assume Android since this flow is primarily for it
+
+        var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
+        var clientFingerprint = _tokenService.ComputeClientFingerprint(deviceId, userAgent);
+
+        var refreshEntity = new FocusDeck.Domain.Entities.RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = session.UserId,
+            TokenHash = _tokenService.ComputeTokenHash(refreshToken),
+            ClientFingerprint = clientFingerprint,
+            IssuedUtc = DateTime.UtcNow,
+            ExpiresUtc = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
+            DeviceId = deviceId,
+            DeviceName = deviceName,
+            DevicePlatform = devicePlatform,
+            LastAccessUtc = DateTime.UtcNow,
+            TenantId = session.TenantId
+        };
+        _db.RefreshTokens.Add(refreshEntity);
+
+        if (!string.IsNullOrWhiteSpace(deviceId))
+        {
+            await UpsertDeviceRegistrationAsync(session.UserId, session.TenantId, deviceId, deviceName, devicePlatform);
+        }
+
         session.Status = PairingStatus.Completed;
         await _db.SaveChangesAsync();
+
+        await LogAuthEventAsync("PAKE_PAIR_REDEEM", session.UserId, true, deviceId: deviceId);
+        TrackLoginSuccess(session.UserId, session.TenantId, deviceId);
 
         return Ok(new
         {
             vaultDataBase64 = session.VaultDataBase64,
             userId = session.UserId,
             vaultKdfMetadataJson = session.VaultKdfMetadataJson,
-            vaultCipherSuite = session.VaultCipherSuite
+            vaultCipherSuite = session.VaultCipherSuite,
+            accessToken,
+            refreshToken,
+            expiresIn = _jwtSettings.AccessTokenExpirationMinutes * 60
         });
     }
 
-    private async Task UpsertDeviceRegistrationAsync(string userId, string deviceId, string? deviceName, string? devicePlatform)
+    private async Task UpsertDeviceRegistrationAsync(string userId, Guid tenantId, string deviceId, string? deviceName, string? devicePlatform)
     {
         deviceId = deviceId.Trim();
         var registration = await _db.DeviceRegistrations.FirstOrDefaultAsync(d => d.UserId == userId && d.DeviceId == deviceId);
@@ -454,7 +650,8 @@ public class AuthPakeController : ControllerBase
                 Platform = platform,
                 RegisteredAt = DateTime.UtcNow,
                 LastSyncAt = DateTime.UtcNow,
-                IsActive = true
+                IsActive = true,
+                TenantId = tenantId
             };
             _db.DeviceRegistrations.Add(registration);
         }
@@ -464,6 +661,10 @@ public class AuthPakeController : ControllerBase
             registration.Platform = platform;
             registration.LastSyncAt = DateTime.UtcNow;
             registration.IsActive = true;
+            if (registration.TenantId == Guid.Empty)
+            {
+                registration.TenantId = tenantId;
+            }
         }
     }
 
@@ -475,6 +676,100 @@ public class AuthPakeController : ControllerBase
         }
 
         return DevicePlatform.Windows;
+    }
+
+    private void TrackRegisterFailure(string reason, string? userId, string? platform, string remoteIp)
+    {
+        AuthTelemetry.RecordRegisterFailure(reason);
+        _logger.LogWarning("PAKE register failure for {UserId} (platform={Platform}) from {RemoteIp}: {Reason}",
+            AuthTelemetry.MaskIdentifier(userId),
+            string.IsNullOrWhiteSpace(platform) ? "unknown" : platform,
+            remoteIp,
+            reason);
+    }
+
+    private void TrackRegisterSuccess(string? userId, bool hasVault, string remoteIp)
+    {
+        AuthTelemetry.RecordRegisterSuccess();
+        _logger.LogInformation("PAKE register succeeded for {UserId} (hasVault={HasVault}) from {RemoteIp}",
+            AuthTelemetry.MaskIdentifier(userId),
+            hasVault,
+            remoteIp);
+    }
+
+    private void TrackLoginFailure(string reason, string? userId, string? clientId, string? platform)
+    {
+        AuthTelemetry.RecordLoginFailure(reason);
+        _logger.LogWarning("PAKE login failure for {UserId} client={ClientId} platform={Platform}: {Reason}",
+            AuthTelemetry.MaskIdentifier(userId),
+            string.IsNullOrWhiteSpace(clientId) ? "unknown" : clientId,
+            string.IsNullOrWhiteSpace(platform) ? "unknown" : platform,
+            reason);
+    }
+
+    private void TrackLoginSuccess(string? userId, Guid tenantId, string? deviceId)
+    {
+        AuthTelemetry.RecordLoginSuccess(tenantId);
+        _logger.LogInformation("PAKE login succeeded for {UserId} tenant={TenantId} device={DeviceId}",
+            AuthTelemetry.MaskIdentifier(userId),
+            tenantId,
+            string.IsNullOrWhiteSpace(deviceId) ? "unknown" : deviceId);
+    }
+
+    private static readonly DateTime Argon2CutoverUtc = new(2025, 11, 13, 0, 0, 0, DateTimeKind.Utc);
+
+    private static string? NormalizeKdfParameters(PakeCredential credential)
+    {
+        var parsed = TryParseKdf(credential.KdfParametersJson);
+        if (parsed == null)
+        {
+            return SerializeLegacyKdf(credential.SaltBase64);
+        }
+
+        if (string.Equals(parsed.Algorithm, "sha256", StringComparison.OrdinalIgnoreCase))
+        {
+            return credential.KdfParametersJson;
+        }
+
+        if (string.Equals(parsed.Algorithm, "argon2id", StringComparison.OrdinalIgnoreCase))
+        {
+            // Use the original creation time to decide if this credential predates the Argon2 verifier fix.
+            // UpdatedAt can change for unrelated updates and must not influence KDF selection.
+            var provisionedAt = credential.CreatedAt;
+            if (provisionedAt >= Argon2CutoverUtc)
+            {
+                return credential.KdfParametersJson;
+            }
+
+            // Accounts created before the Argon2 fix stored SHA-based verifiers even though
+            // the metadata said Argon2. Force those users back to the legacy derivation.
+            return SerializeLegacyKdf(credential.SaltBase64);
+        }
+
+        return SerializeLegacyKdf(credential.SaltBase64);
+    }
+
+    private static SrpKdfParameters? TryParseKdf(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<SrpKdfParameters>(json);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string SerializeLegacyKdf(string saltBase64)
+    {
+        var legacy = new SrpKdfParameters("sha256", saltBase64, degreeOfParallelism: 0, iterations: 0, memorySizeKiB: 0, aad: false);
+        return JsonSerializer.Serialize(legacy);
     }
 
     private async Task LogAuthEventAsync(string eventType, string? userId, bool success, string? failureReason = null, string? deviceId = null, string? deviceName = null, string? metadataJson = null)

@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using FocusDeck.Domain.Entities;
 using FocusDeck.Persistence;
+using FocusDeck.Server.Configuration;
 using FocusDeck.Server.Services.Auth;
 using FocusDeck.Domain.Entities.Sync;
 using FocusDeck.Server.Hubs;
@@ -11,6 +12,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System;
+using System.Threading.Tasks;
+using FocusDeck.Server.Services.Tenancy;
 
 namespace FocusDeck.Server.Controllers.v1;
 
@@ -24,26 +28,32 @@ public class AuthController : ControllerBase
     private readonly AutomationDbContext _db;
     private readonly ILogger<AuthController> _logger;
     private readonly IConfiguration _configuration;
+    private readonly JwtSettings _jwtSettings;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly FocusDeck.Server.Services.Auth.IAccessTokenRevocationService _revocationService;
     private readonly IHubContext<NotificationsHub, INotificationClient> _notifications;
+    private readonly ITenantMembershipService _tenantMembership;
 
     public AuthController(
         ITokenService tokenService,
         AutomationDbContext db,
         ILogger<AuthController> logger,
         IConfiguration configuration,
+        JwtSettings jwtSettings,
         IHttpClientFactory httpClientFactory,
         FocusDeck.Server.Services.Auth.IAccessTokenRevocationService revocationService,
-        IHubContext<NotificationsHub, INotificationClient> notifications)
+        IHubContext<NotificationsHub, INotificationClient> notifications,
+        ITenantMembershipService tenantMembership)
     {
         _tokenService = tokenService;
         _db = db;
         _logger = logger;
         _configuration = configuration;
+        _jwtSettings = jwtSettings;
         _httpClientFactory = httpClientFactory;
         _revocationService = revocationService;
         _notifications = notifications;
+        _tenantMembership = tenantMembership;
     }
 
     [HttpPost("login")]
@@ -61,9 +71,10 @@ public class AuthController : ControllerBase
         var userId = request.Username;
         var roles = new[] { "User" };
 
-        var accessToken = _tokenService.GenerateAccessToken(userId, roles);
+        var tenantId = await _tenantMembership.EnsureTenantAsync(userId, request.Username, request.Username, HttpContext.RequestAborted);
+        var accessToken = await _tokenService.GenerateAccessTokenAsync(userId, roles, tenantId, HttpContext.RequestAborted);
         var refreshToken = _tokenService.GenerateRefreshToken();
-        
+
         // Compute device context
         var deviceId = request.ClientId ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-device";
         var deviceName = request.DeviceName ?? request.ClientId ?? request.Username ?? "unknown";
@@ -80,22 +91,23 @@ public class AuthController : ControllerBase
             TokenHash = _tokenService.ComputeTokenHash(refreshToken),
             ClientFingerprint = clientFingerprint,
             IssuedUtc = DateTime.UtcNow,
-            ExpiresUtc = DateTime.UtcNow.AddDays(_configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7)),
+            ExpiresUtc = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
             DeviceId = deviceId,
             DeviceName = deviceName,
             DevicePlatform = devicePlatform,
-            LastAccessUtc = DateTime.UtcNow
+            LastAccessUtc = DateTime.UtcNow,
+            TenantId = tenantId
         };
 
         _db.RefreshTokens.Add(refreshTokenEntity);
-        await UpsertDeviceRegistrationAsync(userId, deviceId, deviceName, devicePlatform);
+        await UpsertDeviceRegistrationAsync(userId, tenantId, deviceId, deviceName, devicePlatform);
         await _db.SaveChangesAsync();
 
         return Ok(new
         {
             accessToken,
             refreshToken,
-            expiresIn = _configuration.GetValue<int>("Jwt:AccessTokenExpirationMinutes", 60) * 60 // in seconds
+            expiresIn = _jwtSettings.AccessTokenExpirationMinutes * 60 // in seconds
         });
     }
 
@@ -117,6 +129,7 @@ public class AuthController : ControllerBase
         {
             var storedToken = await _db.RefreshTokens
                 .FirstOrDefaultAsync(t => t.TokenHash == tokenHash);
+            var now = DateTime.UtcNow;
 
             if (storedToken == null)
             {
@@ -132,7 +145,7 @@ public class AuthController : ControllerBase
                 
                 // Revoke all descendant tokens for this user (token family breach)
                 var userTokens = await _db.RefreshTokens
-                    .Where(t => t.UserId == storedToken.UserId && t.IsActive)
+                    .Where(t => t.UserId == storedToken.UserId && t.RevokedUtc == null && t.ExpiresUtc > now)
                     .ToListAsync();
                 
                 foreach (var token in userTokens)
@@ -147,7 +160,7 @@ public class AuthController : ControllerBase
                 return Unauthorized(new { code = "TOKEN_REUSE", message = "Token reuse detected. All tokens revoked.", traceId = HttpContext.TraceIdentifier });
             }
 
-            if (!storedToken.IsActive)
+            if (storedToken.RevokedUtc != null || storedToken.ExpiresUtc <= now)
             {
                 await transaction.RollbackAsync();
                 return Unauthorized(new { code = "EXPIRED_TOKEN", message = "Refresh token expired", traceId = HttpContext.TraceIdentifier });
@@ -176,7 +189,7 @@ public class AuthController : ControllerBase
             }
 
             // Get user ID from the old access token (even if expired)
-            var principal = _tokenService.GetPrincipalFromExpiredToken(request.AccessToken ?? "");
+            var principal = await _tokenService.GetPrincipalFromExpiredTokenAsync(request.AccessToken ?? "", HttpContext.RequestAborted);
             if (principal == null)
             {
                 await transaction.RollbackAsync();
@@ -190,9 +203,22 @@ public class AuthController : ControllerBase
                 return Unauthorized(new { code = "TOKEN_MISMATCH", message = "Token mismatch", traceId = HttpContext.TraceIdentifier });
             }
 
+            var tenantId = storedToken.TenantId;
+            if (tenantId == Guid.Empty)
+            {
+                var tenantClaim = principal.FindFirst("app_tenant_id")?.Value;
+                if (!Guid.TryParse(tenantClaim, out tenantId))
+                {
+                    var email = principal.FindFirst(ClaimTypes.Email)?.Value;
+                    var displayName = principal.FindFirst(ClaimTypes.Name)?.Value;
+                    tenantId = await _tenantMembership.EnsureTenantAsync(userId, email, displayName, HttpContext.RequestAborted);
+                }
+                storedToken.TenantId = tenantId;
+            }
+
             // Generate new tokens
             var roles = principal.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
-            var newAccessToken = _tokenService.GenerateAccessToken(userId, roles);
+                var newAccessToken = await _tokenService.GenerateAccessTokenAsync(userId, roles, tenantId, HttpContext.RequestAborted);
             var newRefreshToken = _tokenService.GenerateRefreshToken();
             var newTokenHash = _tokenService.ComputeTokenHash(newRefreshToken);
 
@@ -209,15 +235,16 @@ public class AuthController : ControllerBase
                 TokenHash = newTokenHash,
                 ClientFingerprint = clientFingerprint,
                 IssuedUtc = DateTime.UtcNow,
-                ExpiresUtc = DateTime.UtcNow.AddDays(_configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7)),
+                ExpiresUtc = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
                 DeviceId = deviceId,
                 DeviceName = deviceName,
                 DevicePlatform = devicePlatform,
-                LastAccessUtc = DateTime.UtcNow
+                LastAccessUtc = DateTime.UtcNow,
+                TenantId = tenantId
             };
 
             _db.RefreshTokens.Add(newRefreshTokenEntity);
-            await UpsertDeviceRegistrationAsync(userId, deviceId, deviceName, devicePlatform);
+            await UpsertDeviceRegistrationAsync(userId, tenantId, deviceId, deviceName, devicePlatform);
             await _db.SaveChangesAsync();
             await transaction.CommitAsync();
 
@@ -225,7 +252,7 @@ public class AuthController : ControllerBase
             {
                 accessToken = newAccessToken,
                 refreshToken = newRefreshToken,
-                expiresIn = _configuration.GetValue<int>("Jwt:AccessTokenExpirationMinutes", 60) * 60
+                expiresIn = _jwtSettings.AccessTokenExpirationMinutes * 60
             });
         }
         catch (Exception ex)
@@ -313,8 +340,9 @@ public class AuthController : ControllerBase
 
             var userId = tokenInfo.Sub ?? tokenInfo.Email!;
             var roles = new[] { "User" };
+            var tenantId = await _tenantMembership.EnsureTenantAsync(userId, tokenInfo.Email, tokenInfo.Name, HttpContext.RequestAborted);
 
-            var accessToken = _tokenService.GenerateAccessToken(userId, roles);
+            var accessToken = await _tokenService.GenerateAccessTokenAsync(userId, roles, tenantId, HttpContext.RequestAborted);
             var refreshToken = _tokenService.GenerateRefreshToken();
 
             var deviceId = request.ClientId ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-device";
@@ -331,15 +359,16 @@ public class AuthController : ControllerBase
                 TokenHash = _tokenService.ComputeTokenHash(refreshToken),
                 ClientFingerprint = clientFingerprint,
                 IssuedUtc = DateTime.UtcNow,
-                ExpiresUtc = DateTime.UtcNow.AddDays(_configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7)),
+                ExpiresUtc = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
                 DeviceId = deviceId,
                 DeviceName = deviceName,
                 DevicePlatform = devicePlatform,
-                LastAccessUtc = DateTime.UtcNow
+                LastAccessUtc = DateTime.UtcNow,
+                TenantId = tenantId
             };
 
             _db.RefreshTokens.Add(refreshTokenEntity);
-            await UpsertDeviceRegistrationAsync(userId, deviceId, deviceName, devicePlatform);
+            await UpsertDeviceRegistrationAsync(userId, tenantId, deviceId, deviceName, devicePlatform);
             await _db.SaveChangesAsync();
 
             _logger.LogInformation("User {UserId} authenticated via Google OAuth", userId);
@@ -348,7 +377,7 @@ public class AuthController : ControllerBase
             {
                 accessToken,
                 refreshToken,
-                expiresIn = _configuration.GetValue<int>("Jwt:AccessTokenExpirationMinutes", 60) * 60,
+                expiresIn = _jwtSettings.AccessTokenExpirationMinutes * 60,
                 user = new
                 {
                     id = userId,
@@ -476,8 +505,9 @@ public class AuthController : ControllerBase
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
+        var deviceLookupTime = DateTime.UtcNow;
         var tokens = await _db.RefreshTokens
-            .Where(t => t.UserId == userId && t.DeviceId == deviceId && t.IsActive)
+            .Where(t => t.UserId == userId && t.DeviceId == deviceId && t.RevokedUtc == null && t.ExpiresUtc > deviceLookupTime)
             .ToListAsync();
 
         if (tokens.Count == 0)
@@ -510,7 +540,10 @@ public class AuthController : ControllerBase
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
-        var tokens = await _db.RefreshTokens.Where(t => t.UserId == userId && t.IsActive).ToListAsync();
+        var revokeLookupTime = DateTime.UtcNow;
+        var tokens = await _db.RefreshTokens
+            .Where(t => t.UserId == userId && t.RevokedUtc == null && t.ExpiresUtc > revokeLookupTime)
+            .ToListAsync();
         foreach (var t in tokens) t.RevokedUtc = DateTime.UtcNow;
 
         var registrations = await _db.DeviceRegistrations.Where(d => d.UserId == userId && d.IsActive).ToListAsync();
@@ -525,7 +558,7 @@ public class AuthController : ControllerBase
         return Ok(new { success = true, count = tokens.Count });
     }
 
-    private async Task UpsertDeviceRegistrationAsync(string userId, string deviceId, string? deviceName, string? devicePlatform)
+    private async Task UpsertDeviceRegistrationAsync(string userId, Guid tenantId, string deviceId, string? deviceName, string? devicePlatform)
     {
         deviceId = deviceId.Trim();
         var registration = await _db.DeviceRegistrations.FirstOrDefaultAsync(d => d.UserId == userId && d.DeviceId == deviceId);
@@ -542,7 +575,8 @@ public class AuthController : ControllerBase
                 Platform = parsedPlatform,
                 RegisteredAt = DateTime.UtcNow,
                 LastSyncAt = DateTime.UtcNow,
-                IsActive = true
+                IsActive = true,
+                TenantId = tenantId
             };
             _db.DeviceRegistrations.Add(registration);
         }
@@ -552,6 +586,10 @@ public class AuthController : ControllerBase
             registration.Platform = parsedPlatform;
             registration.LastSyncAt = DateTime.UtcNow;
             registration.IsActive = true;
+            if (registration.TenantId == Guid.Empty)
+            {
+                registration.TenantId = tenantId;
+            }
         }
     }
 
@@ -564,6 +602,7 @@ public class AuthController : ControllerBase
 
         return DevicePlatform.Windows;
     }
+
 }
 
 public record LoginRequest(string Username, string Password, string? ClientId = null, string? DeviceName = null, string? DevicePlatform = null);

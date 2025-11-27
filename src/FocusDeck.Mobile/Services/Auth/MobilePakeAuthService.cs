@@ -1,5 +1,7 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Linq;
+using FocusDeck.Contracts.MultiTenancy;
 using FocusDeck.Shared.Contracts.Auth;
 using FocusDeck.Shared.Security;
 using Microsoft.Maui.Devices;
@@ -14,6 +16,10 @@ public interface IMobileAuthService
     Task<MobileAuthResult?> LoginAsync(string serverBaseUrl, string userId, string password, CancellationToken cancellationToken = default);
     Task<bool> RegisterAsync(string serverBaseUrl, string userId, string password, CancellationToken cancellationToken = default);
     Task LogoutAsync(CancellationToken cancellationToken = default);
+    Task<CurrentTenantDto?> RefreshCurrentTenantAsync(CancellationToken cancellationToken = default);
+    CurrentTenantDto? CurrentTenant { get; }
+    event EventHandler<CurrentTenantDto?>? CurrentTenantChanged;
+    Task<bool> RedeemClaimCodeAsync(string scannedData, CancellationToken cancellationToken = default);
 }
 
 public class MobilePakeAuthService : IMobileAuthService
@@ -22,15 +28,20 @@ public class MobilePakeAuthService : IMobileAuthService
     private readonly IDeviceIdService _deviceIdService;
     private readonly MobileTokenStore _tokenStore;
     private readonly MobileVaultService _vaultService;
+    private readonly ISignalRService _signalRService;
     private readonly ILogger<MobilePakeAuthService> _logger;
+    private Uri? _lastBaseUri;
+    private string? _accessToken;
+    private CurrentTenantDto? _currentTenant;
 
-    public MobilePakeAuthService(HttpClient httpClient, IDeviceIdService deviceIdService, MobileTokenStore tokenStore, MobileVaultService vaultService, ILogger<MobilePakeAuthService> logger)
+    public MobilePakeAuthService(HttpClient httpClient, IDeviceIdService deviceIdService, MobileTokenStore tokenStore, MobileVaultService vaultService, ISignalRService signalRService, ILogger<MobilePakeAuthService> logger)
     {
         _httpClient = httpClient;
         _httpClient.Timeout = TimeSpan.FromSeconds(30);
         _deviceIdService = deviceIdService;
         _tokenStore = tokenStore;
         _vaultService = vaultService;
+        _signalRService = signalRService;
         _logger = logger;
     }
 
@@ -49,15 +60,21 @@ public class MobilePakeAuthService : IMobileAuthService
             return false;
         }
 
-        var saltBytes = Convert.FromBase64String(startResponse.SaltBase64);
-        var privateKey = Srp.ComputePrivateKey(saltBytes, userId, password);
+        var kdfParams = System.Text.Json.JsonSerializer.Deserialize<FocusDeck.Shared.Security.SrpKdfParameters>(startResponse.KdfParametersJson);
+        if (kdfParams == null)
+        {
+            _logger.LogWarning("Failed to deserialize KDF parameters for {UserId}", userId);
+            return false;
+        }
+
+        var privateKey = Srp.ComputePrivateKey(kdfParams, userId, password);
         var verifier = Srp.ComputeVerifier(privateKey);
         var vault = await _vaultService.ExportEncryptedAsync(password);
 
         var finishRequest = new RegisterFinishRequest(
             userId,
-            startResponse.SaltBase64,
             Convert.ToBase64String(Srp.ToBigEndian(verifier)),
+            startResponse.KdfParametersJson,
             vault.CipherText,
             vault.KdfMetadataJson,
             vault.CipherSuite);
@@ -135,6 +152,22 @@ public class MobilePakeAuthService : IMobileAuthService
         }
 
         await _tokenStore.SaveAsync(userId, finishResponse.AccessToken, finishResponse.RefreshToken);
+        _lastBaseUri = baseUri;
+        SetAccessToken(finishResponse.AccessToken);
+        await RefreshCurrentTenantAsync(cancellationToken);
+
+        // Connect to SignalR
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _signalRService.ConnectAsync(_lastBaseUri.ToString(), finishResponse.AccessToken, userId, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to connect to SignalR after login");
+            }
+        }, cancellationToken);
 
         return new MobileAuthResult(
             userId,
@@ -146,6 +179,7 @@ public class MobilePakeAuthService : IMobileAuthService
 
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
     {
+        await _signalRService.DisconnectAsync();
         var userId = await _tokenStore.GetUserIdAsync();
         if (userId == null) return;
 
@@ -172,6 +206,8 @@ public class MobilePakeAuthService : IMobileAuthService
         finally
         {
             await _tokenStore.ClearAsync(userId);
+            SetAccessToken(null);
+            UpdateCurrentTenant(null);
         }
     }
 
@@ -195,5 +231,144 @@ public class MobilePakeAuthService : IMobileAuthService
             return default;
         }
         return await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: cancellationToken);
+    }
+
+    private void SetAccessToken(string? token)
+    {
+        _accessToken = token;
+        if (string.IsNullOrEmpty(token))
+        {
+            _httpClient.DefaultRequestHeaders.Authorization = null;
+            return;
+        }
+
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    }
+
+    private void UpdateCurrentTenant(CurrentTenantDto? tenant)
+    {
+        if (tenant?.Id == _currentTenant?.Id) return;
+        _currentTenant = tenant;
+        CurrentTenantChanged?.Invoke(this, tenant);
+    }
+
+    public CurrentTenantDto? CurrentTenant => _currentTenant;
+
+    public event EventHandler<CurrentTenantDto?>? CurrentTenantChanged;
+
+    public async Task<CurrentTenantDto?> RefreshCurrentTenantAsync(CancellationToken cancellationToken = default)
+    {
+        if (_lastBaseUri == null || string.IsNullOrEmpty(_accessToken))
+        {
+            return null;
+        }
+
+        try
+        {
+            var requestUri = new Uri(_lastBaseUri, "/v1/tenants/current");
+            var response = await _httpClient.GetAsync(requestUri, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Current tenant request failed with {StatusCode}", response.StatusCode);
+                UpdateCurrentTenant(null);
+                return null;
+            }
+
+            var tenant = await response.Content.ReadFromJsonAsync<CurrentTenantDto>(cancellationToken: cancellationToken);
+            UpdateCurrentTenant(tenant);
+            return tenant;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to refresh current tenant");
+            UpdateCurrentTenant(null);
+            return null;
+        }
+    }
+
+    public async Task<bool> RedeemClaimCodeAsync(string scannedData, CancellationToken cancellationToken = default)
+    {
+        // Expected format: JSON or pipe-delimited
+        // We'll support pipe-delimited for now as it's compact: {pairingId}|{code}|{serverUrl}
+        // Or JSON: { "pairingId": "...", "code": "...", "serverUrl": "..." }
+
+        Guid pairingId;
+        string code;
+        string serverUrl;
+
+        try
+        {
+            if (scannedData.Trim().StartsWith("{"))
+            {
+                var json = System.Text.Json.JsonDocument.Parse(scannedData);
+                pairingId = Guid.Parse(json.RootElement.GetProperty("pairingId").GetString()!);
+                code = json.RootElement.GetProperty("code").GetString()!;
+                serverUrl = json.RootElement.GetProperty("serverUrl").GetString()!;
+            }
+            else
+            {
+                var parts = scannedData.Split('|');
+                if (parts.Length < 3) return false;
+                pairingId = Guid.Parse(parts[0]);
+                code = parts[1];
+                serverUrl = parts[2];
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse claim code");
+            return false;
+        }
+
+        var baseUri = BuildBaseUri(serverUrl);
+        var request = new PairRedeemRequest(pairingId, code);
+
+        // We use a custom response record here since the shared contract doesn't include tokens yet
+        // but the server now returns them.
+        var response = await PostJsonAsync<PairRedeemRequest, RedeemResponseEx>(baseUri, "/v1/auth/pake/pair/redeem", request, cancellationToken);
+
+        if (response != null && !string.IsNullOrEmpty(response.AccessToken))
+        {
+             await _tokenStore.SaveAsync(response.UserId, response.AccessToken, response.RefreshToken);
+             _lastBaseUri = baseUri;
+             SetAccessToken(response.AccessToken);
+
+             // If vault is present, we should ideally import it, but we need the password.
+             // For now, we just authenticate. The vault will remain locked until the user enters the password (if we implement that flow later).
+             // Or maybe we can prompt for password *after* successful login.
+
+             if (!string.IsNullOrEmpty(response.VaultDataBase64))
+             {
+                 // Store vault temporarily or just acknowledge we have it?
+                 // Current MobileVaultService expects password to import.
+             }
+
+             await RefreshCurrentTenantAsync(cancellationToken);
+
+             // Connect to SignalR
+             _ = Task.Run(async () =>
+             {
+                 try
+                 {
+                     await _signalRService.ConnectAsync(_lastBaseUri.ToString(), response.AccessToken, response.UserId, cancellationToken);
+                 }
+                 catch (Exception ex)
+                 {
+                     _logger.LogWarning(ex, "Failed to connect to SignalR after redemption");
+                 }
+             }, cancellationToken);
+
+             return true;
+        }
+
+        return false;
+    }
+
+    private class RedeemResponseEx
+    {
+        public string UserId { get; set; } = "";
+        public string AccessToken { get; set; } = "";
+        public string RefreshToken { get; set; } = "";
+        public string? VaultDataBase64 { get; set; }
     }
 }

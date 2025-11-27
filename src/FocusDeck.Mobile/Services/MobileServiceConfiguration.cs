@@ -6,6 +6,7 @@ using FocusDeck.Mobile.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using FocusDeck.Mobile.Services.Auth;
 using Microsoft.Maui.Storage;
+using FocusDeck.Mobile.Services.Privacy;
 
 namespace FocusDeck.Mobile;
 
@@ -48,8 +49,8 @@ public static class MobileServiceConfiguration
         
         services.AddSingleton<IDevicePairingService, DevicePairingService>();
         
-        // Register WebSocket client service
-        services.AddSingleton<IWebSocketClientService, WebSocketClientService>();
+        // Register SignalR client service
+        services.AddSingleton<ISignalRService, SignalRClientService>();
         
         // Register heartbeat service (disabled by default)
         services.AddSingleton<IHeartbeatService, HeartbeatService>();
@@ -66,7 +67,13 @@ public static class MobileServiceConfiguration
         services.AddSingleton<IMobileAudioRecordingService, MobileAudioRecordingService>();
         services.AddSingleton<IMobileNotificationService, MobileNotificationService>();
         services.AddSingleton<IMobileStorageService, MobileStorageService>();
+        services.AddSingleton<IMobileCloudApiClient, MobileCloudApiClient>();
+        services.AddSingleton<IMobilePrivacySettingsClient, MobilePrivacySettingsClient>();
+        services.AddSingleton<IMobileActivitySignalClient, MobileActivitySignalClient>();
+        services.AddSingleton<IMobilePrivacyGate, MobilePrivacyGate>();
         
+        services.AddSingleton<MobileActionHandler>();
+
         return services;
     }
 

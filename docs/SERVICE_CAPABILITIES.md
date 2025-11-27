@@ -196,33 +196,7 @@ FocusDeck supports 16 different service integrations, each offering unique trigg
 
 ---
 
-## ✅ Todoist
-
-**Authentication:** API Token
-
-### Triggers
-- 📝 **Task Created** - New task added
-- ✓ **Task Completed** - Task checked off
-- ⚠️ **Task Due Today** - Task due today
-- 🔴 **Priority Changed** - Task priority updated
-- 📊 **Project Updated** - Project modified
-
-### Actions
-- Create task
-- Complete task
-- Update task
-- Set due date
-- Change priority
-- Add to project
-- Add comment
-
-### Use Cases
-- Sync Todoist ↔ FocusDeck tasks
-- Auto-create Todoist task for assignments
-- Complete Todoist tasks from FocusDeck
-- Daily task review automation
-
----
+> Note: External task managers (e.g., Todoist) were originally considered here, but since FocusDeck is intended to replace them as the primary task system, deep Todoist integration is not a current priority.
 
 ## 💬 Slack
 

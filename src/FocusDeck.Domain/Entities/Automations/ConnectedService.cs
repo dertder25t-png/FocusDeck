@@ -1,6 +1,8 @@
+using FocusDeck.Domain.Entities;
+
 namespace FocusDeck.Domain.Entities.Automations
 {
-    public class ConnectedService
+    public class ConnectedService : IMustHaveTenant
     {
         public Guid Id { get; set; }
         public string UserId { get; set; } = null!; // Link to a user if you have auth
@@ -15,5 +17,6 @@ namespace FocusDeck.Domain.Entities.Automations
 
         // Cached flag to indicate if this integration is configured (tokens/metadata present)
         public bool IsConfigured { get; set; }
+        public Guid TenantId { get; set; }
     }
 }

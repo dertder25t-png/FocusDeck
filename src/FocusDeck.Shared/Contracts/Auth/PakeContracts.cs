@@ -4,7 +4,8 @@ namespace FocusDeck.Shared.Contracts.Auth;
 /// Request payload for beginning user registration.
 /// </summary>
 /// <param name="UserId">User identifier (stable username / email alias).</param>
-public sealed record RegisterStartRequest(string UserId);
+/// <param name="DevicePlatform">Optional device platform (web, mobile, desktop) to influence KDF selection.</param>
+public sealed record RegisterStartRequest(string UserId, string? DevicePlatform = null);
 
 /// <summary>
 /// Response for register start containing KDF parameters and SRP group info.

@@ -1,8 +1,8 @@
 namespace FocusDeck.Contracts.MultiTenancy;
 
-public record CreateOrganizationRequest(string Name, string Slug);
+public record CreateTenantRequest(string Name, string Slug);
 
-public record OrganizationDto(
+public record TenantDto(
     Guid Id,
     string Name,
     string Slug,
@@ -11,7 +11,15 @@ public record OrganizationDto(
     string UserRole
 );
 
-public record OrgMemberDto(
+public record CurrentTenantDto(
+    Guid Id,
+    string Name,
+    string Slug,
+    string UserRole,
+    int MemberCount
+);
+
+public record TenantMemberDto(
     string UserId,
     string Email,
     string Name,
@@ -20,9 +28,9 @@ public record OrgMemberDto(
     DateTime JoinedAt
 );
 
-public record CreateInviteRequest(string Email, string Role);
+public record CreateTenantInviteRequest(string Email, string Role);
 
-public record InviteDto(
+public record TenantInviteDto(
     Guid Id,
     string Email,
     string Role,
@@ -32,6 +40,6 @@ public record InviteDto(
     bool IsAccepted
 );
 
-public record AcceptInviteRequest(string Token);
+public record AcceptTenantInviteRequest(string Token);
 
-public record UpdateMemberRoleRequest(string Role);
+public record UpdateTenantMemberRoleRequest(string Role);

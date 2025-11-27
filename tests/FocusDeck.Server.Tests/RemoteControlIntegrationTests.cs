@@ -1,6 +1,7 @@
 using FocusDeck.Contracts.DTOs;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -8,12 +9,12 @@ using Xunit;
 
 namespace FocusDeck.Server.Tests;
 
-public class RemoteControlIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class RemoteControlIntegrationTests : IClassFixture<FocusDeckWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly WebApplicationFactory<TestServerProgram> _factory;
     private readonly HttpClient _client;
 
-    public RemoteControlIntegrationTests(WebApplicationFactory<Program> factory)
+    public RemoteControlIntegrationTests(FocusDeckWebApplicationFactory factory)
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
@@ -26,16 +27,13 @@ public class RemoteControlIntegrationTests : IClassFixture<WebApplicationFactory
                 });
             });
         });
-        _client = _factory.CreateClient();
+        _client = _factory.CreateAuthenticatedClient();
     }
 
     [Fact]
     public async Task RegisterDevice_Desktop_ReturnsDeviceIdAndToken()
     {
         // Arrange
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         var registerDto = new RegisterDeviceDto
         {
             DeviceType = "Desktop",
@@ -64,9 +62,6 @@ public class RemoteControlIntegrationTests : IClassFixture<WebApplicationFactory
     public async Task RegisterDevice_Phone_ReturnsDeviceIdAndToken()
     {
         // Arrange
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         var registerDto = new RegisterDeviceDto
         {
             DeviceType = "Phone",
@@ -92,9 +87,6 @@ public class RemoteControlIntegrationTests : IClassFixture<WebApplicationFactory
     public async Task CreateRemoteAction_OpenNote_ReturnsCreatedAction()
     {
         // Arrange
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         var actionDto = new CreateRemoteActionDto
         {
             Kind = "OpenNote",
@@ -121,9 +113,6 @@ public class RemoteControlIntegrationTests : IClassFixture<WebApplicationFactory
     public async Task CreateRemoteAction_StartFocus_ReturnsCreatedAction()
     {
         // Arrange
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         var actionDto = new CreateRemoteActionDto
         {
             Kind = "StartFocus",
@@ -148,9 +137,6 @@ public class RemoteControlIntegrationTests : IClassFixture<WebApplicationFactory
     public async Task ActionRoundTrip_PhoneCreatesAndDesktopCompletes_Success()
     {
         // Arrange
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         // Phone creates action
         var actionDto = new CreateRemoteActionDto
         {
@@ -196,11 +182,7 @@ public class RemoteControlIntegrationTests : IClassFixture<WebApplicationFactory
     [Fact]
     public async Task GetPendingActions_ReturnsOnlyPendingActions()
     {
-        // Arrange
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        // Create two actions
+        // Arrange        // Create two actions
         var action1 = await CreateTestActionAsync("OpenNote");
         var action2 = await CreateTestActionAsync("StartFocus");
 
@@ -224,11 +206,7 @@ public class RemoteControlIntegrationTests : IClassFixture<WebApplicationFactory
     [Fact]
     public async Task GetTelemetrySummary_ReturnsCurrentState()
     {
-        // Arrange
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        // Act
+        // Arrange        // Act
         var response = await _client.GetAsync("/v1/remote/telemetry/summary");
 
         // Assert
@@ -241,11 +219,7 @@ public class RemoteControlIntegrationTests : IClassFixture<WebApplicationFactory
     [Fact]
     public async Task GetDevices_ReturnsRegisteredDevices()
     {
-        // Arrange
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        // Register a device first
+        // Arrange        // Register a device first
         await _client.PostAsJsonAsync("/v1/devices/register", new RegisterDeviceDto
         {
             DeviceType = "Desktop",
@@ -266,11 +240,7 @@ public class RemoteControlIntegrationTests : IClassFixture<WebApplicationFactory
     [Fact]
     public async Task UpdateDeviceHeartbeat_UpdatesLastSeen()
     {
-        // Arrange
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        // Register a device
+        // Arrange        // Register a device
         var registerResponse = await _client.PostAsJsonAsync("/v1/devices/register", new RegisterDeviceDto
         {
             DeviceType = "Desktop",
@@ -292,19 +262,8 @@ public class RemoteControlIntegrationTests : IClassFixture<WebApplicationFactory
     }
 
     // Helper methods
-    private async Task<string> GetAuthTokenAsync()
-    {
-        // In a real scenario, this would authenticate and return a JWT token
-        // For testing purposes, we'll return a dummy token that the test server accepts
-        return "test-token-123";
-    }
-
     private async Task<RemoteActionDto> CreateTestActionAsync(string kind)
-    {
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        var actionDto = new CreateRemoteActionDto
+    {        var actionDto = new CreateRemoteActionDto
         {
             Kind = kind,
             Payload = new Dictionary<string, object>()

@@ -9,6 +9,7 @@ using FocusDeck.Services.Activity;
 using FocusDeck.Server.Services.Integrations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FocusDeck.Server.Services.Context;
 
@@ -16,7 +17,7 @@ public class ContextAggregationService : IContextAggregationService
 {
     private readonly ILogger<ContextAggregationService> _logger;
     private readonly IEnumerable<IActivityDetectionService> _detectors;
-    private readonly AutomationDbContext _db;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly CanvasService _canvasService;
     private readonly FocusDeck.Server.Services.Integrations.ICanvasCache? _canvasCache;
 
@@ -25,13 +26,13 @@ public class ContextAggregationService : IContextAggregationService
     public ContextAggregationService(
         ILogger<ContextAggregationService> logger,
         IEnumerable<IActivityDetectionService> detectors,
-        AutomationDbContext db,
+        IServiceScopeFactory scopeFactory,
         CanvasService canvasService,
         FocusDeck.Server.Services.Integrations.ICanvasCache? canvasCache = null)
     {
         _logger = logger;
         _detectors = detectors;
-        _db = db;
+        _scopeFactory = scopeFactory;
         _canvasService = canvasService;
         _canvasCache = canvasCache;
 
@@ -96,20 +97,23 @@ public class ContextAggregationService : IContextAggregationService
     {
         try
         {
-            var ctx = new FocusDeck.Domain.Entities.StudentContext
+            await WithDbContextAsync(async db =>
             {
-                Id = Guid.NewGuid(),
-                UserId = userId,
-                Timestamp = DateTime.UtcNow,
-                FocusedAppName = state.FocusedApp?.AppName,
-                FocusedWindowTitle = state.FocusedApp?.WindowTitle,
-                ActivityIntensity = state.ActivityIntensity,
-                IsIdle = state.IsIdle,
-                OpenContextsJson = state.OpenContexts.Count == 0 ? null : JsonSerializer.Serialize(state.OpenContexts)
-            };
+                var ctx = new FocusDeck.Domain.Entities.StudentContext
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    Timestamp = DateTime.UtcNow,
+                    FocusedAppName = state.FocusedApp?.AppName,
+                    FocusedWindowTitle = state.FocusedApp?.WindowTitle,
+                    ActivityIntensity = state.ActivityIntensity,
+                    IsIdle = state.IsIdle,
+                    OpenContextsJson = state.OpenContexts.Count == 0 ? null : JsonSerializer.Serialize(state.OpenContexts)
+                };
 
-            _db.StudentContexts.Add(ctx);
-            await _db.SaveChangesAsync(ct);
+                db.StudentContexts.Add(ctx);
+                await db.SaveChangesAsync(ct);
+            });
         }
         catch (Exception ex)
         {
@@ -157,20 +161,30 @@ public class ContextAggregationService : IContextAggregationService
     {
         try
         {
-            var cfg = await _db.ServiceConfigurations
+            var result = await WithDbContextAsync<(string? domain, string? token)>(async db =>
+            {
+                var cfg = await db.ServiceConfigurations
                 .AsNoTracking()
                 .Where(c => c.ServiceName == "Canvas")
                 .Select(c => c.AdditionalConfig)
                 .FirstOrDefaultAsync(ct);
 
-            if (!string.IsNullOrWhiteSpace(cfg))
+                if (!string.IsNullOrWhiteSpace(cfg))
+                {
+                    using var doc = JsonDocument.Parse(cfg);
+                    var root = doc.RootElement;
+                    var domain = root.TryGetProperty("domain", out var d) ? d.GetString() : null;
+                    var token = root.TryGetProperty("accessToken", out var t) ? t.GetString() : null;
+                    if (!string.IsNullOrWhiteSpace(domain) && !string.IsNullOrWhiteSpace(token))
+                        return (domain, token);
+                }
+
+                return ((string?)null, null);
+            });
+
+            if (!string.IsNullOrWhiteSpace(result.domain) && !string.IsNullOrWhiteSpace(result.token))
             {
-                using var doc = JsonDocument.Parse(cfg);
-                var root = doc.RootElement;
-                var domain = root.TryGetProperty("domain", out var d) ? d.GetString() : null;
-                var token = root.TryGetProperty("accessToken", out var t) ? t.GetString() : null;
-                if (!string.IsNullOrWhiteSpace(domain) && !string.IsNullOrWhiteSpace(token))
-                    return (domain, token);
+                return result;
             }
         }
         catch
@@ -181,5 +195,19 @@ public class ContextAggregationService : IContextAggregationService
         var envDomain = Environment.GetEnvironmentVariable("CANVAS_DOMAIN");
         var envToken = Environment.GetEnvironmentVariable("CANVAS_TOKEN");
         return (envDomain, envToken);
+    }
+
+    private async Task WithDbContextAsync(Func<AutomationDbContext, Task> action)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+        await action(db);
+    }
+
+    private async Task<T> WithDbContextAsync<T>(Func<AutomationDbContext, Task<T>> action)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+        return await action(db);
     }
 }

@@ -150,6 +150,11 @@ public interface INotificationClient : INotificationClientContract
     /// <summary>
     /// General notification message
     /// </summary>
+    Task ReceiveNotification(string title, string message, string severity);
+
+    /// <summary>
+    /// Legacy method alias for backward compatibility
+    /// </summary>
     Task NotificationReceived(string title, string message, string severity);
     
     /// <summary>
@@ -201,4 +206,5 @@ public interface INotificationClient : INotificationClientContract
     /// Notify clients of aggregated activity/context updates
     /// </summary>
     Task ContextUpdated(FocusDeck.Services.Activity.ActivityState state);
+
 }

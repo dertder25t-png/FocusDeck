@@ -6,7 +6,7 @@ namespace FocusDeck.Domain.Entities
     /// <summary>
     /// Represents a single to-do item or task
     /// </summary>
-    public class TodoItem
+    public class TodoItem : IMustHaveTenant
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Title { get; set; } = string.Empty;
@@ -100,5 +100,7 @@ namespace FocusDeck.Domain.Entities
             4 => "Urgent",
             _ => "Unknown"
         };
+
+        public Guid TenantId { get; set; }
     }
 }

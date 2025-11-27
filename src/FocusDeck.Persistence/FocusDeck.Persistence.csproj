@@ -21,7 +21,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\FocusDeck.Domain\FocusDeck.Domain.csproj" />
+    <ProjectReference Include="..\FocusDeck.SharedKernel\FocusDeck.SharedKernel.csproj" />
+    <ProjectReference Include="..\FocusDeck.Contracts\FocusDeck.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

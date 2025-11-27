@@ -2,10 +2,23 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
+function stubArgon2Wasm() {
+  return {
+    name: 'stub-argon2-wasm',
+    enforce: 'pre' as const,
+    load(id: string) {
+      if (id.endsWith('argon2-browser/dist/argon2.wasm')) {
+        return 'const wasm = \"\"; export default wasm;'
+      }
+      return null
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
-  base: '/app/',
+  plugins: [stubArgon2Wasm(), react()],
+  base: '/',
   build: {
     outDir: 'dist',
     emptyOutDir: true,
@@ -27,6 +40,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'react-qr-reader': 'react-qr-reader/dist/cjs/index.js',
     },
+  },
+  optimizeDeps: {
+    exclude: ['argon2-browser'],
   },
 })

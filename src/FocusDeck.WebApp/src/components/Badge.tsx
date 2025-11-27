@@ -2,7 +2,7 @@ import { type HTMLAttributes, forwardRef } from 'react'
 import { cn } from '../lib/utils'
 
 export interface BadgeProps extends HTMLAttributes<HTMLDivElement> {
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info'
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'secondary'
   size?: 'sm' | 'md' | 'lg'
 }
 
@@ -19,7 +19,7 @@ const Badge = forwardRef<HTMLDivElement, BadgeProps>(
             'px-3 py-1 text-sm': size === 'lg',
           },
           {
-            'bg-gray-800 text-gray-300': variant === 'default',
+            'bg-gray-800 text-gray-300': variant === 'default' || variant === 'secondary',
             'bg-green-500/10 text-green-400 border border-green-500/20': variant === 'success',
             'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20': variant === 'warning',
             'bg-red-500/10 text-red-400 border border-red-500/20': variant === 'danger',

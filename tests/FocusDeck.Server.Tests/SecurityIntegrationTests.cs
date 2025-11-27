@@ -1,3 +1,4 @@
+using System;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -8,26 +9,29 @@ using Microsoft.Extensions.DependencyInjection;
 using FocusDeck.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Hosting;
 
 namespace FocusDeck.Server.Tests;
 
-public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class SecurityIntegrationTests : IClassFixture<FocusDeckWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly WebApplicationFactory<TestServerProgram> _factory;
     private readonly HttpClient _client;
 
-    public SecurityIntegrationTests(WebApplicationFactory<Program> factory)
+    public SecurityIntegrationTests(FocusDeckWebApplicationFactory factory)
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
+            builder.UseEnvironment("Testing");
             builder.ConfigureAppConfiguration((context, config) =>
             {
-                context.HostingEnvironment.EnvironmentName = "Development";
+                context.HostingEnvironment.EnvironmentName = "Testing";
                 // Override configuration for tests
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["ConnectionStrings:DefaultConnection"] = "Data Source=:memory:",
-                    ["Jwt:Key"] = "test-key-for-testing-purposes-min-32-chars-long",
+                    ["Jwt:PrimaryKey"] = "test-key-for-testing-purposes-min-32-chars-long",
+                    ["Jwt:SecondaryKey"] = "test-secondary-key-for-rotation-debug",
                     ["Jwt:Issuer"] = "test-issuer",
                     ["Jwt:Audience"] = "test-audience",
                     ["Jwt:AccessTokenExpirationMinutes"] = "60",
@@ -40,21 +44,23 @@ public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Prog
         });
 
         _client = _factory.CreateClient();
+        _client.Timeout = TimeSpan.FromSeconds(30);
     }
 
-    [Fact]
+    [Fact(Timeout = 30000)]
     public async Task GetProtectedEndpoint_WithoutAuth_Returns401()
     {
         // Arrange - no Authorization header
 
         // Act
-        var response = await _client.GetAsync("/v1/uploads/asset");
+        using var content = new MultipartFormDataContent();
+        var response = await _client.PostAsync("/v1/uploads/asset", content);
 
         // Assert
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    [Fact]
+    [Fact(Timeout = 30000)]
     public async Task GetHealthEndpoint_WithoutAuth_Returns200()
     {
         // Arrange - no Authorization header
@@ -66,7 +72,7 @@ public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
-    [Fact]
+    [Fact(Timeout = 30000)]
     public async Task RefreshToken_FirstUse_ReturnsNewTokens()
     {
         // Arrange - Login first
@@ -96,7 +102,7 @@ public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Prog
         Assert.NotEqual(loginResult.RefreshToken, refreshResult.RefreshToken);
     }
 
-    [Fact]
+    [Fact(Timeout = 30000)]
     public async Task RefreshToken_ReuseOldToken_Returns401()
     {
         // Arrange - Login and refresh once
@@ -134,7 +140,7 @@ public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Equal("TOKEN_REUSE", error.Code);
     }
 
-    [Fact]
+    [Fact(Timeout = 30000)]
     public async Task RefreshToken_DifferentClientFingerprint_Returns401()
     {
         // Arrange - Login with one client ID
@@ -163,7 +169,7 @@ public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Equal("FINGERPRINT_MISMATCH", error.Code);
     }
 
-    [Fact]
+    [Fact(Timeout = 30000)]
     public async Task CORS_AllowedOrigin_ReturnsSuccess()
     {
         // Arrange
@@ -178,7 +184,7 @@ public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Prog
         Assert.True(response.Headers.Contains("Access-Control-Allow-Origin"));
     }
 
-    [Fact]
+    [Fact(Timeout = 30000)]
     public async Task CORS_DisallowedOrigin_NoAccessControlHeaders()
     {
         // Arrange
@@ -285,10 +291,12 @@ public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Prog
                 Generator = (int)FocusDeck.Shared.Security.Srp.G,
                 KdfParametersJson = null, // Explicitly null for legacy user
                 CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                UpdatedAt = DateTime.UtcNow,
+                TenantId = TestTenancy.DefaultTenantId
             });
             await dbContext.SaveChangesAsync();
         }
+        await TestTenancy.EnsureTenantMembershipAsync(_factory.Services, TestTenancy.DefaultTenantId, userId);
 
         // Act I: Legacy Login
         var (clientSecretA, clientPublicA) = FocusDeck.Shared.Security.Srp.GenerateClientEphemeral();
@@ -297,7 +305,10 @@ public class SecurityIntegrationTests : IClassFixture<WebApplicationFactory<Prog
         loginStartResponse.EnsureSuccessStatusCode();
         var loginStartResult = await loginStartResponse.Content.ReadFromJsonAsync<FocusDeck.Shared.Contracts.Auth.LoginStartResponse>();
         Assert.NotNull(loginStartResult);
-        Assert.Null(loginStartResult.KdfParametersJson); // Assert it's a legacy login
+        Assert.NotNull(loginStartResult.KdfParametersJson); // Legacy credentials now return explicit SHA metadata
+        var legacyKdf = System.Text.Json.JsonSerializer.Deserialize<FocusDeck.Shared.Security.SrpKdfParameters>(loginStartResult.KdfParametersJson);
+        Assert.NotNull(legacyKdf);
+        Assert.Equal("sha256", legacyKdf!.Algorithm, ignoreCase: true);
 
         var serverPublicB = FocusDeck.Shared.Security.Srp.FromBigEndian(Convert.FromBase64String(loginStartResult.ServerPublicEphemeralBase64));
         var scrambleU = FocusDeck.Shared.Security.Srp.ComputeScramble(clientPublicA, serverPublicB);

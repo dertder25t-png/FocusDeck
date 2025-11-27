@@ -1,8 +1,12 @@
+using FocusDeck.Server.Configuration;
+using FocusDeck.Server.Services.Auth;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Logging;
+using System;
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
 using System.Security.Claims;
-using System.Text;
+using System.Threading.Tasks;
 
 namespace FocusDeck.Server.Controllers
 {
@@ -10,12 +14,14 @@ namespace FocusDeck.Server.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly IConfiguration _config;
+        private readonly ITokenService _tokenService;
+        private readonly JwtSettings _jwtSettings;
         private readonly ILogger<AuthController> _logger;
 
-        public AuthController(IConfiguration config, ILogger<AuthController> logger)
+        public AuthController(ITokenService tokenService, JwtSettings jwtSettings, ILogger<AuthController> logger)
         {
-            _config = config;
+            _tokenService = tokenService;
+            _jwtSettings = jwtSettings;
             _logger = logger;
         }
 
@@ -25,7 +31,7 @@ namespace FocusDeck.Server.Controllers
         /// Body: { "username": "your-username" }
         /// </summary>
         [HttpPost("token")]
-        public ActionResult<TokenResponse> GenerateToken([FromBody] TokenRequest request)
+        public async Task<ActionResult<TokenResponse>> GenerateToken([FromBody] TokenRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Username))
             {
@@ -34,30 +40,7 @@ namespace FocusDeck.Server.Controllers
 
             try
             {
-                var jwtKey = _config["Jwt:Key"] ?? "super_dev_secret_key_change_me_please_32chars";
-                var jwtIssuer = _config["Jwt:Issuer"] ?? "FocusDeckDev";
-                var jwtAudience = _config["Jwt:Audience"] ?? "FocusDeckClients";
-
-                var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
-                var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-
-                var claims = new[]
-                {
-                    new Claim(JwtRegisteredClaimNames.Sub, request.Username),
-                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                    new Claim(ClaimTypes.NameIdentifier, request.Username),
-                    new Claim(ClaimTypes.Name, request.Username)
-                };
-
-                var token = new JwtSecurityToken(
-                    issuer: jwtIssuer,
-                    audience: jwtAudience,
-                    claims: claims,
-                    expires: DateTime.UtcNow.AddDays(30), // 30 day expiration
-                    signingCredentials: credentials
-                );
-
-                var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+                var tokenString = await _tokenService.GenerateAccessTokenAsync(request.Username, new[] { "Dev" }, Guid.NewGuid());
 
                 _logger.LogInformation("Generated token for user: {Username}", request.Username);
 
@@ -65,7 +48,7 @@ namespace FocusDeck.Server.Controllers
                 {
                     Token = tokenString,
                     Username = request.Username,
-                    ExpiresAt = token.ValidTo
+                    ExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes)
                 });
             }
             catch (Exception ex)

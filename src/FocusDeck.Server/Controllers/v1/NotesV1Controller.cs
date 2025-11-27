@@ -1,5 +1,6 @@
 using FocusDeck.Persistence;
 using FocusDeck.Domain.Entities;
+using FocusDeck.Server.Services.Calendar;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,11 +15,65 @@ public class NotesV1Controller : ControllerBase
 {
     private readonly AutomationDbContext _db;
     private readonly ILogger<NotesV1Controller> _logger;
+    private readonly CalendarResolver _calendarResolver;
 
-    public NotesV1Controller(AutomationDbContext db, ILogger<NotesV1Controller> logger)
+    public NotesV1Controller(AutomationDbContext db, ILogger<NotesV1Controller> logger, CalendarResolver calendarResolver)
     {
         _db = db;
         _logger = logger;
+        _calendarResolver = calendarResolver;
+    }
+
+    // POST: v1/notes/start
+    [HttpPost("start")]
+    public async Task<ActionResult> StartNote([FromBody] CreateNoteDto? request)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var tenantIdStr = User.FindFirst("app_tenant_id")?.Value;
+
+        if (string.IsNullOrEmpty(userId) || !Guid.TryParse(tenantIdStr, out var tenantId))
+        {
+            return Unauthorized();
+        }
+
+        // Resolve context (Auto-Tag)
+        var (evt, course) = await _calendarResolver.ResolveCurrentContextAsync(tenantId);
+
+        var note = new Note
+        {
+            Id = Guid.NewGuid().ToString(),
+            Title = request?.Title ?? "Untitled Note",
+            Content = request?.Content ?? "",
+            CreatedDate = DateTime.UtcNow,
+            TenantId = tenantId
+        };
+
+        if (evt != null)
+        {
+            note.EventId = evt.Id; // Note: EventCache ID, not external ID
+            // Auto-title if no specific title provided
+            if (string.IsNullOrEmpty(request?.Title))
+            {
+                var topic = !string.IsNullOrEmpty(evt.Title) ? evt.Title : "Session";
+                var courseCode = course?.Code ?? "General";
+                note.Title = $"{courseCode} - {topic} - {DateTime.Now:MM/dd HH:mm}";
+            }
+        }
+        else if (string.IsNullOrEmpty(request?.Title))
+        {
+             note.Title = $"Note - {DateTime.Now:MM/dd HH:mm}";
+        }
+
+        if (course != null)
+        {
+            note.CourseId = course.Id;
+            note.Tags.Add(course.Code);
+        }
+
+        _db.Notes.Add(note);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { noteId = note.Id, title = note.Title, context = new { eventId = evt?.Id, courseId = course?.Id } });
     }
 
     // GET: v1/notes/list
@@ -59,6 +114,9 @@ public class NotesV1Controller : ControllerBase
             n.Tags,
             n.CreatedDate,
             n.LastModified,
+            n.Type,
+            n.Sources,
+            n.CitationStyle,
             CoveragePercent = CalculateCoverage(n) // Stub calculation
         });
 
@@ -224,6 +282,50 @@ public class NotesV1Controller : ControllerBase
             score = coverage,
             timestamp = DateTime.UtcNow
         });
+    }
+
+    // PUT: v1/notes/{id}
+    [HttpPut("{id}")]
+    public async Task<ActionResult> UpdateNote(string id, [FromBody] UpdateNoteDto request)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        var note = await _db.Notes.FirstOrDefaultAsync(n => n.Id == id);
+        if (note == null)
+        {
+            return NotFound(new { code = "NOTE_NOT_FOUND", message = "Note not found" });
+        }
+
+        if (request.Content != null) note.Content = request.Content;
+        if (request.Type.HasValue) note.Type = request.Type.Value;
+        if (request.CitationStyle != null) note.CitationStyle = request.CitationStyle;
+
+        if (request.Sources != null)
+        {
+            // Simple replace strategy for MVP (or merge if desired)
+            // Assuming request sends full list
+            _db.AcademicSources.RemoveRange(note.Sources);
+            note.Sources = request.Sources.Select(s => new AcademicSource
+            {
+                Id = Guid.TryParse(s.Id, out var sid) ? sid : Guid.NewGuid(),
+                Title = s.Title,
+                Author = s.Author,
+                Publisher = s.Publisher,
+                Year = s.Year,
+                Url = s.Url,
+                NoteId = note.Id,
+                TenantId = note.TenantId
+            }).ToList();
+        }
+
+        note.LastModified = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Note updated" });
     }
 
     private double CalculateCoverage(Note note)

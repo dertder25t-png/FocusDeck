@@ -11,8 +11,14 @@
         <VStackLayout Grid.Row="1" Padding="10">
             <Label x:Name="resultLabel"
                    Text="Scan a QR code"
+                    HorizontalOptions="Center"
+                    FontSize="22" />
+            <Label x:Name="tenantLabel"
+                   Text="Tenant: resolving…"
                    HorizontalOptions="Center"
-                   FontSize="22" />
+                   FontSize="14"
+                   TextColor="{DynamicResource TextSecondaryBrush}"
+                   Margin="0,4,0,0" />
             <Button x:Name="toggleScannerButton"
                     Text="Start Scanner"
                     Clicked="ToggleScanner" />

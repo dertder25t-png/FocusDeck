@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../co
 import { Badge } from '../components/Badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/Dialog';
 import { EmptyState } from '../components/States';
+import { NoteEditor, type AcademicSource } from '../components/NoteEditor';
 
 interface Note {
   id: string;
@@ -13,6 +14,9 @@ interface Note {
   createdDate: string;
   lastModified?: string;
   coveragePercent?: number;
+  type: 'quick' | 'paper';
+  sources: AcademicSource[];
+  citationStyle: string;
 }
 
 interface Suggestion {
@@ -33,6 +37,11 @@ export function NotesPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editedContent, setEditedContent] = useState('');
+
+  // Editor State
+  const [editorMode, setEditorMode] = useState<'quick' | 'paper'>('quick');
+  const [sources, setSources] = useState<AcademicSource[]>([]);
+  const [citationStyle, setCitationStyle] = useState('APA');
 
   useEffect(() => {
     loadNotes();
@@ -55,6 +64,11 @@ export function NotesPage() {
     setEditedContent(note.content);
     setEditMode(false);
     
+    // Initialize editor state
+    setEditorMode(note.type || 'quick');
+    setSources(note.sources || []);
+    setCitationStyle(note.citationStyle || 'APA');
+
     // Load suggestions for this note
     try {
       const response = await fetch(`/v1/notes/${note.id}/suggestions`);
@@ -65,6 +79,41 @@ export function NotesPage() {
     } catch (error) {
       console.error('Failed to load suggestions:', error);
       setSuggestions([]);
+    }
+  };
+
+  const handleSaveNote = async () => {
+    if (!selectedNote) return;
+
+    try {
+        const payload = {
+            content: editedContent,
+            type: editorMode,
+            sources: sources,
+            citationStyle: citationStyle
+        };
+
+        const response = await fetch(`/v1/notes/${selectedNote.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            // Update local state
+            setSelectedNote({
+                ...selectedNote,
+                content: editedContent,
+                type: editorMode,
+                sources: sources,
+                citationStyle: citationStyle,
+                lastModified: new Date().toISOString()
+            });
+            // Refresh list to show updated timestamp
+            loadNotes();
+        }
+    } catch (error) {
+        console.error('Failed to save note:', error);
     }
   };
 
@@ -212,6 +261,15 @@ export function NotesPage() {
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold">Content</h3>
                   <div className="flex gap-2">
+                    {editMode && (
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={handleSaveNote}
+                        >
+                            Save
+                        </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="secondary"
@@ -231,11 +289,19 @@ export function NotesPage() {
                 </div>
 
                 {editMode ? (
-                  <textarea
-                    className="w-full h-96 p-4 bg-gray-800/50 border border-gray-700 rounded-lg text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-                    value={editedContent}
-                    onChange={(e) => setEditedContent(e.target.value)}
-                  />
+                  <div className="h-96 border border-gray-800 rounded-lg overflow-hidden">
+                    <NoteEditor
+                        content={editedContent}
+                        onChange={setEditedContent}
+                        mode={editorMode}
+                        onModeChange={setEditorMode}
+                        sources={sources}
+                        onAddSource={(s) => setSources([...sources, s])}
+                        onRemoveSource={(id) => setSources(sources.filter(s => s.id !== id))}
+                        citationStyle={citationStyle}
+                        onCitationStyleChange={setCitationStyle}
+                    />
+                  </div>
                 ) : (
                   <div className="prose prose-invert prose-sm max-w-none p-4 bg-gray-800/50 rounded-lg">
                     <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">

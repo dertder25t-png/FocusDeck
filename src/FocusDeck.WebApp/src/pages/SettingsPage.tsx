@@ -4,10 +4,86 @@ import { Button } from '../components/Button'
 import { Badge } from '../components/Badge'
 import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { usePrivacySettings } from '../hooks/usePrivacySettings'
+import { usePrivacyActions } from '../hooks/usePrivacyActions'
+import type { PrivacySetting } from '../types/privacy'
+
+interface SystemInfo {
+  version: string;
+  gitSha: string;
+  environment: string;
+  uptime: {
+    days: number;
+    hours: number;
+    minutes: number;
+  };
+  queue: {
+    enqueued: number;
+    processing: number;
+    scheduled: number;
+    failed: number;
+  };
+}
 
 export function SettingsPage() {
-  const [systemInfo, setSystemInfo] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<'profile' | 'org' | 'integrations' | 'system'>('profile')
+  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null)
+  const [activeTab, setActiveTab] = useState<'profile' | 'tenant' | 'integrations' | 'privacy' | 'system'>('profile')
+  const { settings: privacySettings, loading: privacyLoading, updateSetting } = usePrivacySettings()
+  const { exportAllData, deleteAllData, isExporting, isDeleting } = usePrivacyActions()
+  const [pendingPrivacy, setPendingPrivacy] = useState<string[]>([])
+  const [geminiKey, setGeminiKey] = useState('')
+  const [geminiKeySaved, setGeminiKeySaved] = useState(false)
+  const [isSavingKey, setIsSavingKey] = useState(false)
+
+  useEffect(() => {
+    if (activeTab === 'integrations') {
+      fetch('/v1/system/config/gemini')
+        .then(res => res.json())
+        .then(data => setGeminiKeySaved(data.hasKey))
+        .catch(err => console.error('Failed to check Gemini key status:', err))
+    }
+  }, [activeTab])
+
+  const saveGeminiKey = async () => {
+    if (!geminiKey) return
+
+    setIsSavingKey(true)
+    try {
+      const res = await fetch('/v1/system/config/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: geminiKey })
+      })
+
+      if (res.ok) {
+        setGeminiKeySaved(true)
+        setGeminiKey('')
+        alert('Gemini API Key saved successfully!')
+      } else {
+        alert('Failed to save API Key')
+      }
+    } catch (err) {
+      console.error('Error saving Gemini key:', err)
+      alert('Error saving API Key')
+    } finally {
+      setIsSavingKey(false)
+    }
+  }
+
+  const toggleSetting = async (setting: PrivacySetting) => {
+    if (pendingPrivacy.includes(setting.contextType)) {
+      return
+    }
+
+    setPendingPrivacy((prev) => [...prev, setting.contextType])
+    try {
+      await updateSetting(setting.contextType, !setting.isEnabled)
+    } catch (error) {
+      console.error('Unable to update privacy setting', setting.contextType, error)
+    } finally {
+      setPendingPrivacy((prev) => prev.filter((ctx) => ctx !== setting.contextType))
+    }
+  }
 
   useEffect(() => {
     // Fetch system info for system tab
@@ -19,8 +95,9 @@ export function SettingsPage() {
 
   const tabs = [
     { id: 'profile' as const, label: 'Profile' },
-    { id: 'org' as const, label: 'Organization' },
+    { id: 'tenant' as const, label: 'Tenant' },
     { id: 'integrations' as const, label: 'Integrations' },
+    { id: 'privacy' as const, label: 'Privacy & Consent' },
     { id: 'system' as const, label: 'System' }
   ]
 
@@ -102,17 +179,17 @@ export function SettingsPage() {
         </div>
       )}
 
-      {/* Organization Tab */}
-      {activeTab === 'org' && (
+      {/* Tenant Tab */}
+      {activeTab === 'tenant' && (
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Organizations</CardTitle>
-              <CardDescription>View and manage your organizations</CardDescription>
+              <CardTitle>Tenants</CardTitle>
+              <CardDescription>View and manage your tenants</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Link to="/app/organizations">
-                <Button>Manage Organizations</Button>
+              <Link to="/tenants">
+                <Button>Manage Tenants</Button>
               </Link>
             </CardContent>
           </Card>
@@ -234,15 +311,95 @@ export function SettingsPage() {
                 <p className="text-xs text-gray-500 mt-1">Managed by platform (read-only)</p>
               </div>
               <div>
-                <label className="text-sm font-medium mb-2 block">LLM API Key</label>
-                <Input 
-                  type="password" 
-                  value="sk-•••••••••••••••••••" 
-                  disabled
-                  className="bg-gray-900 text-gray-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">Managed by platform (masked)</p>
+                <label className="text-sm font-medium mb-2 block">Google Gemini API Key</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="password"
+                    value={geminiKey}
+                    onChange={(e) => setGeminiKey(e.target.value)}
+                    placeholder={geminiKeySaved ? "Key is set (enter new to update)" : "Enter your Google Cloud API Key"}
+                    className="bg-gray-900 text-white"
+                  />
+                  <Button
+                    onClick={saveGeminiKey}
+                    disabled={isSavingKey || !geminiKey}
+                  >
+                    {isSavingKey ? 'Saving...' : 'Save'}
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Used for text embedding. {geminiKeySaved ? <span className="text-green-500 font-medium">✓ Key is currently configured.</span> : <span className="text-yellow-500">⚠️ Key is not set.</span>}
+                </p>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Privacy Tab */}
+      {activeTab === 'privacy' && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Privacy & Consent</CardTitle>
+                <CardDescription>Toggle which contextual sensors are allowed to capture data.</CardDescription>
+              </div>
+              <div className="flex space-x-2">
+                <Link to="/settings/privacy">
+                  <Button variant="outline" size="sm">Live Data Preview</Button>
+                </Link>
+                <Button variant="secondary" size="sm" onClick={exportAllData} disabled={isExporting}>
+                  {isExporting ? 'Exporting...' : 'Export All'}
+                </Button>
+                <Button variant="danger" size="sm" onClick={deleteAllData} disabled={isDeleting}>
+                  {isDeleting ? 'Deleting...' : 'Delete All Data'}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {privacyLoading ? (
+                <div className="text-sm text-gray-400">Loading privacy controls…</div>
+              ) : (
+                <>
+                  {privacySettings.map((setting) => (
+                    <div
+                      key={setting.contextType}
+                      className="rounded-lg border border-gray-800 bg-gray-900/40 p-4 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="font-medium text-white">{setting.displayName}</p>
+                          <p className="text-xs text-gray-400">{setting.description}</p>
+                          <div className="text-xs text-gray-500 mt-1">
+                            Tier: <span className="text-primary">{setting.tier}</span> · Default:{' '}
+                            {setting.defaultEnabled ? 'On' : 'Off'}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            size="sm"
+                            variant={setting.isEnabled ? 'secondary' : 'primary'}
+                            onClick={() => toggleSetting(setting)}
+                            disabled={pendingPrivacy.includes(setting.contextType)}
+                            aria-pressed={setting.isEnabled}
+                          >
+                            {pendingPrivacy.includes(setting.contextType)
+                              ? 'Updating…'
+                              : setting.isEnabled
+                              ? 'Enabled'
+                              : 'Enable'}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {!privacyLoading && privacySettings.length === 0 && (
+                    <p className="text-sm text-gray-400">No privacy controls are available yet.</p>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

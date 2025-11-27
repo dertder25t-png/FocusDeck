@@ -11,7 +11,7 @@ public class SrpTests
     public void ComputePrivateKey_WithArgon2id_ProducesDeterministicOutput()
     {
         // Arrange
-        var kdfParams = new SrpKdfParameters("argon2id", Convert.ToBase64String(Encoding.UTF8.GetBytes("somesalt")), 2, 3, 65536);
+        var kdfParams = new SrpKdfParameters("argon2id", Convert.ToBase64String(Encoding.UTF8.GetBytes("somesalt")), degreeOfParallelism: 2, iterations: 3, memorySizeKiB: 65536, aad: true);
         const string userId = "testuser";
         const string password = "password123";
 
@@ -43,7 +43,7 @@ public class SrpTests
     public void ComputePrivateKey_WithArgon2id_ProducesCorrectKnownValue()
     {
         // Arrange
-        var kdfParams = new SrpKdfParameters("argon2id", "c29tZXNhbHQ=", 2, 3, 65536); // salt = "somesalt"
+        var kdfParams = new SrpKdfParameters("argon2id", "c29tZXNhbHQ=", degreeOfParallelism: 2, iterations: 3, memorySizeKiB: 65536, aad: true); // salt = "somesalt"
         const string userId = "testuser";
         const string password = "password123";
         

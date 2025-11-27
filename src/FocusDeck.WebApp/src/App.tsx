@@ -1,173 +1,89 @@
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom'
-import { LoginPage } from './pages/LoginPage'
-import { ToastProvider, ToastViewport } from './components/Toast'
-import { DashboardPage } from './pages/DashboardPage'
-import { LecturesPage } from './pages/LecturesPage'
-import { FocusPage } from './pages/FocusPage'
-import { NotesPage } from './pages/NotesPage'
-import { DesignPage } from './pages/DesignPage'
-import { AnalyticsPage } from './pages/AnalyticsPage'
-import { SettingsPage } from './pages/SettingsPage'
-import { OrganizationsPage } from './pages/OrganizationsPage'
-import { JobsPage } from './pages/JobsPage'
-import { cn } from './lib/utils'
-import { DevicesPage } from './pages/DevicesPage'
-import { logout } from './lib/utils'
-import { PairingPage } from './pages/PairingPage'
-import { ProvisioningPage } from './pages/ProvisioningPage'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useActivitySignals } from './hooks/useActivitySignals';
+import { LoginPage } from './pages/Auth/LoginPage';
+import { RegisterPage } from './pages/Auth/RegisterPage';
+import { ToastViewport } from './components/Toast';
+import { ToastProvider } from './contexts/ToastContext';
+import { DashboardPage } from './pages/DashboardPage';
+import { LecturesPage } from './pages/LecturesPage';
+import { FocusPage } from './pages/FocusPage';
+import { NotesPage } from './pages/NotesPage';
+import { DesignPage } from './pages/DesignPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
+import { JarvisPage } from './pages/JarvisPage';
+import { SettingsPage } from './pages/SettingsPage';
+import PrivacyDashboardPage from './pages/PrivacyDashboardPage';
+import { TenantsPage } from './pages/TenantsPage';
+import { JobsPage } from './pages/JobsPage';
+import { AutomationsPage } from './pages/AutomationsPage';
+import { AutomationProposalsPage } from './pages/AutomationProposalsPage';
+import { DevicesPage } from './pages/DevicesPage';
+import { PairingPage } from './pages/Auth/PairingPage';
+import { MorningBriefingPage } from './pages/MorningBriefingPage';
+import ProvisioningPage from './pages/ProvisioningPage';
+import { ProtectedRoute } from './pages/Auth/ProtectedRoute';
+import { SignalRProvider } from './contexts/signalR';
+import { AppShell } from './components/AppShell';
+import { KanbanPage } from './pages/KanbanPage';
+import { CustomizationPage } from './pages/CustomizationPage';
+import { PageBuilder } from './pages/PageBuilder';
+import { WidgetBuilder } from './pages/WidgetBuilder';
+import { PrivacyDataProvider } from './contexts/PrivacyDataProvider';
 
-function AppShell() {
-  const location = useLocation()
-  const isOnline = true
-
-  const navigation = [
-    { name: 'Dashboard', path: '/', icon: '📊', exact: true },
-    { name: 'Lectures', path: '/lectures', icon: '🎓' },
-    { name: 'Focus', path: '/focus', icon: '⚡' },
-    { name: 'Notes', path: '/notes', icon: '📝' },
-    { name: 'Design', path: '/design', icon: '🎨' },
-    { name: 'Analytics', path: '/analytics', icon: '📈' },
-    { name: 'Devices', path: '/devices', icon: '💻' },
-    { name: 'Pairing', path: '/pairing', icon: '🔗' },
-    { name: 'Provisioning', path: '/provisioning', icon: '📱' },
-  ]
-
-  const isActive = (path: string, exact?: boolean) => {
-    if (exact) {
-      return location.pathname === path
-    }
-    return location.pathname.startsWith(path)
-  }
+function App() {
+  useActivitySignals();
 
   return (
     <ToastProvider>
-      <div className="flex h-screen bg-surface text-white">
-        {/* Sidebar Navigation */}
-        <aside className="w-64 bg-surface-100 border-r border-gray-800 flex flex-col" role="navigation" aria-label="Main navigation">
-          <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="text-2xl" aria-hidden="true">🎯</div>
-              <span className="text-lg font-semibold">FocusDeck</span>
-            </div>
-            <div
-              className={cn(
-                'w-2 h-2 rounded-full',
-                isOnline ? 'bg-green-500' : 'bg-red-500'
-              )}
-              title={isOnline ? 'Server Online' : 'Server Offline'}
-              role="status"
-              aria-label={isOnline ? 'Server Online' : 'Server Offline'}
-            />
-          </div>
+      <SignalRProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
 
-          <nav className="flex-1 p-4 space-y-1">
-            {/* Skip to content link for accessibility */}
-            <a
-              href="#main-content"
-              className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:p-4 focus:bg-primary focus:text-white focus:rounded-md"
-            >
-              Skip to content
-            </a>
+            {/* Protected Routes - All require authentication */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<AppShell />}>
+                {/* Dashboard */}
+                <Route index element={<DashboardPage />} />
+                <Route path="morning" element={<MorningBriefingPage />} />
 
-            {navigation.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  'w-full flex items-center gap-3 px-4 py-3 rounded-md font-medium transition-colors',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-                  isActive(item.path, item.exact)
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-gray-300 hover:bg-gray-800/50'
-                )}
-                aria-current={isActive(item.path, item.exact) ? 'page' : undefined}
-              >
-                <span className="text-xl" aria-hidden="true">{item.icon}</span>
-                <span>{item.name}</span>
-              </Link>
-            ))}
-          </nav>
+                {/* Main Features */}
+                <Route path="lectures" element={<LecturesPage />} />
+                <Route path="focus" element={<FocusPage />} />
+                <Route path="notes" element={<NotesPage />} />
+                <Route path="design" element={<DesignPage />} />
+                <Route path="analytics" element={<AnalyticsPage />} />
+                <Route path="jarvis" element={<JarvisPage />} />
+                <Route path="automations" element={<AutomationsPage />} />
+                <Route path="automations/proposals" element={<AutomationProposalsPage />} />
+                <Route path="projects/:projectId/board" element={<KanbanPage />} />
+                <Route path="customize" element={<CustomizationPage />} />
+                <Route path="customize/pages/new" element={<PageBuilder />} />
+                <Route path="customize/widgets/new" element={<WidgetBuilder />} />
 
-          <div className="p-4 border-t border-gray-800">
-            <Link
-              to="/app/settings"
-              className={cn(
-                'w-full flex items-center gap-3 px-4 py-3 rounded-md font-medium transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-                isActive('/app/settings')
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-gray-300 hover:bg-gray-800/50'
-              )}
-            >
-              <span className="text-xl" aria-hidden="true">⚙️</span>
-              <span>Settings</span>
-            </Link>
-          </div>
-        </aside>
+                {/* Settings & Management */}
+                <Route path="settings" element={<SettingsPage />} />
+                <Route path="settings/privacy" element={<PrivacyDataProvider><PrivacyDashboardPage /></PrivacyDataProvider>} />
+                <Route path="devices" element={<DevicesPage />} />
+                <Route path="pairing" element={<PairingPage />} />
+                <Route path="provisioning" element={<ProvisioningPage />} />
 
-        {/* Main Content Area */}
-        <main className="flex-1 flex flex-col overflow-hidden">
-          {/* Top Bar */}
-          <header className="h-16 border-b border-gray-800 flex items-center justify-between px-6" role="banner">
-            <div className="flex items-center gap-4">
-              <h1 className="text-lg font-semibold sr-only">
-                {navigation.find(n => isActive(n.path, n.exact))?.name || 'FocusDeck'}
-              </h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <button
-                className="p-2 hover:bg-gray-800 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-label="Search"
-              >
-                <span className="text-xl">🔍</span>
-              </button>
-              <button
-                onClick={() => logout()}
-                className="px-3 py-2 hover:bg-gray-800 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-label="Logout"
-                title="Logout"
-              >Logout</button>
-            </div>
-          </header>
+                {/* Admin Routes */}
+                <Route path="tenants" element={<TenantsPage />} />
+                <Route path="jobs" element={<JobsPage />} />
+              </Route>
+            </Route>
 
-          {/* Content */}
-          <div
-            id="main-content"
-            className="flex-1 overflow-auto p-6"
-            role="main"
-            tabIndex={-1}
-          >
-            <div className="max-w-7xl mx-auto">
-              <Routes>
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/lectures" element={<LecturesPage />} />
-                <Route path="/focus" element={<FocusPage />} />
-                <Route path="/notes" element={<NotesPage />} />
-                <Route path="/design" element={<DesignPage />} />
-                <Route path="/analytics" element={<AnalyticsPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/devices" element={<DevicesPage />} />
-                <Route path="/pairing" element={<PairingPage />} />
-                <Route path="/provisioning" element={<ProvisioningPage />} />
-                <Route path="/organizations" element={<OrganizationsPage />} />
-                <Route path="/jobs" element={<JobsPage />} />
-              </Routes>
-            </div>
-          </div>
-        </main>
-      </div>
-      <ToastViewport />
+            {/* Fallback: Redirect unknown paths to home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+          <ToastViewport />
+        </BrowserRouter>
+      </SignalRProvider>
     </ToastProvider>
-  )
+  );
 }
 
-function App() {
-  return (
-    <BrowserRouter basename="/app">
-      <AppShell />
-    </BrowserRouter>
-  )
-}
-
-export default App
+export default App;

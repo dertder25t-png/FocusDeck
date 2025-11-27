@@ -1,6 +1,8 @@
+using FocusDeck.Domain.Entities;
+
 namespace FocusDeck.Domain.Entities.Auth;
 
-public class AuthEventLog
+public class AuthEventLog : IMustHaveTenant
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string EventType { get; set; } = string.Empty; // e.g., PAKE_LOGIN_SUCCESS
@@ -13,5 +15,6 @@ public class AuthEventLog
     public string? DeviceName { get; set; }
     public string? UserAgent { get; set; }
     public string? MetadataJson { get; set; }
+    public Guid TenantId { get; set; }
 }
 

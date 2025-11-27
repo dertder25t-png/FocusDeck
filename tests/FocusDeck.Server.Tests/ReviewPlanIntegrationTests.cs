@@ -12,11 +12,12 @@ using Xunit;
 
 namespace FocusDeck.Server.Tests;
 
-public class ReviewPlanIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class ReviewPlanIntegrationTests : IClassFixture<FocusDeckWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly WebApplicationFactory<TestServerProgram> _factory;
+    private static readonly Guid TenantId = TestTenancy.DefaultTenantId;
 
-    public ReviewPlanIntegrationTests(WebApplicationFactory<Program> factory)
+    public ReviewPlanIntegrationTests(FocusDeckWebApplicationFactory factory)
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
@@ -28,31 +29,6 @@ public class ReviewPlanIntegrationTests : IClassFixture<WebApplicationFactory<Pr
                     ["Cors:AllowedOrigins:0"] = "http://localhost:5173"
                 });
             });
-
-            builder.ConfigureServices(services =>
-            {
-                // Replace database with in-memory version for testing
-                var descriptor = services.SingleOrDefault(
-                    d => d.ServiceType == typeof(DbContextOptions<AutomationDbContext>));
-
-                if (descriptor != null)
-                {
-                    services.Remove(descriptor);
-                }
-
-                services.AddDbContext<AutomationDbContext>(options =>
-                {
-                    options.UseSqlite("DataSource=:memory:");
-                });
-
-                // Build service provider and create database
-                var sp = services.BuildServiceProvider();
-                using var scope = sp.CreateScope();
-                var scopedServices = scope.ServiceProvider;
-                var db = scopedServices.GetRequiredService<AutomationDbContext>();
-                db.Database.OpenConnection();
-                db.Database.EnsureCreated();
-            });
         });
     }
 
@@ -60,7 +36,7 @@ public class ReviewPlanIntegrationTests : IClassFixture<WebApplicationFactory<Pr
     public async Task ComputeSpacedPlan_ReturnsCorrectSchedule()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = _factory.CreateAuthenticatedClient();
         var request = new ComputeSpacedPlanRequest
         {
             TargetEntityId = "lecture-123",
@@ -87,7 +63,7 @@ public class ReviewPlanIntegrationTests : IClassFixture<WebApplicationFactory<Pr
     public async Task CreateReviewPlan_WithValidLecture_Succeeds()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = _factory.CreateAuthenticatedClient();
         
         // Create a lecture first
         using var scope = _factory.Services.CreateScope();
@@ -100,7 +76,8 @@ public class ReviewPlanIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         {
             Id = courseId,
             Name = "Test Course",
-            Code = "TEST101"
+            Code = "TEST101",
+            TenantId = TenantId
         });
         
         context.Lectures.Add(new Lecture
@@ -110,7 +87,8 @@ public class ReviewPlanIntegrationTests : IClassFixture<WebApplicationFactory<Pr
             Title = "Test Lecture",
             CreatedAt = DateTime.UtcNow,
             RecordedAt = DateTime.UtcNow,
-            CreatedBy = "test-user"
+            CreatedBy = "test-user",
+            TenantId = TenantId
         });
         
         await context.SaveChangesAsync();
@@ -146,7 +124,7 @@ public class ReviewPlanIntegrationTests : IClassFixture<WebApplicationFactory<Pr
     public async Task UpdateReviewSession_ToCompleted_UpdatesStatus()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = _factory.CreateAuthenticatedClient();
         
         using var scope = _factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
@@ -161,7 +139,8 @@ public class ReviewPlanIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         {
             Id = courseId,
             Name = "Test Course",
-            Code = "TEST101"
+            Code = "TEST101",
+            TenantId = TenantId
         });
         
         context.Lectures.Add(new Lecture
@@ -171,7 +150,8 @@ public class ReviewPlanIntegrationTests : IClassFixture<WebApplicationFactory<Pr
             Title = "Test Lecture",
             CreatedAt = DateTime.UtcNow,
             RecordedAt = DateTime.UtcNow,
-            CreatedBy = "test-user"
+            CreatedBy = "test-user",
+            TenantId = TenantId
         });
         
         context.ReviewPlans.Add(new ReviewPlan
@@ -183,6 +163,7 @@ public class ReviewPlanIntegrationTests : IClassFixture<WebApplicationFactory<Pr
             Title = "Test Plan",
             CreatedAt = DateTime.UtcNow,
             Status = ReviewPlanStatus.Active,
+            TenantId = TenantId,
             ReviewSessions = new List<ReviewSession>
             {
                 new ReviewSession
@@ -190,7 +171,8 @@ public class ReviewPlanIntegrationTests : IClassFixture<WebApplicationFactory<Pr
                     Id = sessionId,
                     ReviewPlanId = planId,
                     ScheduledDate = DateTime.Today,
-                    Status = ReviewSessionStatus.Pending
+                    Status = ReviewSessionStatus.Pending,
+                    TenantId = TenantId
                 }
             }
         });
@@ -219,11 +201,12 @@ public class ReviewPlanIntegrationTests : IClassFixture<WebApplicationFactory<Pr
     }
 }
 
-public class GenerateLectureNoteJobTests : IClassFixture<WebApplicationFactory<Program>>
+public class GenerateLectureNoteJobTests : IClassFixture<FocusDeckWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly WebApplicationFactory<TestServerProgram> _factory;
+    private static readonly Guid TenantId = TestTenancy.DefaultTenantId;
 
-    public GenerateLectureNoteJobTests(WebApplicationFactory<Program> factory)
+    public GenerateLectureNoteJobTests(FocusDeckWebApplicationFactory factory)
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
@@ -236,28 +219,6 @@ public class GenerateLectureNoteJobTests : IClassFixture<WebApplicationFactory<P
                 });
             });
 
-            builder.ConfigureServices(services =>
-            {
-                var descriptor = services.SingleOrDefault(
-                    d => d.ServiceType == typeof(DbContextOptions<AutomationDbContext>));
-
-                if (descriptor != null)
-                {
-                    services.Remove(descriptor);
-                }
-
-                services.AddDbContext<AutomationDbContext>(options =>
-                {
-                    options.UseSqlite("DataSource=:memory:");
-                });
-
-                var sp = services.BuildServiceProvider();
-                using var scope = sp.CreateScope();
-                var scopedServices = scope.ServiceProvider;
-                var db = scopedServices.GetRequiredService<AutomationDbContext>();
-                db.Database.OpenConnection();
-                db.Database.EnsureCreated();
-            });
         });
     }
 
@@ -276,7 +237,8 @@ public class GenerateLectureNoteJobTests : IClassFixture<WebApplicationFactory<P
         {
             Id = courseId,
             Name = "Computer Science 101",
-            Code = "CS101"
+            Code = "CS101",
+            TenantId = TenantId
         });
         
         context.Lectures.Add(new Lecture
@@ -289,7 +251,8 @@ public class GenerateLectureNoteJobTests : IClassFixture<WebApplicationFactory<P
             CreatedBy = "test-user",
             Status = LectureStatus.Summarized,
             TranscriptionText = "This lecture covers algorithms, data structures, and complexity analysis. Big O notation is important.",
-            SummaryText = "Overview of algorithms and complexity."
+            SummaryText = "Overview of algorithms and complexity.",
+            TenantId = TenantId
         });
         
         await context.SaveChangesAsync();
@@ -333,7 +296,8 @@ public class GenerateLectureNoteJobTests : IClassFixture<WebApplicationFactory<P
         {
             Id = courseId,
             Name = "Test Course",
-            Code = "TEST101"
+            Code = "TEST101",
+            TenantId = TenantId
         });
         
         context.Lectures.Add(new Lecture
@@ -347,7 +311,8 @@ public class GenerateLectureNoteJobTests : IClassFixture<WebApplicationFactory<P
             Status = LectureStatus.Completed,
             TranscriptionText = "Test transcript",
             SummaryText = "Test summary",
-            GeneratedNoteId = existingNoteId // Already has a note
+            GeneratedNoteId = existingNoteId, // Already has a note
+            TenantId = TenantId
         });
         
         await context.SaveChangesAsync();
@@ -379,7 +344,8 @@ public class GenerateLectureNoteJobTests : IClassFixture<WebApplicationFactory<P
         {
             Id = courseId,
             Name = "Test Course",
-            Code = "TEST101"
+            Code = "TEST101",
+            TenantId = TenantId
         });
         
         context.Lectures.Add(new Lecture
@@ -390,7 +356,8 @@ public class GenerateLectureNoteJobTests : IClassFixture<WebApplicationFactory<P
             CreatedAt = DateTime.UtcNow,
             RecordedAt = DateTime.UtcNow,
             CreatedBy = "test-user",
-            Status = LectureStatus.AudioUploaded
+            Status = LectureStatus.AudioUploaded,
+            TenantId = TenantId
             // No transcription
         });
         

@@ -108,6 +108,71 @@ export function IntegrationsPage() {
         </CardContent>
       </Card>
 
+      {/* Spotify Integration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Spotify</CardTitle>
+              <CardDescription>Control music playback</CardDescription>
+            </div>
+            <Button variant="outline" onClick={() => alert('Spotify OAuth not yet implemented')}>Connect Spotify</Button>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Home Assistant Integration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Home Assistant</CardTitle>
+              <CardDescription>Control smart home devices</CardDescription>
+            </div>
+            <Button variant="outline" onClick={() => alert('Home Assistant config dialog not yet implemented')}>Configure</Button>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Philips Hue Integration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Philips Hue</CardTitle>
+              <CardDescription>Control smart lights</CardDescription>
+            </div>
+            <Button variant="outline" onClick={() => alert('Hue config dialog not yet implemented')}>Configure</Button>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Slack Integration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Slack</CardTitle>
+              <CardDescription>Send messages and update status</CardDescription>
+            </div>
+            <Button variant="outline" onClick={() => alert('Slack OAuth not yet implemented')}>Connect Slack</Button>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Discord Integration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Discord</CardTitle>
+              <CardDescription>Send messages via Webhook</CardDescription>
+            </div>
+            <Button variant="outline" onClick={() => alert('Discord Webhook config dialog not yet implemented')}>Configure</Button>
+          </div>
+        </CardHeader>
+      </Card>
+
       {/* Whisper Model */}
       <Card>
         <CardHeader>

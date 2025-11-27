@@ -263,7 +263,15 @@ namespace FocusDeck.Server.Services.Activity
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to execute command: {Command} {Args}", command, args);
+                // Only log at Debug level for missing tools (xdotool, xinput not available on headless servers)
+                if (ex is System.ComponentModel.Win32Exception && (command == "xdotool" || command == "xinput"))
+                {
+                    _logger.LogDebug(ex, "Activity detection tool not available: {Command}", command);
+                }
+                else
+                {
+                    _logger.LogWarning(ex, "Failed to execute command: {Command} {Args}", command, args);
+                }
                 return string.Empty;
             }
         }

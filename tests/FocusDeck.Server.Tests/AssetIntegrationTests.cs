@@ -1,13 +1,19 @@
 using System.Net;
+using System.Linq;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Claims;
 using System.Text;
+using System.IdentityModel.Tokens.Jwt;
 using FocusDeck.Contracts.DTOs;
 using FocusDeck.Persistence;
 using FocusDeck.Server.Services.Storage;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -27,10 +33,8 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
         {
             builder.ConfigureAppConfiguration((context, config) =>
             {
-                // Set environment to Development for tests
                 context.HostingEnvironment.EnvironmentName = "Development";
                 
-                // Override configuration for tests
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["Storage:Root"] = _testStorageRoot,
@@ -41,6 +45,31 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
                     ["Cors:AllowedOrigins:0"] = "http://localhost:5173"
                 });
             });
+
+            builder.ConfigureServices(services =>
+            {
+                var descriptor = services.SingleOrDefault(
+                    d => d.ServiceType == typeof(DbContextOptions<AutomationDbContext>));
+
+                if (descriptor != null)
+                {
+                    services.Remove(descriptor);
+                }
+
+                var connection = new SqliteConnection("DataSource=:memory:");
+                connection.Open();
+                services.AddSingleton(connection);
+
+                services.AddDbContext<AutomationDbContext>(options =>
+                {
+                    options.UseSqlite(connection);
+                });
+
+                var sp = services.BuildServiceProvider();
+                using var scope = sp.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+                db.Database.EnsureCreated();
+            });
         });
     }
 
@@ -48,7 +77,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
     public async Task UploadAsset_ValidFile_ReturnsCreated()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = CreateAuthenticatedClient();
         var content = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(Encoding.UTF8.GetBytes("Test file content"));
         fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("text/plain");
@@ -73,7 +102,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
     public async Task UploadAsset_NoFile_ReturnsBadRequest()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = CreateAuthenticatedClient();
         var content = new MultipartFormDataContent();
 
         // Act
@@ -87,7 +116,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
     public async Task UploadAsset_FileTooLarge_ReturnsPayloadTooLarge()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = CreateAuthenticatedClient();
         var content = new MultipartFormDataContent();
         
         // Create a 6MB file (exceeds 5MB limit)
@@ -107,7 +136,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
     public async Task UploadAndDownloadAsset_RoundTrip_Success()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = CreateAuthenticatedClient();
         var originalContent = "This is test file content for round-trip";
         var uploadContent = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(Encoding.UTF8.GetBytes(originalContent));
@@ -136,7 +165,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
     public async Task GetAsset_NonExistent_ReturnsNotFound()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = CreateAuthenticatedClient();
         var nonExistentId = Guid.NewGuid().ToString();
 
         // Act
@@ -150,7 +179,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
     public async Task DeleteAsset_Existing_ReturnsNoContent()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = CreateAuthenticatedClient();
         
         // Upload a file first
         var uploadContent = new MultipartFormDataContent();
@@ -177,7 +206,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
     public async Task GetAssetMetadata_Existing_ReturnsMetadata()
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = CreateAuthenticatedClient();
         
         // Upload a file first
         var uploadContent = new MultipartFormDataContent();
@@ -213,7 +242,7 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
     public async Task UploadAsset_DifferentContentTypes_Success(string contentType, string extension)
     {
         // Arrange
-        var client = _factory.CreateClient();
+        var client = CreateAuthenticatedClient();
         var content = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(Encoding.UTF8.GetBytes("Test content"));
         fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
@@ -230,7 +259,32 @@ public class AssetIntegrationTests : IClassFixture<WebApplicationFactory<Program
         Assert.NotEmpty(result.Id);
     }
 
-    public void Dispose()
+    private HttpClient CreateAuthenticatedClient()
+    {
+        var client = _factory.CreateAuthenticatedClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateJwtToken());
+        return client;
+    }
+
+    private string CreateJwtToken()
+    {
+        var config = _factory.Services.GetRequiredService<IConfiguration>();
+        var key = config.GetValue<string>("Jwt:Key") ?? "test-key-for-testing-purposes-min-32-chars-long";
+        var issuer = config.GetValue<string>("Jwt:Issuer") ?? "test-issuer";
+        var audience = config.GetValue<string>("Jwt:Audience") ?? "test-audience";
+
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, "test-user"),
+            new Claim("app_tenant_id", Guid.NewGuid().ToString())
+        };
+
+        var credentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)), SecurityAlgorithms.HmacSha256);
+        var token = new JwtSecurityToken(issuer, audience, claims, expires: DateTime.UtcNow.AddHours(1), signingCredentials: credentials);
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    private void Dispose()
     {
         // Clean up test storage directory
         if (Directory.Exists(_testStorageRoot))

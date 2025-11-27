@@ -3,10 +3,13 @@ using FocusDeck.Persistence;
 using FocusDeck.Domain.Entities;
 using FocusDeck.Contracts.DTOs;
 using FocusDeck.Server.Hubs;
+using FocusDeck.Server.Services.Context;
+using FocusDeck.Domain.Entities.Context;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Text.Json.Nodes;
 
 namespace FocusDeck.Server.Controllers.v1;
 
@@ -21,6 +24,7 @@ public class FocusController : ControllerBase
     private readonly AutomationDbContext _db;
     private readonly ILogger<FocusController> _logger;
     private readonly IHubContext<NotificationsHub, INotificationClient> _hubContext;
+    private readonly IContextEventBus _eventBus;
     
     // Constants for distraction detection
     private const int DistractionWindowSeconds = 15;
@@ -30,11 +34,13 @@ public class FocusController : ControllerBase
     public FocusController(
         AutomationDbContext db,
         ILogger<FocusController> logger,
-        IHubContext<NotificationsHub, INotificationClient> hubContext)
+        IHubContext<NotificationsHub, INotificationClient> hubContext,
+        IContextEventBus eventBus)
     {
         _db = db;
         _logger = logger;
         _hubContext = hubContext;
+        _eventBus = eventBus;
     }
 
     /// <summary>
@@ -83,6 +89,9 @@ public class FocusController : ControllerBase
         await _db.SaveChangesAsync();
 
         _logger.LogInformation("Focus session created: {SessionId} for user {UserId}", session.Id, userId);
+
+        // Publish context event for automation triggers
+        await PublishFocusStateChange(session, "Started");
 
         return CreatedAtAction(nameof(GetSession), new { id = session.Id }, MapToDto(session));
     }
@@ -249,6 +258,9 @@ public class FocusController : ControllerBase
 
         _logger.LogInformation("Focus session ended: {SessionId}", session.Id);
 
+        // Publish context event for automation triggers
+        await PublishFocusStateChange(session, "Ended");
+
         return Ok(MapToDto(session));
     }
 
@@ -356,5 +368,42 @@ public class FocusController : ControllerBase
             CreatedAt = session.CreatedAt,
             UpdatedAt = session.UpdatedAt
         };
+    }
+
+    private async Task PublishFocusStateChange(FocusSession session, string changeType)
+    {
+        try
+        {
+            var snapshot = new ContextSnapshot
+            {
+                Id = Guid.NewGuid(),
+                // Use a proper Guid if possible, or parse safely. For now assuming UserId is a string from claims.
+                // If UserId is actually a Guid, parse it.
+                UserId = Guid.TryParse(session.UserId, out var uid) ? uid : Guid.Empty,
+                Timestamp = DateTimeOffset.UtcNow,
+                Slices = new List<ContextSlice>
+                {
+                    new ContextSlice
+                    {
+                        Id = Guid.NewGuid(),
+                        SourceType = ContextSourceType.SystemStateChange,
+                        Timestamp = DateTimeOffset.UtcNow,
+                        Data = new JsonObject
+                        {
+                            ["type"] = "FocusSession",
+                            ["state"] = session.Status.ToString(),
+                            ["change"] = changeType,
+                            ["sessionId"] = session.Id.ToString()
+                        }
+                    }
+                }
+            };
+
+            await _eventBus.PublishAsync(snapshot);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to publish focus state change event");
+        }
     }
 }

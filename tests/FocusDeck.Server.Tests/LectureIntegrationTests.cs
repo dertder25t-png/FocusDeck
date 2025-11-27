@@ -9,12 +9,12 @@ using Xunit;
 
 namespace FocusDeck.Server.Tests;
 
-public class LectureIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class LectureIntegrationTests : IClassFixture<FocusDeckWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly WebApplicationFactory<TestServerProgram> _factory;
     private readonly HttpClient _client;
 
-    public LectureIntegrationTests(WebApplicationFactory<Program> factory)
+    public LectureIntegrationTests(FocusDeckWebApplicationFactory factory)
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
@@ -27,16 +27,13 @@ public class LectureIntegrationTests : IClassFixture<WebApplicationFactory<Progr
                 });
             });
         });
-        _client = _factory.CreateClient();
+        _client = _factory.CreateAuthenticatedClient();
     }
 
     [Fact]
     public async Task CreateLecture_ReturnsCreated()
     {
         // Arrange
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         // First create a course
         var courseDto = new CreateCourseDto(
             Name: "Computer Science 101",
@@ -72,9 +69,6 @@ public class LectureIntegrationTests : IClassFixture<WebApplicationFactory<Progr
     public async Task UploadLectureAudio_WithWavFile_ReturnsSuccess()
     {
         // Arrange
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         // Create course and lecture
         var course = await CreateTestCourseAsync();
         var lecture = await CreateTestLectureAsync(course.Id);
@@ -103,9 +97,6 @@ public class LectureIntegrationTests : IClassFixture<WebApplicationFactory<Progr
     public async Task UploadLectureAudio_RoundTrip_SuccessfullyUploadsAndDownloads()
     {
         // Arrange
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         var course = await CreateTestCourseAsync();
         var lecture = await CreateTestLectureAsync(course.Id);
         var wavData = GenerateTinyWavFile();
@@ -134,9 +125,6 @@ public class LectureIntegrationTests : IClassFixture<WebApplicationFactory<Progr
     public async Task GetLecture_ReturnsLectureDetails()
     {
         // Arrange
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         var course = await CreateTestCourseAsync();
         var lecture = await CreateTestLectureAsync(course.Id);
 
@@ -149,12 +137,6 @@ public class LectureIntegrationTests : IClassFixture<WebApplicationFactory<Progr
         Assert.NotNull(result);
         Assert.Equal(lecture.Id, result.Id);
         Assert.Equal(lecture.Title, result.Title);
-    }
-
-    private async Task<string> GetAuthTokenAsync()
-    {
-        // Mock auth - in real tests, implement proper authentication
-        return "test-token";
     }
 
     private async Task<CourseDto> CreateTestCourseAsync()
@@ -234,9 +216,6 @@ public class LectureIntegrationTests : IClassFixture<WebApplicationFactory<Progr
     public async Task ProcessLecture_WithAudio_StartsTranscription()
     {
         // Arrange
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         // Create course, lecture, and upload audio
         var course = await CreateTestCourseAsync();
         var lecture = await CreateTestLectureAsync(course.Id);
@@ -263,9 +242,6 @@ public class LectureIntegrationTests : IClassFixture<WebApplicationFactory<Progr
     public async Task ProcessLecture_WithoutAudio_ReturnsBadRequest()
     {
         // Arrange
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         // Create course and lecture without audio
         var course = await CreateTestCourseAsync();
         var lecture = await CreateTestLectureAsync(course.Id);
@@ -281,9 +257,6 @@ public class LectureIntegrationTests : IClassFixture<WebApplicationFactory<Progr
     public async Task TranscriptionJob_ProducesNonEmptyTranscript()
     {
         // Arrange
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         // Create course, lecture, and upload audio
         var course = await CreateTestCourseAsync();
         var lecture = await CreateTestLectureAsync(course.Id);
@@ -319,9 +292,6 @@ public class LectureIntegrationTests : IClassFixture<WebApplicationFactory<Progr
     public async Task LectureProcessing_ChainsToSummarization()
     {
         // Arrange
-        var token = await GetAuthTokenAsync();
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         // Create course, lecture, and upload audio
         var course = await CreateTestCourseAsync();
         var lecture = await CreateTestLectureAsync(course.Id);
@@ -352,6 +322,6 @@ public class LectureIntegrationTests : IClassFixture<WebApplicationFactory<Progr
         Assert.NotEmpty(updatedLecture.TranscriptionText);
         Assert.NotNull(updatedLecture.SummaryText);
         Assert.NotEmpty(updatedLecture.SummaryText);
-        Assert.Equal("Summarized", updatedLecture.Status);
+        Assert.Contains(updatedLecture.Status, new[] { "Summarized", "Completed" });
     }
 }

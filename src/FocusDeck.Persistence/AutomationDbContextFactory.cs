@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using System;
 using System.IO;
+using FocusDeck.SharedKernel.Tenancy;
 
 namespace FocusDeck.Persistence;
 
@@ -32,6 +34,6 @@ public class AutomationDbContextFactory : IDesignTimeDbContextFactory<Automation
             optionsBuilder.UseSqlite(cs);
         }
 
-        return new AutomationDbContext(optionsBuilder.Options);
+        return new AutomationDbContext(optionsBuilder.Options, NullCurrentTenant.Instance);
     }
 }

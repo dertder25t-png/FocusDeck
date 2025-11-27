@@ -1,5 +1,10 @@
 using FocusDeck.Domain.Entities.Automations;
+using FocusDeck.Domain.Entities.Context;
 using FocusDeck.Persistence;
+using FocusDeck.Server.Hubs;
+using FocusDeck.Server.Services.Automations;
+using FocusDeck.Server.Services.Context;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
 
@@ -13,16 +18,195 @@ namespace FocusDeck.Server.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<AutomationEngine> _logger;
         private readonly ActionExecutor _actionExecutor;
+        private readonly IContextEventBus _eventBus;
+        private readonly IHubContext<NotificationsHub, INotificationClient> _hubContext;
+        private readonly IYamlAutomationLoader _yamlLoader;
         private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(1);
+
+        // Cache for active automations
+        private List<Automation> _activeAutomations = new();
 
         public AutomationEngine(
             IServiceProvider serviceProvider, 
             ILogger<AutomationEngine> logger,
-            ActionExecutor actionExecutor)
+            ActionExecutor actionExecutor,
+            IContextEventBus eventBus,
+            IHubContext<NotificationsHub, INotificationClient> hubContext,
+            IYamlAutomationLoader yamlLoader)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
             _actionExecutor = actionExecutor;
+            _eventBus = eventBus;
+            _hubContext = hubContext;
+            _yamlLoader = yamlLoader;
+
+            _eventBus.OnContextSnapshotCreated += HandleContextSnapshot;
+        }
+
+        public override async Task StartAsync(CancellationToken cancellationToken)
+        {
+            await ReloadAutomations();
+            await base.StartAsync(cancellationToken);
+        }
+
+        private async Task ReloadAutomations()
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+            var automations = await db.Automations
+                .Where(a => a.IsEnabled)
+                .ToListAsync();
+
+            // Re-parse YAML for consistency
+            foreach (var automation in automations)
+            {
+                if (!string.IsNullOrWhiteSpace(automation.YamlDefinition))
+                {
+                    try
+                    {
+                        _yamlLoader.UpdateAutomationFromYaml(automation, automation.YamlDefinition);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to parse YAML for automation {Id}", automation.Id);
+                    }
+                }
+            }
+
+            _activeAutomations = automations;
+            _logger.LogInformation("Loaded {Count} active automations.", _activeAutomations.Count);
+        }
+
+        private async Task HandleContextSnapshot(ContextSnapshot snapshot)
+        {
+            // We need to iterate over a copy to avoid thread safety issues if reloading
+            var automations = _activeAutomations.ToList();
+
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+
+            foreach (var automation in automations)
+            {
+                try
+                {
+                    bool triggered = EvaluateTrigger(automation, snapshot);
+
+                    if (triggered)
+                    {
+                        _logger.LogInformation("Triggering automation from context: {Name}", automation.Name);
+                        await ExecuteAutomation(automation, db);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error evaluating automation {Id}", automation.Id);
+                }
+            }
+        }
+
+        private bool EvaluateTrigger(Automation automation, ContextSnapshot snapshot)
+        {
+            if (automation.Trigger == null) return false;
+
+            if (automation.Trigger.Type == "AppOpen" || automation.Trigger.TriggerType == "AppOpen")
+            {
+                var targetApp = automation.Trigger.Settings.GetValueOrDefault("app")
+                                ?? automation.Trigger.Settings.GetValueOrDefault("name");
+
+                if (string.IsNullOrEmpty(targetApp)) return false;
+
+                var windowSlice = snapshot.Slices.FirstOrDefault(s => s.SourceType == ContextSourceType.DesktopActiveWindow);
+                if (windowSlice != null && windowSlice.Data != null)
+                {
+                     try
+                     {
+                         var appName = windowSlice.Data["App"]?.ToString() ??
+                                       windowSlice.Data["ActiveApplication"]?.ToString() ??
+                                       windowSlice.Data["Application"]?.ToString();
+
+                         if (!string.IsNullOrEmpty(appName) && appName.Contains(targetApp, StringComparison.OrdinalIgnoreCase))
+                         {
+                             return true;
+                         }
+
+                         var title = windowSlice.Data["Title"]?.ToString() ??
+                                     windowSlice.Data["ActiveWindowTitle"]?.ToString();
+
+                         if (!string.IsNullOrEmpty(title) && title.Contains(targetApp, StringComparison.OrdinalIgnoreCase))
+                         {
+                             return true;
+                         }
+                     }
+                     catch (Exception ex)
+                     {
+                         _logger.LogWarning(ex, "Failed to parse window slice data during trigger evaluation.");
+                     }
+                }
+            }
+            else if (automation.Trigger.Type == "CalendarEvent" || automation.Trigger.TriggerType == "CalendarEvent")
+            {
+                var calendarSlice = snapshot.Slices.FirstOrDefault(s => s.SourceType == ContextSourceType.GoogleCalendar);
+                if (calendarSlice != null && calendarSlice.Data != null)
+                {
+                    try
+                    {
+                        var eventTitle = calendarSlice.Data["event"]?.ToString();
+                        var keyword = automation.Trigger.Settings.GetValueOrDefault("keyword")
+                                      ?? automation.Trigger.Settings.GetValueOrDefault("contains");
+
+                        if (string.IsNullOrEmpty(keyword))
+                        {
+                            // Trigger on ANY calendar event if no keyword specified
+                            return true;
+                        }
+
+                        if (!string.IsNullOrEmpty(eventTitle) && eventTitle.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return true;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse calendar slice data.");
+                    }
+                }
+            }
+            else if (automation.Trigger.Type == "StateChange" || automation.Trigger.TriggerType == "StateChange")
+            {
+                var stateSlice = snapshot.Slices.FirstOrDefault(s => s.SourceType == ContextSourceType.SystemStateChange);
+                if (stateSlice != null && stateSlice.Data != null)
+                {
+                    try
+                    {
+                        var type = stateSlice.Data["type"]?.ToString();
+                        var state = stateSlice.Data["state"]?.ToString();
+                        var change = stateSlice.Data["change"]?.ToString();
+
+                        var targetType = automation.Trigger.Settings.GetValueOrDefault("entityType")
+                                         ?? automation.Trigger.Settings.GetValueOrDefault("type");
+                        var targetState = automation.Trigger.Settings.GetValueOrDefault("state");
+                        var targetChange = automation.Trigger.Settings.GetValueOrDefault("change");
+
+                        if (!string.IsNullOrEmpty(targetType) && !string.Equals(type, targetType, StringComparison.OrdinalIgnoreCase))
+                            return false;
+
+                        if (!string.IsNullOrEmpty(targetState) && !string.Equals(state, targetState, StringComparison.OrdinalIgnoreCase))
+                            return false;
+
+                        if (!string.IsNullOrEmpty(targetChange) && !string.Equals(change, targetChange, StringComparison.OrdinalIgnoreCase))
+                            return false;
+
+                        return true;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse system state slice data.");
+                    }
+                }
+            }
+
+            return false;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -31,41 +215,40 @@ namespace FocusDeck.Server.Services
 
             while (!stoppingToken.IsCancellationRequested)
             {
-                try
-                {
-                    await CheckAndExecuteAutomations();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error in automation engine");
-                }
-
+                await ReloadAutomations();
+                await CheckAndExecuteAutomations(stoppingToken);
                 await Task.Delay(_checkInterval, stoppingToken);
             }
 
             _logger.LogInformation("Automation Engine stopped");
         }
 
-        private async Task CheckAndExecuteAutomations()
+        private async Task CheckAndExecuteAutomations(CancellationToken cancellationToken = default)
         {
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
-
-            // Get all enabled automations from database
-            var automations = await db.Automations
-                .Where(a => a.IsEnabled)
-                .ToListAsync();
-
-            _logger.LogDebug("Checking {Count} enabled automations", automations.Count);
+            var automations = _activeAutomations.ToList();
 
             foreach (var automation in automations)
             {
                 try
                 {
-                    if (await ShouldTrigger(automation.Trigger, automation.LastRunAt))
+                    // Check time-based triggers
+                    if (automation.Trigger?.Type == "Time" || automation.Trigger?.TriggerType == TriggerTypes.AtSpecificTime)
                     {
-                        _logger.LogInformation("Triggering automation: {Name} (ID: {Id})", automation.Name, automation.Id);
-                        await ExecuteAutomation(automation, db);
+                        if (await CheckTimeTrigger(automation.Trigger, automation.LastRunAt))
+                        {
+                            _logger.LogInformation("Triggering automation: {Name} (ID: {Id})", automation.Name, automation.Id);
+                            await ExecuteAutomation(automation, db);
+                        }
+                    }
+                    else if (automation.Trigger?.Type == "Interval" || automation.Trigger?.TriggerType == TriggerTypes.RecurringInterval)
+                    {
+                        if (await CheckIntervalTrigger(automation.Trigger, automation.LastRunAt))
+                        {
+                            _logger.LogInformation("Triggering automation: {Name} (ID: {Id})", automation.Name, automation.Id);
+                            await ExecuteAutomation(automation, db);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -73,18 +256,6 @@ namespace FocusDeck.Server.Services
                     _logger.LogError(ex, "Error executing automation {Name} (ID: {Id})", automation.Name, automation.Id);
                 }
             }
-        }
-
-        private async Task<bool> ShouldTrigger(AutomationTrigger trigger, DateTime? lastRunAt)
-        {
-            return trigger.TriggerType switch
-            {
-                TriggerTypes.AtSpecificTime => await CheckTimeTrigger(trigger, lastRunAt),
-                TriggerTypes.RecurringInterval => await CheckIntervalTrigger(trigger, lastRunAt),
-                TriggerTypes.UserIdle => await CheckIdleTrigger(trigger),
-                TriggerTypes.FileChanged => await CheckFileTrigger(trigger),
-                _ => false
-            };
         }
 
         private async Task<bool> CheckTimeTrigger(AutomationTrigger trigger, DateTime? lastRunAt)
@@ -96,10 +267,8 @@ namespace FocusDeck.Server.Services
                 return false;
 
             var now = DateTime.Now.TimeOfDay;
-            // Check if we're within 1 minute of target time
             var diff = Math.Abs((now - targetTime).TotalMinutes);
             
-            // Only trigger if within window and hasn't run in the last 2 minutes
             var canRun = diff < 1;
             if (canRun && lastRunAt.HasValue)
             {
@@ -119,22 +288,10 @@ namespace FocusDeck.Server.Services
                 return false;
 
             if (!lastRunAt.HasValue)
-                return true; // Never run before, trigger it
+                return true;
 
             var timeSinceLastRun = DateTime.UtcNow - lastRunAt.Value;
             return await Task.FromResult(timeSinceLastRun.TotalMinutes >= minutes);
-        }
-
-        private async Task<bool> CheckIdleTrigger(AutomationTrigger trigger)
-        {
-            // TODO: Implement system idle time checking
-            return await Task.FromResult(false);
-        }
-
-        private async Task<bool> CheckFileTrigger(AutomationTrigger trigger)
-        {
-            // TODO: Implement FileSystemWatcher integration
-            return await Task.FromResult(false);
         }
 
         private async Task ExecuteAutomation(Automation automation, AutomationDbContext db)
@@ -145,27 +302,38 @@ namespace FocusDeck.Server.Services
 
             try
             {
-                foreach (var action in automation.Actions)
+                // Only load the automation entity for tracking status updates
+                // This avoids attaching the entire object graph with potentially new (untracked) action objects
+                // which would cause duplication.
+                var trackedAutomation = await db.Automations.FindAsync(automation.Id);
+
+                if (trackedAutomation != null)
                 {
-                    try
+                    foreach (var action in automation.Actions)
                     {
-                        await ExecuteAction(action, automation);
+                        try
+                        {
+                            await ExecuteAction(action, automation, db);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error executing action {ActionType}", action.ActionType);
+                            success = false;
+                            errorMessage = ex.Message;
+                            break;
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error executing action {ActionType}", action.ActionType);
-                        success = false;
-                        errorMessage = ex.Message;
-                        break; // Stop executing remaining actions
-                    }
+
+                    trackedAutomation.LastRunAt = DateTime.UtcNow;
+                    trackedAutomation.UpdatedAt = DateTime.UtcNow;
+                    await db.SaveChangesAsync();
+
+                    _logger.LogInformation("Automation '{Name}' executed successfully", automation.Name);
                 }
-
-                // Update last run time
-                automation.LastRunAt = DateTime.UtcNow;
-                automation.UpdatedAt = DateTime.UtcNow;
-                await db.SaveChangesAsync();
-
-                _logger.LogInformation("Automation '{Name}' executed successfully", automation.Name);
+                else
+                {
+                    _logger.LogWarning("Automation {Id} not found in database for execution update", automation.Id);
+                }
             }
             catch (Exception ex)
             {
@@ -177,7 +345,6 @@ namespace FocusDeck.Server.Services
             {
                 stopwatch.Stop();
 
-                // Log execution to database
                 var execution = new AutomationExecution
                 {
                     AutomationId = automation.Id,
@@ -190,131 +357,23 @@ namespace FocusDeck.Server.Services
 
                 db.AutomationExecutions.Add(execution);
                 await db.SaveChangesAsync();
-
-                _logger.LogInformation("Automation execution logged: {Name} - Success: {Success}, Duration: {Duration}ms",
-                    automation.Name, success, stopwatch.ElapsedMilliseconds);
             }
         }
 
-        private async Task ExecuteAction(AutomationAction action, Automation automation)
+        private async Task ExecuteAction(AutomationAction action, Automation automation, AutomationDbContext db)
         {
             _logger.LogInformation("Executing action: {ActionType}", action.ActionType);
 
-            switch (action.ActionType)
+            var result = await _actionExecutor.ExecuteActionAsync(action, db);
+            
+            if (!result.Success)
             {
-                case ActionTypes.ShowNotification:
-                    await SendNotification(action);
-                    break;
-                
-                case ActionTypes.StartTimer:
-                    await StartTimer(action);
-                    break;
-                
-                case ActionTypes.CreateTask:
-                    await CreateTask(action);
-                    break;
-                
-                case ActionTypes.RunCommand:
-                    await RunCommand(action);
-                    break;
-                
-                case ActionTypes.HttpRequest:
-                    await MakeHttpRequest(action);
-                    break;
-
-                case ActionTypes.Wait:
-                    await WaitAction(action);
-                    break;
-
-                default:
-                    _logger.LogWarning("Action type {ActionType} not implemented yet", action.ActionType);
-                    break;
+                _logger.LogWarning("Action failed: {Message}", result.Message);
+                throw new Exception(result.Message);
             }
-        }
-
-        private async Task SendNotification(AutomationAction action)
-        {
-            var title = action.Settings.GetValueOrDefault("title", "FocusDeck");
-            var message = action.Settings.GetValueOrDefault("message", "Automation triggered");
-            
-            _logger.LogInformation("Notification: {Title} - {Message}", title, message);
-            // TODO: Implement actual notification system
-            await Task.CompletedTask;
-        }
-
-        private async Task StartTimer(AutomationAction action)
-        {
-            var duration = action.Settings.GetValueOrDefault("duration", "25");
-            _logger.LogInformation("Starting timer for {Duration} minutes", duration);
-            // TODO: Integrate with timer service
-            await Task.CompletedTask;
-        }
-
-        private async Task CreateTask(AutomationAction action)
-        {
-            var title = action.Settings.GetValueOrDefault("title", "New Task");
-            var priority = action.Settings.GetValueOrDefault("priority", "medium");
-            
-            _logger.LogInformation("Creating task: {Title} (Priority: {Priority})", title, priority);
-            // TODO: Integrate with task service
-            await Task.CompletedTask;
-        }
-
-        private async Task RunCommand(AutomationAction action)
-        {
-            var command = action.Settings.GetValueOrDefault("command", "");
-            if (string.IsNullOrEmpty(command))
-                return;
-
-            _logger.LogInformation("Running command: {Command}", command);
-            // TODO: Implement safe command execution
-            await Task.CompletedTask;
-        }
-
-        private async Task MakeHttpRequest(AutomationAction action)
-        {
-            var url = action.Settings.GetValueOrDefault("url", "");
-            var method = action.Settings.GetValueOrDefault("method", "GET");
-            
-            if (string.IsNullOrEmpty(url))
-                return;
-
-            using var httpClient = new HttpClient();
-            httpClient.Timeout = TimeSpan.FromSeconds(30);
-            
-            try
+            else
             {
-                if (method.ToUpper() == "POST")
-                {
-                    var body = action.Settings.GetValueOrDefault("body", "{}");
-                    var content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
-                    var response = await httpClient.PostAsync(url, content);
-                    response.EnsureSuccessStatusCode();
-                }
-                else
-                {
-                    var response = await httpClient.GetAsync(url);
-                    response.EnsureSuccessStatusCode();
-                }
-                
-                _logger.LogInformation("HTTP {Method} to {Url} successful", method, url);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "HTTP request failed: {Method} {Url}", method, url);
-                throw;
-            }
-        }
-
-        private async Task WaitAction(AutomationAction action)
-        {
-            if (action.Settings.TryGetValue("seconds", out var secondsStr))
-            {
-                if (int.TryParse(secondsStr, out var seconds))
-                {
-                    _logger.LogInformation("Waiting {Seconds} seconds", seconds);
-                    await Task.Delay(TimeSpan.FromSeconds(seconds));
-                }
+                _logger.LogInformation("Action executed successfully: {Message}", result.Message);
             }
         }
     }

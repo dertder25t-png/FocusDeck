@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using FocusDeck.Services.Implementations.Core;
 using FocusDeck.Shared.Contracts.Auth;
+using FocusDeck.Contracts.MultiTenancy;
 using FocusDeck.Shared.Security;
 using FocusDeck.Desktop.Services;
 using Microsoft.Extensions.Logging;
@@ -23,6 +24,10 @@ public interface IKeyProvisioningService
 
     Task LogoutAsync(CancellationToken ct = default);
     event EventHandler<ForceLogoutEventArgs>? ForcedLogout;
+
+    CurrentTenantDto? CurrentTenant { get; }
+    Task<CurrentTenantDto?> RefreshCurrentTenantAsync(CancellationToken ct = default);
+    event EventHandler<CurrentTenantDto?>? CurrentTenantChanged;
 }
 
 public class KeyProvisioningService : IKeyProvisioningService
@@ -35,8 +40,21 @@ public class KeyProvisioningService : IKeyProvisioningService
     private readonly TokenStore _tokenStore;
     private Timer? _refreshTimer;
     private bool _notificationsConnected;
+    private CurrentTenantDto? _currentTenant;
 
     public event EventHandler<ForceLogoutEventArgs>? ForcedLogout;
+    public event EventHandler<CurrentTenantDto?>? CurrentTenantChanged;
+
+    public CurrentTenantDto? CurrentTenant
+    {
+        get => _currentTenant;
+        private set
+        {
+            if (_currentTenant?.Id == value?.Id && _currentTenant?.Name == value?.Name) return;
+            _currentTenant = value;
+            CurrentTenantChanged?.Invoke(this, value);
+        }
+    }
 
     public KeyProvisioningService(
         IApiClient apiClient,
@@ -167,6 +185,7 @@ public class KeyProvisioningService : IKeyProvisioningService
         }
 
         await EnsureNotificationsConnectedAsync(userId, ct);
+        await RefreshCurrentTenantAsync(ct);
 
         return (accessToken, refreshToken);
     }
@@ -210,6 +229,22 @@ public class KeyProvisioningService : IKeyProvisioningService
     {
         _refreshTimer?.Dispose();
         _refreshTimer = null;
+    }
+
+    public async Task<CurrentTenantDto?> RefreshCurrentTenantAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var tenant = await _api.GetAsync<CurrentTenantDto>("/v1/tenants/current", ct);
+            CurrentTenant = tenant;
+            return tenant;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to refresh current tenant");
+            CurrentTenant = null;
+            return null;
+        }
     }
 
     private async Task RefreshAsync()

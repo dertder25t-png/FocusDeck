@@ -1,17 +1,17 @@
-import React, { useState } from 'react';
-import { QrReader } from 'react-qr-reader';
-import { QRCode } from 'qrcode.react';
+import { useState } from 'react'
+import QrReader from 'react-qr-reader'
+import QRCode from 'qrcode.react'
 
-const ProvisioningPage: React.FC = () => {
+export default function ProvisioningPage() {
   const [mode, setMode] = useState<'scan' | 'display'>('display');
   const [scannedData, setScannedData] = useState<string | null>(null);
 
   const handleScan = (result: any, error: any) => {
-    if (!!result) {
+    if (result) {
       setScannedData(result?.text);
     }
 
-    if (!!error) {
+    if (error) {
       console.info(error);
     }
   };
@@ -46,6 +46,4 @@ const ProvisioningPage: React.FC = () => {
       )}
     </div>
   );
-};
-
-export default ProvisioningPage;
+}

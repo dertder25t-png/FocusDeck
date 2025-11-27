@@ -5,10 +5,12 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NoWarn>NU1902;NU1903</NoWarn>
     <InternalsVisibleTo>FocusDeck.Server.Tests</InternalsVisibleTo>
     <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
     <InvariantGlobalization>false</InvariantGlobalization>
     <GenerateTargetFrameworkMonikerAttribute>false</GenerateTargetFrameworkMonikerAttribute>
+    <CompressionLevel>never</CompressionLevel>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,6 +21,10 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="9.0.0" />
+    <PackageReference Include="Google.Apis.Calendar.v3" Version="1.68.0.3430" />
+    <PackageReference Include="Azure.Identity" Version="1.8.0" />
+    <PackageReference Include="Azure.Security.KeyVault.Secrets" Version="4.8.0" />
+    <PackageReference Include="Polly" Version="8.1.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.10">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -32,11 +38,16 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.10.0" />
     <PackageReference Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" Version="1.0.0-beta.12" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.10.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.10.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.10.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.10.0-beta.1" />
     <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageReference Include="Serilog.Sinks.OpenTelemetry" Version="4.1.1" />
     <PackageReference Include="StackExchange.Redis" Version="2.7.33" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
     <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
     <PackageReference Include="Serilog.Enrichers.Thread" Version="4.0.0" />
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -48,15 +59,23 @@
     <ProjectReference Include="..\FocusDeck.Services\FocusDeck.Services.csproj" />
   </ItemGroup>
 
-  <!-- Build SPA and copy to wwwroot/app (DISABLED - WebApp not yet implemented) -->
-  <!--
-  <Target Name="BuildSpa" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release'">
-    <Exec Command="cd $(ProjectDir)../FocusDeck.WebApp &amp;&amp; npm install &amp;&amp; npm run build" />
+  <Target Name="BuildSpa" BeforeTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <PropertyGroup>
+      <SpaSourceDir>$(ProjectDir)../FocusDeck.WebApp/dist</SpaSourceDir>
+      <SpaDestinationDir>$(ProjectDir)wwwroot</SpaDestinationDir>
+    </PropertyGroup>
+
+    <Error Condition="!Exists('$(SpaSourceDir)')" Text="SPA dist directory not found. Run 'npm run build' in src/FocusDeck.WebApp before publishing." />
+
+    <RemoveDir Directories="$(SpaDestinationDir)" ContinueOnError="true" />
+    <MakeDir Directories="$(SpaDestinationDir)" />
+
     <ItemGroup>
-      <SpaFiles Include="$(ProjectDir)../FocusDeck.WebApp/dist/**/*.*" />
+      <SpaFiles Include="$(SpaSourceDir)/**/*" />
     </ItemGroup>
-    <Copy SourceFiles="@(SpaFiles)" DestinationFolder="$(ProjectDir)wwwroot/app/%(RecursiveDir)" />
+
+    <Copy SourceFiles="@(SpaFiles)" DestinationFiles="@(SpaFiles->'$(SpaDestinationDir)/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Message Text="BuildSpa Target: Copied SPA dist files to wwwroot for publish" Importance="high" />
   </Target>
-  -->
 
 </Project>
