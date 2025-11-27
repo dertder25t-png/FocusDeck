@@ -37,30 +37,17 @@ public sealed class FocusDeckWebApplicationFactory : WebApplicationFactory<TestS
         var builder = TestServerProgram.CreateHostBuilder(Array.Empty<string>());
         builder.UseEnvironment("Testing");
 
-        // Find the solution root by walking up until we see a "src" folder with FocusDeck.Server inside
-        var baseDir = AppContext.BaseDirectory ?? Directory.GetCurrentDirectory();
-        var dir = new DirectoryInfo(baseDir);
-
-        DirectoryInfo? solutionRoot = null;
-        while (dir != null)
+        var contentRoot = Environment.GetEnvironmentVariable("SERVER_CONTENT_ROOT");
+        if (string.IsNullOrEmpty(contentRoot) || !Directory.Exists(contentRoot))
         {
-            var serverPath = Path.Combine(dir.FullName, "src", "FocusDeck.Server");
-            if (Directory.Exists(serverPath))
+            // Fallback for local development
+            contentRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../src/FocusDeck.Server"));
+            if (!Directory.Exists(contentRoot))
             {
-                solutionRoot = dir;
-                break;
+                throw new DirectoryNotFoundException(
+                    $"The content root path was not found. Please set the SERVER_CONTENT_ROOT environment variable. Fallback path was: {contentRoot}");
             }
-
-            dir = dir.Parent;
         }
-
-        if (solutionRoot == null)
-        {
-            throw new DirectoryNotFoundException(
-                $"Could not locate src/FocusDeck.Server starting from base directory {baseDir}");
-        }
-
-        var contentRoot = Path.Combine(solutionRoot.FullName, "src", "FocusDeck.Server");
         builder.UseContentRoot(contentRoot);
 
         builder.ConfigureAppConfiguration((context, config) =>

@@ -29,4 +29,10 @@
     <ProjectReference Include="..\..\src\FocusDeck.Shared\FocusDeck.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="appsettings.Testing.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
