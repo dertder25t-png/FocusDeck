@@ -10,7 +10,7 @@ const workspaces = [
   { id: '2', name: 'Work' },
 ];
 
-const projects = {
+const projects: Record<string, { id: string; name: string; }[]> = {
   '1': [{ id: '1', name: 'Project A' }, { id: '2', name: 'Project B' }],
   '2': [{ id: '3', name: 'Project C' }, { id: '4', name: 'Project D' }],
 };
@@ -28,7 +28,10 @@ export function AppShell() {
           <h2 className="text-lg font-semibold">Workspaces</h2>
           <select
             value={selectedWorkspace.id}
-            onChange={(e) => setSelectedWorkspace(workspaces.find(w => w.id === e.target.value))}
+            onChange={(e) => {
+              const ws = workspaces.find(w => w.id === e.target.value);
+              if (ws) setSelectedWorkspace(ws);
+            }}
             className="w-full mt-2 p-2 rounded-md bg-surface-100 border border-border"
           >
             {workspaces.map(workspace => (
@@ -39,7 +42,7 @@ export function AppShell() {
         <div className="p-4">
           <h3 className="text-md font-semibold">Projects</h3>
           <nav className="mt-2 space-y-1">
-            {projects[selectedWorkspace.id].map(project => (
+            {projects[selectedWorkspace.id]?.map(project => (
               <NavLink
                 key={project.id}
                 to={`/projects/${project.id}/board`}

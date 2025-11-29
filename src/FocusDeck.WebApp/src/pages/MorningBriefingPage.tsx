@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { apiFetch } from '../lib/utils';
-import { Card, CardContent } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { EmptyState } from '../components/States';
 

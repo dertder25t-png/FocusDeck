@@ -11,7 +11,7 @@ interface PrivacySettingsContextValue {
   isEnabled: (contextType: string) => boolean
 }
 
-const PrivacySettingsContext = createContext<PrivacySettingsContextValue | null>(null)
+export const PrivacySettingsContext = createContext<PrivacySettingsContextValue | null>(null)
 
 export function PrivacySettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<PrivacySetting[]>([])
@@ -28,6 +28,9 @@ export function PrivacySettingsProvider({ children }: { children: ReactNode }) {
       const payload = (await response.json()) as PrivacySetting[]
       setSettings(payload)
     } catch (error) {
+      if (error instanceof Error && error.message === 'Not authenticated') {
+        return
+      }
       console.error('Unable to refresh privacy settings', error)
     } finally {
       setLoading(false)

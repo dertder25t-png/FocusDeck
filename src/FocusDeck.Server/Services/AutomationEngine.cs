@@ -46,7 +46,14 @@ namespace FocusDeck.Server.Services
 
         public override async Task StartAsync(CancellationToken cancellationToken)
         {
-            await ReloadAutomations();
+            try
+            {
+                await ReloadAutomations();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to load automations during startup. Automation engine will start with empty list.");
+            }
             await base.StartAsync(cancellationToken);
         }
 
@@ -215,8 +222,15 @@ namespace FocusDeck.Server.Services
 
             while (!stoppingToken.IsCancellationRequested)
             {
-                await ReloadAutomations();
-                await CheckAndExecuteAutomations(stoppingToken);
+                try
+                {
+                    await ReloadAutomations();
+                    await CheckAndExecuteAutomations(stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error in automation engine loop.");
+                }
                 await Task.Delay(_checkInterval, stoppingToken);
             }
 

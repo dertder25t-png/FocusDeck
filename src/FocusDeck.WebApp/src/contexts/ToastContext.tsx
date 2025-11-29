@@ -1,6 +1,22 @@
-import React, { useState, useCallback, ReactNode, useEffect } from 'react';
-import { Toast, ToastTitle, ToastDescription } from '../components/Toast';
-import { ToastContext, ToastMessage } from './ToastContext';
+import React, { useState, useCallback, useEffect } from 'react';
+import type { ReactNode } from 'react';
+import { createContext } from 'react';
+import { Toast, ToastTitle, ToastDescription, ToastProvider as RadixToastProvider } from '../components/Toast';
+
+export interface ToastMessage {
+  id: string;
+  title: string;
+  description?: string;
+  variant: 'default' | 'success' | 'error';
+  duration?: number;
+}
+
+export interface ToastContextType {
+  addToast: (toast: Omit<ToastMessage, 'id'>) => void;
+  removeToast: (id: string) => void;
+}
+
+export const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 let toastCount = 0;
 
@@ -37,16 +53,18 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   return (
     <ToastContext.Provider value={{ addToast, removeToast }}>
-      {children}
-      {toasts.map((toast) => (
-        <Toast key={toast.id} variant={toast.variant}>
-          <div className="flex-1">
-            <ToastTitle>{toast.title}</ToastTitle>
-            {toast.description && <ToastDescription>{toast.description}</ToastDescription>}
-          </div>
-          <button onClick={() => removeToast(toast.id)} className="text-white">X</button>
-        </Toast>
-      ))}
+      <RadixToastProvider>
+        {children}
+        {toasts.map((toast) => (
+          <Toast key={toast.id} variant={toast.variant}>
+            <div className="flex-1">
+              <ToastTitle>{toast.title}</ToastTitle>
+              {toast.description && <ToastDescription>{toast.description}</ToastDescription>}
+            </div>
+            <button onClick={() => removeToast(toast.id)} className="text-white">X</button>
+          </Toast>
+        ))}
+      </RadixToastProvider>
     </ToastContext.Provider>
   );
 };

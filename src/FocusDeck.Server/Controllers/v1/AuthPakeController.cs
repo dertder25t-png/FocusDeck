@@ -90,7 +90,10 @@ public class AuthPakeController : ControllerBase
                 return BadRequest(new { error = "Missing fields" });
             }
 
-            var existing = await _db.PakeCredentials.FindAsync(request.UserId);
+            // Normalize email to lowercase for case-insensitive matching
+            var normalizedUserId = request.UserId.Trim().ToLowerInvariant();
+
+            var existing = await _db.PakeCredentials.FirstOrDefaultAsync(c => c.UserId.ToLower() == normalizedUserId);
             if (existing != null)
             {
                 await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "User already registered");
@@ -123,10 +126,11 @@ public class AuthPakeController : ControllerBase
             {
                 kdfParams = JsonSerializer.Deserialize<SrpKdfParameters>(request.KdfParametersJson);
             }
-            catch
+            catch (Exception ex)
             {
                 await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "Failed to parse KDF parameters");
                 TrackRegisterFailure("invalid-kdf-json", request.UserId, null, remoteIp);
+                _logger.LogWarning(ex, "Failed to parse KDF parameters for user {UserId}", request.UserId);
                 return BadRequest(new { error = "Invalid KDF parameters JSON" });
             }
 
@@ -148,7 +152,7 @@ public class AuthPakeController : ControllerBase
             
             _db.PakeCredentials.Add(new PakeCredential
             {
-                UserId = request.UserId,
+                UserId = normalizedUserId,  // Store normalized (lowercase) email
                 SaltBase64 = kdfParams.SaltBase64,
                 VerifierBase64 = Convert.ToBase64String(Srp.ToBigEndian(verifier)),
                 Algorithm = Srp.Algorithm,
@@ -164,7 +168,7 @@ public class AuthPakeController : ControllerBase
             {
                 _db.KeyVaults.Add(new KeyVault
                 {
-                    UserId = request.UserId,
+                    UserId = normalizedUserId,  // Store normalized (lowercase) email
                     VaultDataBase64 = request.VaultDataBase64,
                     Version = 1,
                     CipherSuite = request.VaultCipherSuite ?? "AES-256-GCM",
@@ -216,7 +220,9 @@ public class AuthPakeController : ControllerBase
         var maskedUser = AuthTelemetry.MaskIdentifier(request.UserId);
         _logger.LogInformation("PAKE login start for {UserId} (client={ClientId}) from {Platform} @ {RemoteIp}", maskedUser, request.ClientId ?? "unknown", request.DevicePlatform ?? "unknown", remoteIp);
 
-        var cred = await _db.PakeCredentials.AsNoTracking().FirstOrDefaultAsync(c => c.UserId == request.UserId);
+        // Normalize email to lowercase for case-insensitive matching
+        var normalizedUserId = request.UserId?.Trim().ToLowerInvariant() ?? string.Empty;
+        var cred = await _db.PakeCredentials.AsNoTracking().FirstOrDefaultAsync(c => c.UserId.ToLower() == normalizedUserId);
 
         if (await _authLimiter.IsBlockedAsync(request.UserId, remoteIp))
         {
@@ -296,23 +302,32 @@ public class AuthPakeController : ControllerBase
         {
             saltBytes = Convert.FromBase64String(saltBase64);
         }
-        catch
+        catch (Exception ex)
         {
             await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Invalid KDF salt", request.ClientId, request.DeviceName);
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
             TrackLoginFailure("invalid-salt", request.UserId, request.ClientId, request.DevicePlatform);
+            _logger.LogWarning(ex, "Invalid KDF salt for user {UserId}", request.UserId);
             return BadRequest(new { error = "Invalid KDF salt" });
         }
         BigInteger verifier;
         try
         {
+            if (string.IsNullOrWhiteSpace(cred.VerifierBase64))
+            {
+                 await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Missing credential verifier", request.ClientId, request.DeviceName);
+                 await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
+                 TrackLoginFailure("missing-verifier", request.UserId, request.ClientId, request.DevicePlatform);
+                 return BadRequest(new { error = "Missing credential verifier" });
+            }
             verifier = Srp.FromBigEndian(Convert.FromBase64String(cred.VerifierBase64));
         }
-        catch
+        catch (Exception ex)
         {
             await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Invalid credential verifier", request.ClientId, request.DeviceName);
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
             TrackLoginFailure("invalid-verifier", request.UserId, request.ClientId, request.DevicePlatform);
+            _logger.LogWarning(ex, "Invalid credential verifier for user {UserId}", request.UserId);
             return BadRequest(new { error = "Invalid credential verifier" });
         }
 
@@ -352,7 +367,7 @@ public class AuthPakeController : ControllerBase
 
         return Ok(new LoginStartResponse(
             kdfParametersJson, // Null for legacy users, populated for modern users
-            returnedSaltBase64, // Prefer derived/normalized salt where present
+            returnedSaltBase64!, // Prefer derived/normalized salt where present
             Convert.ToBase64String(Srp.ToBigEndian(serverPublic)),
             session.SessionId,
             cred.Algorithm,
@@ -504,7 +519,9 @@ public class AuthPakeController : ControllerBase
             return Forbid();
         }
 
-        var cred = await _db.PakeCredentials.FirstOrDefaultAsync(c => c.UserId == userId);
+        // Use case-insensitive lookup
+        var normalizedUserId = userId.Trim().ToLowerInvariant();
+        var cred = await _db.PakeCredentials.FirstOrDefaultAsync(c => c.UserId.ToLower() == normalizedUserId);
         if (cred == null)
         {
             return NotFound(new { error = "User credential not found" });
@@ -723,7 +740,7 @@ public class AuthPakeController : ControllerBase
         var parsed = TryParseKdf(credential.KdfParametersJson);
         if (parsed == null)
         {
-            return SerializeLegacyKdf(credential.SaltBase64);
+            return credential.SaltBase64 != null ? SerializeLegacyKdf(credential.SaltBase64) : null;
         }
 
         if (string.Equals(parsed.Algorithm, "sha256", StringComparison.OrdinalIgnoreCase))
@@ -743,10 +760,10 @@ public class AuthPakeController : ControllerBase
 
             // Accounts created before the Argon2 fix stored SHA-based verifiers even though
             // the metadata said Argon2. Force those users back to the legacy derivation.
-            return SerializeLegacyKdf(credential.SaltBase64);
+            return credential.SaltBase64 != null ? SerializeLegacyKdf(credential.SaltBase64) : null;
         }
 
-        return SerializeLegacyKdf(credential.SaltBase64);
+        return credential.SaltBase64 != null ? SerializeLegacyKdf(credential.SaltBase64) : null;
     }
 
     private static SrpKdfParameters? TryParseKdf(string? json)

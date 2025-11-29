@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { apiFetch } from '../lib/utils'
-import { usePrivacySettings } from '../contexts/privacySettings'
+import { usePrivacySettings } from './usePrivacySettings'
 
 export function useActivitySignals() {
   const { settings } = usePrivacySettings()

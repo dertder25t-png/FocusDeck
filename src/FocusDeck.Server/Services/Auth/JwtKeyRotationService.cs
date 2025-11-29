@@ -48,7 +48,14 @@ public sealed class JwtKeyRotationService : BackgroundService
         {
             try
             {
-                await Task.Delay(interval, stoppingToken);
+                // Task.Delay supports max ~24 days. If interval is larger, we need to loop.
+                var remaining = interval;
+                while (remaining > TimeSpan.Zero)
+                {
+                    var currentDelay = remaining > TimeSpan.FromDays(24) ? TimeSpan.FromDays(24) : remaining;
+                    await Task.Delay(currentDelay, stoppingToken);
+                    remaining -= currentDelay;
+                }
                 await RotateKeysAsync(stoppingToken);
             }
             catch (OperationCanceledException)

@@ -31,6 +31,10 @@ public class AutomationDbContext : DbContext
             {
                 nameof(PakeCredential.CreatedAt),
                 nameof(PakeCredential.UpdatedAt)
+            },
+            [typeof(TenantAudit)] = new HashSet<string>(StringComparer.Ordinal)
+            {
+                nameof(TenantAudit.Timestamp)
             }
         };
 
