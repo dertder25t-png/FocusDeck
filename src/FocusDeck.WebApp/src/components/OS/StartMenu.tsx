@@ -43,6 +43,8 @@ export const StartMenu: React.FC<StartMenuProps> = ({ isOpen, onClose }) => {
           <div className="flex md:flex-col gap-1 ml-auto md:ml-0 w-full md:w-auto">
              <button onClick={() => handleLaunch('win-dashboard')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-800 text-xs font-medium flex items-center gap-3"><i className="fa-solid fa-grid-2 w-4"></i> <span className="hidden md:inline">Dashboard</span></button>
              <button onClick={() => handleLaunch('win-jarvis')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-800 text-xs font-medium flex items-center gap-3"><i className="fa-solid fa-robot w-4"></i> <span className="hidden md:inline">Jarvis</span></button>
+             <button onClick={() => handleLaunch('win-email')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-800 text-xs font-medium flex items-center gap-3"><i className="fa-solid fa-envelope w-4"></i> <span className="hidden md:inline">Email</span></button>
+             <button onClick={() => handleLaunch('win-whiteboard')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-800 text-xs font-medium flex items-center gap-3"><i className="fa-solid fa-pen-nib w-4"></i> <span className="hidden md:inline">Canvas</span></button>
              <button onClick={() => handleLaunch('win-flashcards')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-800 text-xs font-medium flex items-center gap-3"><i className="fa-solid fa-layer-group w-4"></i> <span className="hidden md:inline">Flashcards</span></button>
           </div>
         </div>
