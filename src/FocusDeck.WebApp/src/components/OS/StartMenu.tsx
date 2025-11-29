@@ -1,5 +1,6 @@
 import React from 'react';
-import { useWindowManager, WindowId } from '../../contexts/WindowManagerContext';
+import { useWindowManager } from '../../contexts/WindowManagerContext';
+import type { WindowId } from '../../contexts/WindowManagerContext';
 
 interface StartMenuProps {
   isOpen: boolean;

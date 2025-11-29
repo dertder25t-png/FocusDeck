@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useWindowManager, WindowId } from '../../contexts/WindowManagerContext';
+import { useWindowManager } from '../../contexts/WindowManagerContext';
+import type { WindowId } from '../../contexts/WindowManagerContext';
 import { Window } from './Window';
 import { Taskbar } from './Taskbar';
 import { StartMenu } from './StartMenu';
@@ -28,7 +29,7 @@ const MOCK_FILES = {
 };
 
 export const DesktopLayout: React.FC = () => {
-  const { currentWorkspace, launchApp, openApps } = useWindowManager();
+  const { currentWorkspace } = useWindowManager();
   const [startMenuOpen, setStartMenuOpen] = useState(false);
   const [toolPickerOpen, setToolPickerOpen] = useState(false);
 

@@ -1,25 +1,33 @@
 import React from 'react';
-import { useWindowManager, APPS, WindowId } from '../../contexts/WindowManagerContext';
+import { useWindowManager, APPS } from '../../contexts/WindowManagerContext';
 
 interface TaskbarProps {
   onToggleStart: () => void;
 }
 
 export const Taskbar: React.FC<TaskbarProps> = ({ onToggleStart }) => {
-  const { openApps, activeApp, splitMode, splitApps, focusApp } = useWindowManager();
+  const { openApps, activeApp, splitMode, splitApps, focusApp, isDarkMode, toggleDarkMode } = useWindowManager();
 
   const processedIds = new Set<string>();
 
   return (
-    <div className="h-14 bg-subtle border-t-2 border-border flex items-center px-2 md:px-4 gap-2 md:gap-4 z-50 shrink-0 relative shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
+    <div className="h-14 bg-subtle dark:bg-gray-900 border-t-2 border-border dark:border-gray-700 flex items-center px-2 md:px-4 gap-2 md:gap-4 z-50 shrink-0 relative shadow-[0_-4px_10px_rgba(0,0,0,0.02)] transition-colors duration-300">
       <button
         onClick={onToggleStart}
-        className="h-10 px-4 bg-ink text-white rounded-lg font-bold text-sm flex items-center gap-2 shadow-hard hover:bg-gray-800 transition-all active:scale-95"
+        className="h-10 px-4 bg-ink dark:bg-white text-white dark:text-black rounded-lg font-bold text-sm flex items-center gap-2 shadow-hard hover:bg-gray-800 dark:hover:bg-gray-200 transition-all active:scale-95"
       >
         <i className="fa-solid fa-layer-group"></i> <span className="hidden md:inline">Start</span>
       </button>
 
-      <div className="w-px h-8 bg-gray-300 hidden md:block"></div>
+      <button
+        onClick={toggleDarkMode}
+        className="h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors text-ink dark:text-white"
+        title="Toggle Dark Mode"
+      >
+        <i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
+      </button>
+
+      <div className="w-px h-8 bg-gray-300 dark:bg-gray-700 hidden md:block"></div>
 
       <div className="flex-1 flex items-end gap-2 overflow-x-auto h-full pb-1 no-scrollbar" id="task-dock">
         {openApps.map(id => {

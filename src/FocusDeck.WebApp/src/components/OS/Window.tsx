@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useWindowManager, WindowId, APPS } from '../../contexts/WindowManagerContext';
+import { useWindowManager, APPS } from '../../contexts/WindowManagerContext';
+import type { WindowId } from '../../contexts/WindowManagerContext';
 
 interface WindowProps {
   id: WindowId;
@@ -16,7 +17,6 @@ export const Window: React.FC<WindowProps> = ({ id, children, headerChips }) => 
   const isActive = activeApp === id;
   const isSplitLeft = splitMode && splitApps[0] === id;
   const isSplitRight = splitMode && splitApps[1] === id;
-  const isMaximized = !isSplitLeft && !isSplitRight;
 
   // Class Logic
   let className = "window-app flex flex-col bg-white border-2 border-ink shadow-hard rounded-xl overflow-hidden absolute transition-all duration-300 ";
@@ -33,7 +33,7 @@ export const Window: React.FC<WindowProps> = ({ id, children, headerChips }) => 
       // If split mode is ON but this window is NOT in the split pair, it must be 'Over' (z-30)
       // If split mode is OFF, it is just maximized (z-10 or z-20 if active)
 
-      const isOver = splitMode && !splitApps.includes(id);
+      const isOver = splitMode && (splitApps.length === 0 || !splitApps.includes(id));
 
       className += " maximized w-full h-full left-0 top-0 ";
       className += isOver ? " z-30" : (isActive ? " z-10" : " z-10");
@@ -61,7 +61,10 @@ export const Window: React.FC<WindowProps> = ({ id, children, headerChips }) => 
     setShowSplitMenu(false);
   };
 
-  const availableForSnap = openApps.filter(oid => oid !== id && !splitApps.includes(oid));
+  const availableForSnap = openApps.filter(oid => {
+    if (splitApps.length === 0) return oid !== id;
+    return oid !== id && !splitApps.includes(oid as WindowId);
+  });
 
   return (
     <div id={id} className={className} onClick={() => focusApp(id)} style={!isOpen ? { display: 'none' } : {}}>

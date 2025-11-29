@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 export type WindowId =
   | 'win-dashboard'
@@ -52,16 +52,35 @@ interface WindowManagerContextType {
   showPlacementModal: boolean;
   setShowPlacementModal: (show: boolean) => void;
   confirmPlacement: (location: 'left' | 'right' | 'over') => void;
+
+  // Theme
+  isDarkMode: boolean;
+  toggleDarkMode: () => void;
 }
 
 const WindowManagerContext = createContext<WindowManagerContextType | undefined>(undefined);
 
-export const WindowManagerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [openApps, setOpenApps] = useState<WindowId[]>(['win-dashboard']);
   const [activeApp, setActiveApp] = useState<WindowId | null>('win-dashboard');
   const [splitMode, setSplitMode] = useState(false);
   const [splitApps, setSplitApps] = useState<[WindowId, WindowId] | []>([]);
   const [currentWorkspace, setCurrentWorkspace] = useState<WorkspaceType>('work');
+  
+  // Theme State
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  const toggleDarkMode = () => {
+    setIsDarkMode(prev => {
+      const newVal = !prev;
+      if (newVal) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      return newVal;
+    });
+  };
 
   const [pendingLaunchId, setPendingLaunchId] = useState<WindowId | null>(null);
   const [showPlacementModal, setShowPlacementModal] = useState(false);
@@ -86,7 +105,7 @@ export const WindowManagerProvider: React.FC<{ children: ReactNode }> = ({ child
     setActiveApp(id);
 
     // If focusing an app in the split pair
-    if (splitApps.includes(id)) {
+    if (splitApps.length > 0 && (splitApps as WindowId[]).includes(id)) {
       setSplitMode(true);
     } else {
       // Focusing an app NOT in split pair (Open Over)
@@ -99,8 +118,8 @@ export const WindowManagerProvider: React.FC<{ children: ReactNode }> = ({ child
   const closeApp = (id: WindowId) => {
     setOpenApps(prev => prev.filter(appId => appId !== id));
 
-    if (splitApps.includes(id)) {
-      const other = splitApps.find(a => a !== id);
+    if (splitApps.length > 0 && (splitApps as WindowId[]).includes(id)) {
+      const other = (splitApps as WindowId[]).find(a => a !== id);
       setSplitApps([]);
       setSplitMode(false);
       if (other) {
@@ -125,7 +144,7 @@ export const WindowManagerProvider: React.FC<{ children: ReactNode }> = ({ child
 
   const snapPair = (leftId: WindowId, rightId: WindowId) => {
     setSplitMode(true);
-    setSplitApps([leftId, rightId]);
+    setSplitApps([leftId, rightId] as [WindowId, WindowId]);
     setActiveApp(leftId);
 
     // Ensure both are open
@@ -169,7 +188,8 @@ export const WindowManagerProvider: React.FC<{ children: ReactNode }> = ({ child
     <WindowManagerContext.Provider value={{
       openApps, activeApp, splitMode, splitApps, currentWorkspace,
       launchApp, closeApp, focusApp, snapPair, openWorkspace,
-      pendingLaunchId, setPendingLaunchId, showPlacementModal, setShowPlacementModal, confirmPlacement
+      pendingLaunchId, setPendingLaunchId, showPlacementModal, setShowPlacementModal, confirmPlacement,
+      isDarkMode, toggleDarkMode
     }}>
       {children}
     </WindowManagerContext.Provider>
