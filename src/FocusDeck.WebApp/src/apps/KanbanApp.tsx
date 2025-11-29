@@ -74,10 +74,19 @@ const SortableTask = ({ task }: { task: Task }) => {
       style={style} 
       {...attributes} 
       {...listeners}
-      className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-2 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
+      className="relative pl-6 mb-4 group cursor-grab active:cursor-grabbing"
     >
-      <div className="text-xs text-gray-500 dark:text-gray-400 font-mono mb-1">{task.time}</div>
-      <div className="font-medium text-gray-800 dark:text-gray-200">{task.title}</div>
+      {/* Timeline Line */}
+      <div className="absolute left-[5px] top-3 bottom-[-16px] w-0.5 bg-gray-200 dark:bg-gray-700 group-last:hidden"></div>
+      {/* Timeline Dot */}
+      <div className="absolute left-0 top-3 w-3 h-3 rounded-full bg-blue-500 border-2 border-white dark:border-gray-900 z-10 shadow-sm"></div>
+
+      <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
+        <div className="flex justify-between items-start mb-1">
+             <span className="text-xs font-mono text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{task.time || 'Anytime'}</span>
+        </div>
+        <div className="font-medium text-gray-800 dark:text-gray-200">{task.title}</div>
+      </div>
     </div>
   );
 };
@@ -88,19 +97,22 @@ const Lane = ({ lane }: { lane: LaneData }) => {
   return (
     <div ref={setNodeRef} className="flex-1 min-w-[280px] flex flex-col h-full bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
       {/* Header */}
-      <div className={`p-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2`}>
+      <div className={`p-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2 bg-white dark:bg-gray-800/50`}>
         <div className={`w-3 h-3 rounded-full ${lane.color}`}></div>
         <h3 className="font-bold text-gray-700 dark:text-gray-200">{lane.title}</h3>
         <span className="ml-auto text-xs font-medium bg-gray-200 dark:bg-gray-800 px-2 py-0.5 rounded-full text-gray-600 dark:text-gray-400">{lane.tasks.length}</span>
       </div>
       
       {/* Task List */}
-      <div className="flex-1 p-2 overflow-y-auto">
+      <div className="flex-1 p-4 overflow-y-auto">
         <SortableContext items={lane.tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
           {lane.tasks.map(task => (
             <SortableTask key={task.id} task={task} />
           ))}
         </SortableContext>
+        {lane.tasks.length === 0 && (
+            <div className="text-center py-8 text-gray-400 dark:text-gray-600 text-sm italic">No tasks yet</div>
+        )}
       </div>
     </div>
   );

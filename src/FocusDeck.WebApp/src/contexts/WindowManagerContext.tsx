@@ -7,7 +7,8 @@ export type WindowId =
   | 'win-kanban'
   | 'win-whiteboard'
   | 'win-jarvis'
-  | 'win-files';
+  | 'win-files'
+  | 'win-flashcards';
 
 export type WorkspaceType = 'work' | 'school';
 
@@ -25,6 +26,7 @@ export const APPS: Record<WindowId, AppDefinition> = {
   'win-whiteboard': { id: 'win-whiteboard', title: 'Canvas', icon: 'fa-pen-nib' },
   'win-jarvis': { id: 'win-jarvis', title: 'Jarvis', icon: 'fa-robot' },
   'win-files': { id: 'win-files', title: 'Files', icon: 'fa-folder-open' },
+  'win-flashcards': { id: 'win-flashcards', title: 'Flashcards', icon: 'fa-layer-group' },
 };
 
 export interface FileItem {

@@ -14,6 +14,7 @@ import { EmailApp } from '../../apps/EmailApp';
 import { WhiteboardApp } from '../../apps/WhiteboardApp';
 import { JarvisApp } from '../../apps/JarvisApp';
 import { FilesApp } from '../../apps/FilesApp';
+import { FlashcardsApp } from '../../apps/FlashcardsApp';
 
 // Mock File Data
 const MOCK_FILES = {
@@ -43,7 +44,7 @@ export const DesktopLayout: React.FC = () => {
           'note': { name: 'Untitled', targetContent: 'win-notes' as WindowId },
           'board': { name: 'New Board', targetContent: 'win-kanban' as WindowId },
           'canvas': { name: 'New Canvas', targetContent: 'win-whiteboard' as WindowId },
-          'flashcard': { name: 'Study Set', targetContent: 'win-notes' as WindowId }
+          'flashcard': { name: 'Study Set', targetContent: 'win-flashcards' as WindowId }
       };
 
       const newFile = {
@@ -70,8 +71,8 @@ export const DesktopLayout: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full font-sans overflow-hidden bg-paper text-ink">
-        <main className="flex-1 relative bg-paper bg-dot-pattern overflow-hidden p-0 md:p-4" id="desktop-area">
+    <div className="flex flex-col h-screen w-full font-sans overflow-hidden bg-paper dark:bg-gray-900 text-ink dark:text-white transition-colors duration-300">
+        <main className="flex-1 relative bg-paper dark:bg-gray-900 bg-dot-pattern overflow-hidden p-0 md:p-4" id="desktop-area">
 
             <PlacementModal />
 
@@ -150,6 +151,11 @@ export const DesktopLayout: React.FC = () => {
                         activeFile={activeFile}
                         onCreateNew={() => setToolPickerOpen(true)}
                     />
+                </Window>
+
+                {/* 8. FLASHCARDS */}
+                <Window id="win-flashcards">
+                    <FlashcardsApp />
                 </Window>
 
             </div>

@@ -19,7 +19,7 @@ export const Window: React.FC<WindowProps> = ({ id, children, headerChips }) => 
   const isSplitRight = splitMode && splitApps[1] === id;
 
   // Class Logic
-  let className = "window-app flex flex-col bg-white border-2 border-ink shadow-hard rounded-xl overflow-hidden absolute transition-all duration-300 ";
+  let className = "window-app flex flex-col bg-paper dark:bg-gray-900 border-2 border-ink shadow-hard rounded-xl overflow-hidden absolute transition-all duration-300 ";
 
   if (!isOpen) {
     className += " hidden-app opacity-0 pointer-events-none z-[-1]";

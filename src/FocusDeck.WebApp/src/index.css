@@ -1,7 +1,49 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/forms";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --color-paper: #f8f7f4;
+  --color-surface: #ffffff;
+  --color-subtle: #f1f0eb;
+  --color-ink: #1a1a1a;
+  --color-border: #e2e0d9;
+  --shadow-color: #1a1a1a;
+  --dot-color: #cbd5e1;
+}
+
+.dark {
+  --color-paper: #000000;
+  --color-surface: #121212;
+  --color-subtle: #1e1e1e;
+  --color-ink: #ffffff;
+  --color-border: #333333;
+  --shadow-color: #000000;
+  --dot-color: #333333;
+}
 
 @theme {
-  --color-primary: #512BD4;
-  --color-surface: #0F0F10;
-  --font-family-sans: Inter, system-ui, sans-serif;
+  --font-family-sans: 'Inter', sans-serif;
+  --font-family-mono: 'JetBrains Mono', monospace;
+  --font-family-display: 'Space Grotesk', sans-serif;
+
+  --color-paper: var(--color-paper);
+  --color-surface: var(--color-surface);
+  --color-subtle: var(--color-subtle);
+  --color-ink: var(--color-ink);
+  --color-border: var(--color-border);
+
+  --color-accent-blue: #3b82f6;
+  --color-accent-yellow: #fbbf24;
+  --color-accent-pink: #f472b6;
+  --color-accent-green: #34d399;
+  --color-accent-purple: #a78bfa;
+  --color-accent-red: #ef4444;
+  --color-accent-orange: #f97316;
+  --color-accent-teal: #14b8a6;
+
+  --shadow-hard: 4px 4px 0px 0px var(--shadow-color);
+
+  --background-image-dot-pattern: radial-gradient(var(--dot-color) 1px, transparent 1px);
 }
