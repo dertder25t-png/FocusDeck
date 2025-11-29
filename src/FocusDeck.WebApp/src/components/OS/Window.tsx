@@ -9,11 +9,12 @@ interface WindowProps {
 }
 
 export const Window: React.FC<WindowProps> = ({ id, children, headerChips }) => {
-  const { openApps, activeApp, splitMode, splitApps, closeApp, focusApp, snapPair } = useWindowManager();
+  const { openApps, minimizedApps, activeApp, splitMode, splitApps, closeApp, minimizeApp, focusApp, snapPair } = useWindowManager();
   const [showSplitMenu, setShowSplitMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const isOpen = openApps.includes(id);
+  const isMinimized = minimizedApps.includes(id);
   const isActive = activeApp === id;
   const isSplitLeft = splitMode && splitApps[0] === id;
   const isSplitRight = splitMode && splitApps[1] === id;
@@ -21,7 +22,7 @@ export const Window: React.FC<WindowProps> = ({ id, children, headerChips }) => 
   // Class Logic
   let className = "window-app flex flex-col bg-paper dark:bg-gray-900 border-2 border-ink shadow-hard rounded-xl overflow-hidden absolute transition-all duration-300 ";
 
-  if (!isOpen) {
+  if (!isOpen || isMinimized) {
     className += " hidden-app opacity-0 pointer-events-none z-[-1]";
   } else {
     if (isSplitLeft) {
@@ -63,11 +64,11 @@ export const Window: React.FC<WindowProps> = ({ id, children, headerChips }) => 
 
   const availableForSnap = openApps.filter(oid => {
     if (splitApps.length === 0) return oid !== id;
-    return oid !== id && !splitApps.includes(oid as WindowId);
+    return oid !== id && !splitApps.includes(oid as WindowId) && !minimizedApps.includes(oid as WindowId);
   });
 
   return (
-    <div id={id} className={className} onClick={() => focusApp(id)} style={!isOpen ? { display: 'none' } : {}}>
+    <div id={id} className={className} onClick={() => focusApp(id)} style={!isOpen || isMinimized ? { display: 'none' } : {}}>
       {/* Smart Header */}
       <div className="h-12 border-b-2 border-border bg-subtle flex items-center justify-between px-4 shrink-0 select-none">
         <div className="flex items-center gap-3 font-bold text-sm text-ink">
@@ -81,6 +82,9 @@ export const Window: React.FC<WindowProps> = ({ id, children, headerChips }) => 
         </div>
 
         <div className="flex gap-2 items-center relative">
+            <button className="hover:text-accent-blue px-2" onClick={(e) => { e.stopPropagation(); minimizeApp(id); }} title="Minimize">
+                <i className="fa-solid fa-minus"></i>
+            </button>
           <button className="hover:text-accent-blue px-2 hidden md:inline" onClick={(e) => { e.stopPropagation(); setShowSplitMenu(!showSplitMenu); }}>
             <i className="fa-solid fa-table-columns"></i>
           </button>
