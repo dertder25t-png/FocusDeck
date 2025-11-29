@@ -30,9 +30,8 @@ export const Taskbar: React.FC<TaskbarProps> = ({ onToggleStart }) => {
       <div className="w-px h-8 bg-gray-300 dark:bg-gray-700 hidden md:block"></div>
 
       <div className="flex-1 flex items-end gap-2 overflow-x-auto h-full pb-1 no-scrollbar" id="task-dock">
-        {[...openApps, ...minimizedApps].filter((value, index, self) => self.indexOf(value) === index).map(id => {
+        {openApps.map(id => {
             if (processedIds.has(id)) return null;
-            if (!openApps.includes(id) && !minimizedApps.includes(id)) return null; // Should not happen
 
             // Render Split Group
             if (splitMode && splitApps.length === 2 && splitApps.includes(id)) {

@@ -15,18 +15,18 @@ function App() {
     <ToastProvider>
       <SignalRProvider>
         <PrivacyDataProvider>
-          <WindowManagerProvider>
-            {isMobile ? (
-              <BrowserRouter>
-                <Routes>
-                  <Route path="/*" element={<AppShell />} />
-                </Routes>
-              </BrowserRouter>
-            ) : (
-              <DesktopLayout />
-            )}
-            <ToastViewport />
-          </WindowManagerProvider>
+          <BrowserRouter>
+            <WindowManagerProvider>
+              {isMobile ? (
+                  <Routes>
+                    <Route path="/*" element={<AppShell />} />
+                  </Routes>
+              ) : (
+                <DesktopLayout />
+              )}
+              <ToastViewport />
+            </WindowManagerProvider>
+          </BrowserRouter>
         </PrivacyDataProvider>
       </SignalRProvider>
     </ToastProvider>
