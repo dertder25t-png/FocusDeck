@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useActivitySignals } from './hooks/useActivitySignals';
 import { LoginPage } from './pages/Auth/LoginPage';
 import { RegisterPage } from './pages/Auth/RegisterPage';
 import { ToastViewport } from './components/Toast';
@@ -31,8 +30,6 @@ import { WidgetBuilder } from './pages/WidgetBuilder';
 import { PrivacyDataProvider } from './contexts/PrivacyDataProvider';
 
 function App() {
-  useActivitySignals();
-
   return (
     <ToastProvider>
       <SignalRProvider>
