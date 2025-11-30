@@ -36,7 +36,8 @@ export const NotesApp: React.FC = () => {
   const [localTitle, setLocalTitle] = useState('');
   const [localContent, setLocalContent] = useState('');
 
-  const { data: notes = [], isLoading } = useNotes();
+  const { data: notesRaw, isLoading, error } = useNotes();
+  const notes: Note[] = Array.isArray(notesRaw) ? notesRaw : [];
   const { data: activeNote } = useNote(activeNoteId);
   const createNoteMutation = useCreateNote();
   const updateNoteMutation = useUpdateNote();
@@ -54,15 +55,20 @@ export const NotesApp: React.FC = () => {
   const sortedFolders = Object.keys(groups).sort();
 
   const handleCreateNote = async (folderTag?: string) => {
-    const newNote = {
-      title: 'Untitled Note',
-      content: '',
-      tags: folderTag ? [folderTag] : [],
-      type: 0 // QuickNote
-    };
-    const result = await createNoteMutation.mutateAsync(newNote);
-    if (result) {
-        setActiveNoteId(result.id);
+    try {
+      const newNote = {
+        title: 'Untitled Note',
+        content: '',
+        tags: folderTag ? [folderTag] : [],
+        type: 0 // QuickNote
+      };
+      const result = await createNoteMutation.mutateAsync(newNote);
+      if (result && result.id) {
+          setActiveNoteId(result.id);
+      }
+    } catch (error) {
+      console.error('Failed to create note:', error);
+      alert('Failed to create note. Please try again.');
     }
   };
 
@@ -107,6 +113,7 @@ export const NotesApp: React.FC = () => {
   };
 
   if (isLoading) return <div className="p-4">Loading notes...</div>;
+  if (error) return <div className="p-4 text-red-600">Failed to load notes. Please log in and try again.</div>;
 
   return (
     <div className="flex h-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300 overflow-hidden">
@@ -115,10 +122,26 @@ export const NotesApp: React.FC = () => {
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <h2 className="font-bold text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Folders</h2>
           <div className="flex gap-1">
-             <button onClick={() => handleCreateFolder()} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" title="New Folder">
+             <button 
+               onClick={(e) => {
+                 e.preventDefault();
+                 e.stopPropagation();
+                 handleCreateFolder();
+               }} 
+               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 hover:bg-gray-200 dark:hover:bg-gray-800 rounded" 
+               title="New Folder"
+             >
                <Folder size={14} />
              </button>
-             <button onClick={() => handleCreateNote()} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" title="New Note">
+             <button 
+               onClick={(e) => {
+                 e.preventDefault();
+                 e.stopPropagation();
+                 void handleCreateNote();
+               }} 
+               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 hover:bg-gray-200 dark:hover:bg-gray-800 rounded" 
+               title="New Note"
+             >
                <Plus size={14} />
              </button>
           </div>

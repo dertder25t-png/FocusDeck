@@ -15,6 +15,7 @@ import { WhiteboardApp } from '../../apps/WhiteboardApp';
 import { JarvisApp } from '../../apps/JarvisApp';
 import { FilesApp } from '../../apps/FilesApp';
 import { FlashcardsApp } from '../../apps/FlashcardsApp';
+import { AccountSettingsApp } from '../../apps/AccountSettingsApp';
 
 // Mock File Data
 const MOCK_FILES = {
@@ -182,6 +183,11 @@ export const DesktopLayout: React.FC = () => {
                 {/* 8. FLASHCARDS */}
                 <Window id="win-flashcards">
                     <FlashcardsApp />
+                </Window>
+
+                {/* 9. ACCOUNT SETTINGS */}
+                <Window id="win-account-settings">
+                    <AccountSettingsApp />
                 </Window>
 
             </div>

@@ -11,13 +11,21 @@ export const noteService = {
     if (type) params.append('type', type);
 
     const response = await apiFetch(`/api/notes?${params.toString()}`);
-    if (!response.ok) throw new Error('Failed to fetch notes');
+    if (!response.ok) {
+      const msg = await response.text().catch(() => 'Failed to fetch notes');
+      throw new Error(msg || 'Failed to fetch notes');
+    }
+    // Success payload is JSON array
     return response.json();
   },
 
   getNote: async (id: string) => {
     const response = await apiFetch(`/api/notes/${id}`);
-    if (!response.ok) throw new Error('Failed to fetch note');
+    if (!response.ok) {
+      const msg = await response.text().catch(() => 'Failed to fetch note');
+      throw new Error(msg || 'Failed to fetch note');
+    }
+    // Success payload is JSON object
     return response.json();
   },
 
@@ -26,7 +34,11 @@ export const noteService = {
       method: 'POST',
       body: JSON.stringify(note),
     });
-    if (!response.ok) throw new Error('Failed to create note');
+    if (!response.ok) {
+      const msg = await response.text().catch(() => 'Failed to create note');
+      throw new Error(msg || 'Failed to create note');
+    }
+    // Success payload is JSON object
     return response.json();
   },
 
@@ -35,7 +47,10 @@ export const noteService = {
       method: 'PUT',
       body: JSON.stringify(note),
     });
-    if (!response.ok) throw new Error('Failed to update note');
+    if (!response.ok) {
+      const msg = await response.text().catch(() => 'Failed to update note');
+      throw new Error(msg || 'Failed to update note');
+    }
     // Note: The backend returns NoContent (204) for update
     return;
   },
@@ -44,7 +59,10 @@ export const noteService = {
     const response = await apiFetch(`/api/notes/${id}`, {
       method: 'DELETE',
     });
-    if (!response.ok) throw new Error('Failed to delete note');
+    if (!response.ok) {
+      const msg = await response.text().catch(() => 'Failed to delete note');
+      throw new Error(msg || 'Failed to delete note');
+    }
   },
 
   getStats: async () => {

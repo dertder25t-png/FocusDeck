@@ -129,6 +129,7 @@ public class AutomationDbContext : DbContext
     public DbSet<FocusDeck.Domain.Entities.Auth.RevokedAccessToken> RevokedAccessTokens { get; set; }
     public DbSet<FocusDeck.Domain.Entities.Auth.AuthEventLog> AuthEventLogs { get; set; }
     public DbSet<TenantAudit> TenantAudits { get; set; }
+    public DbSet<UserSetting> UserSettings { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

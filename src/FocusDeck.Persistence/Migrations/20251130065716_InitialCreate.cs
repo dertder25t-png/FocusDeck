@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -15,14 +17,14 @@ namespace FocusDeck.Persistence.Migrations
                 name: "ActivitySignals",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    SignalType = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    SignalValue = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: false),
-                    CapturedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    SourceApp = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    MetadataJson = table.Column<string>(type: "TEXT", maxLength: 4000, nullable: true)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    SignalType = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    SignalValue = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
+                    CapturedAtUtc = table.Column<string>(type: "text", nullable: false),
+                    SourceApp = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    MetadataJson = table.Column<string>(type: "character varying(4000)", maxLength: 4000, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -33,16 +35,16 @@ namespace FocusDeck.Persistence.Migrations
                 name: "Assets",
                 columns: table => new
                 {
-                    Id = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    FileName = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
-                    ContentType = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    SizeInBytes = table.Column<long>(type: "INTEGER", nullable: false),
-                    StoragePath = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: false),
-                    UploadedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UploadedBy = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
-                    Description = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: true),
-                    Metadata = table.Column<string>(type: "TEXT", nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    FileName = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    ContentType = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    SizeInBytes = table.Column<long>(type: "bigint", nullable: false),
+                    StoragePath = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
+                    UploadedAt = table.Column<string>(type: "text", nullable: false),
+                    UploadedBy = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    Description = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    Metadata = table.Column<string>(type: "text", nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -53,18 +55,18 @@ namespace FocusDeck.Persistence.Migrations
                 name: "AuthEventLogs",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    EventType = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 320, nullable: true),
-                    OccurredAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    IsSuccess = table.Column<bool>(type: "INTEGER", nullable: false),
-                    FailureReason = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
-                    RemoteIp = table.Column<string>(type: "TEXT", maxLength: 64, nullable: true),
-                    DeviceId = table.Column<string>(type: "TEXT", maxLength: 128, nullable: true),
-                    DeviceName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
-                    UserAgent = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    MetadataJson = table.Column<string>(type: "TEXT", nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    EventType = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                    UserId = table.Column<string>(type: "character varying(320)", maxLength: 320, nullable: true),
+                    OccurredAtUtc = table.Column<string>(type: "text", nullable: false),
+                    IsSuccess = table.Column<int>(type: "integer", nullable: false),
+                    FailureReason = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    RemoteIp = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
+                    DeviceId = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
+                    DeviceName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    UserAgent = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
+                    MetadataJson = table.Column<string>(type: "text", nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -75,15 +77,15 @@ namespace FocusDeck.Persistence.Migrations
                 name: "AutomationExecutions",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "INTEGER", nullable: false)
-                        .Annotation("Sqlite:Autoincrement", true),
-                    AutomationId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ExecutedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    Success = table.Column<bool>(type: "INTEGER", nullable: false),
-                    ErrorMessage = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: true),
-                    DurationMs = table.Column<long>(type: "INTEGER", nullable: false),
-                    TriggerData = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    AutomationId = table.Column<string>(type: "text", nullable: false),
+                    ExecutedAt = table.Column<string>(type: "text", nullable: false),
+                    Success = table.Column<int>(type: "integer", nullable: false),
+                    ErrorMessage = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    DurationMs = table.Column<long>(type: "bigint", nullable: false),
+                    TriggerData = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -94,15 +96,15 @@ namespace FocusDeck.Persistence.Migrations
                 name: "AutomationProposals",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Title = table.Column<string>(type: "TEXT", nullable: false),
-                    Description = table.Column<string>(type: "TEXT", nullable: false),
-                    YamlDefinition = table.Column<string>(type: "TEXT", nullable: false),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    ConfidenceScore = table.Column<float>(type: "REAL", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    Title = table.Column<string>(type: "text", nullable: false),
+                    Description = table.Column<string>(type: "text", nullable: false),
+                    YamlDefinition = table.Column<string>(type: "text", nullable: false),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    ConfidenceScore = table.Column<float>(type: "real", nullable: false),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -113,17 +115,17 @@ namespace FocusDeck.Persistence.Migrations
                 name: "Automations",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Description = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true),
-                    IsEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
-                    YamlDefinition = table.Column<string>(type: "TEXT", nullable: false),
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Description = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
+                    IsEnabled = table.Column<int>(type: "integer", nullable: false),
+                    YamlDefinition = table.Column<string>(type: "text", nullable: false),
                     Trigger = table.Column<string>(type: "TEXT", nullable: false),
                     Actions = table.Column<string>(type: "TEXT", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    LastRunAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    UpdatedAt = table.Column<string>(type: "text", nullable: false),
+                    LastRunAt = table.Column<string>(type: "text", nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -134,12 +136,12 @@ namespace FocusDeck.Persistence.Migrations
                 name: "BrowserSessions",
                 columns: table => new
                 {
-                    Id = table.Column<string>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    EndedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    DeviceId = table.Column<string>(type: "TEXT", nullable: false),
-                    TabsJson = table.Column<string>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    EndedAt = table.Column<string>(type: "text", nullable: true),
+                    DeviceId = table.Column<string>(type: "text", nullable: false),
+                    TabsJson = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -150,17 +152,17 @@ namespace FocusDeck.Persistence.Migrations
                 name: "CalendarSources",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Provider = table.Column<string>(type: "TEXT", nullable: false),
-                    ExternalId = table.Column<string>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", nullable: false),
-                    AccessToken = table.Column<string>(type: "TEXT", nullable: false),
-                    RefreshToken = table.Column<string>(type: "TEXT", nullable: false),
-                    TokenExpiry = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    SyncToken = table.Column<string>(type: "TEXT", nullable: true),
-                    LastSync = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    IsPrimary = table.Column<bool>(type: "INTEGER", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    Provider = table.Column<string>(type: "text", nullable: false),
+                    ExternalId = table.Column<string>(type: "text", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    AccessToken = table.Column<string>(type: "text", nullable: false),
+                    RefreshToken = table.Column<string>(type: "text", nullable: false),
+                    TokenExpiry = table.Column<string>(type: "text", nullable: true),
+                    SyncToken = table.Column<string>(type: "text", nullable: true),
+                    LastSync = table.Column<string>(type: "text", nullable: false),
+                    IsPrimary = table.Column<int>(type: "integer", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -171,16 +173,16 @@ namespace FocusDeck.Persistence.Migrations
                 name: "ConnectedServices",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Service = table.Column<int>(type: "INTEGER", nullable: false),
-                    AccessToken = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: false),
-                    RefreshToken = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: false),
-                    ExpiresAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ConnectedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    MetadataJson = table.Column<string>(type: "TEXT", nullable: true),
-                    IsConfigured = table.Column<bool>(type: "INTEGER", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Service = table.Column<int>(type: "integer", nullable: false),
+                    AccessToken = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
+                    RefreshToken = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
+                    ExpiresAt = table.Column<string>(type: "text", nullable: true),
+                    ConnectedAt = table.Column<string>(type: "text", nullable: false),
+                    MetadataJson = table.Column<string>(type: "text", nullable: true),
+                    IsConfigured = table.Column<int>(type: "integer", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -191,12 +193,12 @@ namespace FocusDeck.Persistence.Migrations
                 name: "ContextSnapshots",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Timestamp = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                    Metadata_DeviceName = table.Column<string>(type: "TEXT", nullable: true),
-                    Metadata_OperatingSystem = table.Column<string>(type: "TEXT", nullable: true),
-                    VectorizationState = table.Column<int>(type: "INTEGER", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "text", nullable: false),
+                    Timestamp = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    Metadata_DeviceName = table.Column<string>(type: "text", nullable: true),
+                    Metadata_OperatingSystem = table.Column<string>(type: "text", nullable: true),
+                    VectorizationState = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -207,12 +209,12 @@ namespace FocusDeck.Persistence.Migrations
                 name: "CourseIndex",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Code = table.Column<string>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", nullable: false),
-                    Keywords = table.Column<string>(type: "TEXT", nullable: false),
-                    SchedulePattern = table.Column<string>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    Code = table.Column<string>(type: "text", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    Keywords = table.Column<List<string>>(type: "text[]", nullable: false),
+                    SchedulePattern = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -223,15 +225,15 @@ namespace FocusDeck.Persistence.Migrations
                 name: "Courses",
                 columns: table => new
                 {
-                    Id = table.Column<string>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Code = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    Description = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: true),
-                    Instructor = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    CreatedBy = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Code = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    Description = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    Instructor = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    UpdatedAt = table.Column<string>(type: "text", nullable: true),
+                    CreatedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -242,16 +244,16 @@ namespace FocusDeck.Persistence.Migrations
                 name: "DesignProjects",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
-                    Title = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    GoalsText = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: true),
-                    Vibes = table.Column<string>(type: "TEXT", nullable: false),
-                    RequirementsText = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: true),
-                    BrandKeywords = table.Column<string>(type: "TEXT", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    Title = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    GoalsText = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    Vibes = table.Column<string>(type: "text", nullable: false),
+                    RequirementsText = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    BrandKeywords = table.Column<string>(type: "text", nullable: false),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    UpdatedAt = table.Column<string>(type: "text", nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -262,17 +264,17 @@ namespace FocusDeck.Persistence.Migrations
                 name: "DeviceJobs",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    TargetDeviceId = table.Column<string>(type: "TEXT", nullable: false),
-                    JobType = table.Column<string>(type: "TEXT", nullable: false),
-                    PayloadJson = table.Column<string>(type: "TEXT", nullable: false),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    ResultJson = table.Column<string>(type: "TEXT", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    CompletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ExpiresAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    TargetDeviceId = table.Column<string>(type: "text", nullable: false),
+                    JobType = table.Column<string>(type: "text", nullable: false),
+                    PayloadJson = table.Column<string>(type: "text", nullable: false),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    ResultJson = table.Column<string>(type: "text", nullable: true),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    CompletedAt = table.Column<string>(type: "text", nullable: true),
+                    ExpiresAt = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -283,14 +285,14 @@ namespace FocusDeck.Persistence.Migrations
                 name: "DeviceLinks",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    DeviceType = table.Column<int>(type: "INTEGER", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    CapabilitiesJson = table.Column<string>(type: "TEXT", nullable: false),
-                    LastSeenUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    DeviceType = table.Column<int>(type: "integer", nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    CapabilitiesJson = table.Column<string>(type: "text", nullable: false),
+                    LastSeenUtc = table.Column<string>(type: "text", nullable: false),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -301,16 +303,16 @@ namespace FocusDeck.Persistence.Migrations
                 name: "DeviceRegistrations",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    DeviceId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    DeviceName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Platform = table.Column<int>(type: "INTEGER", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    RegisteredAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    LastSyncAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
-                    AppVersion = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    DeviceId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    DeviceName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Platform = table.Column<int>(type: "integer", nullable: false),
+                    UserId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    RegisteredAt = table.Column<string>(type: "text", nullable: false),
+                    LastSyncAt = table.Column<string>(type: "text", nullable: false),
+                    IsActive = table.Column<int>(type: "integer", nullable: false),
+                    AppVersion = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -321,17 +323,17 @@ namespace FocusDeck.Persistence.Migrations
                 name: "FocusPolicyTemplates",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", nullable: false),
-                    Strict = table.Column<bool>(type: "INTEGER", nullable: false),
-                    AutoBreak = table.Column<bool>(type: "INTEGER", nullable: false),
-                    AutoDim = table.Column<bool>(type: "INTEGER", nullable: false),
-                    NotifyPhone = table.Column<bool>(type: "INTEGER", nullable: false),
-                    TargetDurationMinutes = table.Column<int>(type: "INTEGER", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "text", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    Strict = table.Column<int>(type: "integer", nullable: false),
+                    AutoBreak = table.Column<int>(type: "integer", nullable: false),
+                    AutoDim = table.Column<int>(type: "integer", nullable: false),
+                    NotifyPhone = table.Column<int>(type: "integer", nullable: false),
+                    TargetDurationMinutes = table.Column<int>(type: "integer", nullable: true),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    UpdatedAt = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -342,18 +344,18 @@ namespace FocusDeck.Persistence.Migrations
                 name: "FocusSessions",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    StartTime = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    EndTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    Policy = table.Column<string>(type: "TEXT", nullable: false),
-                    Signals = table.Column<string>(type: "TEXT", nullable: false),
-                    DistractionsCount = table.Column<int>(type: "INTEGER", nullable: false),
-                    LastRecoverySuggestionAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    StartTime = table.Column<string>(type: "text", nullable: false),
+                    EndTime = table.Column<string>(type: "text", nullable: true),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    Policy = table.Column<string>(type: "text", nullable: false),
+                    Signals = table.Column<string>(type: "text", nullable: false),
+                    DistractionsCount = table.Column<int>(type: "integer", nullable: false),
+                    LastRecoverySuggestionAt = table.Column<string>(type: "text", nullable: true),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    UpdatedAt = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -364,14 +366,14 @@ namespace FocusDeck.Persistence.Migrations
                 name: "JarvisRuns",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<string>(type: "TEXT", nullable: true),
-                    StartedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                    CompletedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    EntryPoint = table.Column<string>(type: "TEXT", nullable: false),
-                    InputPayloadJson = table.Column<string>(type: "TEXT", nullable: true)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: true),
+                    StartedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    CompletedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    EntryPoint = table.Column<string>(type: "text", nullable: false),
+                    InputPayloadJson = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -382,16 +384,16 @@ namespace FocusDeck.Persistence.Migrations
                 name: "JarvisWorkflowRuns",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    WorkflowId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Status = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    RequestedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    StartedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    CompletedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    RequestedByUserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    LogSummary = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: true),
-                    JobId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    WorkflowId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Status = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    RequestedAtUtc = table.Column<string>(type: "text", nullable: false),
+                    StartedAtUtc = table.Column<string>(type: "text", nullable: true),
+                    CompletedAtUtc = table.Column<string>(type: "text", nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false),
+                    RequestedByUserId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    LogSummary = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    JobId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -402,14 +404,14 @@ namespace FocusDeck.Persistence.Migrations
                 name: "KeyVaults",
                 columns: table => new
                 {
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 320, nullable: false),
-                    VaultDataBase64 = table.Column<string>(type: "TEXT", nullable: false),
-                    Version = table.Column<int>(type: "INTEGER", nullable: false, defaultValue: 1),
-                    CipherSuite = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false, defaultValue: "AES-256-GCM"),
-                    KdfMetadataJson = table.Column<string>(type: "TEXT", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    UserId = table.Column<string>(type: "character varying(320)", maxLength: 320, nullable: false),
+                    VaultDataBase64 = table.Column<string>(type: "text", nullable: false),
+                    Version = table.Column<int>(type: "integer", nullable: false, defaultValue: 1),
+                    CipherSuite = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false, defaultValue: "AES-256-GCM"),
+                    KdfMetadataJson = table.Column<string>(type: "text", nullable: true),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    UpdatedAt = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -421,19 +423,19 @@ namespace FocusDeck.Persistence.Migrations
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "TEXT", nullable: false),
-                    Title = table.Column<string>(type: "TEXT", maxLength: 300, nullable: false),
-                    Content = table.Column<string>(type: "TEXT", nullable: false),
-                    Type = table.Column<int>(type: "INTEGER", nullable: false),
+                    Title = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: false),
+                    Content = table.Column<string>(type: "text", nullable: false),
+                    Type = table.Column<int>(type: "integer", nullable: false),
                     Tags = table.Column<string>(type: "TEXT", nullable: false),
-                    Color = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
-                    IsPinned = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: false),
-                    CreatedDate = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    LastModified = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    Color = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    IsPinned = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
+                    CreatedDate = table.Column<string>(type: "text", nullable: false),
+                    LastModified = table.Column<string>(type: "text", nullable: true),
                     Bookmarks = table.Column<string>(type: "TEXT", nullable: false),
-                    CitationStyle = table.Column<string>(type: "TEXT", nullable: true),
-                    CourseId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    EventId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    CitationStyle = table.Column<string>(type: "text", nullable: true),
+                    CourseId = table.Column<string>(type: "text", nullable: true),
+                    EventId = table.Column<string>(type: "text", nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -444,18 +446,18 @@ namespace FocusDeck.Persistence.Migrations
                 name: "PairingSessions",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 320, nullable: false),
-                    Code = table.Column<string>(type: "TEXT", maxLength: 12, nullable: false),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    ExpiresAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    SourceDeviceId = table.Column<string>(type: "TEXT", nullable: true),
-                    TargetDeviceId = table.Column<string>(type: "TEXT", nullable: true),
-                    VaultDataBase64 = table.Column<string>(type: "TEXT", nullable: true),
-                    VaultKdfMetadataJson = table.Column<string>(type: "TEXT", nullable: true),
-                    VaultCipherSuite = table.Column<string>(type: "TEXT", maxLength: 64, nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "character varying(320)", maxLength: 320, nullable: false),
+                    Code = table.Column<string>(type: "character varying(12)", maxLength: 12, nullable: false),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    ExpiresAt = table.Column<string>(type: "text", nullable: false),
+                    SourceDeviceId = table.Column<string>(type: "text", nullable: true),
+                    TargetDeviceId = table.Column<string>(type: "text", nullable: true),
+                    VaultDataBase64 = table.Column<string>(type: "text", nullable: true),
+                    VaultKdfMetadataJson = table.Column<string>(type: "text", nullable: true),
+                    VaultCipherSuite = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -466,16 +468,16 @@ namespace FocusDeck.Persistence.Migrations
                 name: "PakeCredentials",
                 columns: table => new
                 {
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 320, nullable: false),
-                    SaltBase64 = table.Column<string>(type: "TEXT", nullable: true),
-                    VerifierBase64 = table.Column<string>(type: "TEXT", nullable: true),
-                    Algorithm = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
-                    ModulusHex = table.Column<string>(type: "TEXT", nullable: false),
-                    Generator = table.Column<int>(type: "INTEGER", nullable: false),
-                    KdfParametersJson = table.Column<string>(type: "TEXT", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    UserId = table.Column<string>(type: "character varying(320)", maxLength: 320, nullable: false),
+                    SaltBase64 = table.Column<string>(type: "text", nullable: true),
+                    VerifierBase64 = table.Column<string>(type: "text", nullable: true),
+                    Algorithm = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                    ModulusHex = table.Column<string>(type: "text", nullable: false),
+                    Generator = table.Column<int>(type: "integer", nullable: false),
+                    KdfParametersJson = table.Column<string>(type: "text", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -486,13 +488,13 @@ namespace FocusDeck.Persistence.Migrations
                 name: "PrivacySettings",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    ContextType = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    IsEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
-                    Tier = table.Column<int>(type: "INTEGER", nullable: false, defaultValue: 1),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    ContextType = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    IsEnabled = table.Column<int>(type: "integer", nullable: false),
+                    Tier = table.Column<int>(type: "integer", nullable: false, defaultValue: 1),
+                    UpdatedAt = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -503,14 +505,14 @@ namespace FocusDeck.Persistence.Migrations
                 name: "Projects",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Title = table.Column<string>(type: "TEXT", nullable: false),
-                    Description = table.Column<string>(type: "TEXT", nullable: true),
-                    RepoSlug = table.Column<string>(type: "TEXT", nullable: true),
-                    SortingMode = table.Column<int>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    Title = table.Column<string>(type: "text", nullable: false),
+                    Description = table.Column<string>(type: "text", nullable: true),
+                    RepoSlug = table.Column<string>(type: "text", nullable: true),
+                    SortingMode = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    UpdatedAt = table.Column<string>(type: "text", nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -521,19 +523,19 @@ namespace FocusDeck.Persistence.Migrations
                 name: "RefreshTokens",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    TokenHash = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
-                    ClientFingerprint = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
-                    DeviceId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
-                    DeviceName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
-                    DevicePlatform = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    IssuedUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    ExpiresUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    LastAccessUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    RevokedUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ReplacedByTokenHash = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    TokenHash = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    ClientFingerprint = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    DeviceId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    DeviceName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    DevicePlatform = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    IssuedUtc = table.Column<string>(type: "text", nullable: false),
+                    ExpiresUtc = table.Column<string>(type: "text", nullable: false),
+                    LastAccessUtc = table.Column<string>(type: "text", nullable: true),
+                    RevokedUtc = table.Column<string>(type: "text", nullable: true),
+                    ReplacedByTokenHash = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -544,15 +546,15 @@ namespace FocusDeck.Persistence.Migrations
                 name: "RemoteActions",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Kind = table.Column<int>(type: "INTEGER", nullable: false),
-                    PayloadJson = table.Column<string>(type: "TEXT", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    CompletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    Success = table.Column<bool>(type: "INTEGER", nullable: true),
-                    ErrorMessage = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Kind = table.Column<int>(type: "integer", nullable: false),
+                    PayloadJson = table.Column<string>(type: "text", nullable: false),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    CompletedAt = table.Column<string>(type: "text", nullable: true),
+                    Success = table.Column<int>(type: "integer", nullable: true),
+                    ErrorMessage = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -563,15 +565,15 @@ namespace FocusDeck.Persistence.Migrations
                 name: "ReviewPlans",
                 columns: table => new
                 {
-                    Id = table.Column<string>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    TargetEntityId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    EntityType = table.Column<int>(type: "INTEGER", nullable: false),
-                    Title = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    CompletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    TargetEntityId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    EntityType = table.Column<int>(type: "integer", nullable: false),
+                    Title = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    CompletedAt = table.Column<string>(type: "text", nullable: true),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -582,12 +584,12 @@ namespace FocusDeck.Persistence.Migrations
                 name: "RevokedAccessTokens",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Jti = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 320, nullable: false),
-                    RevokedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    ExpiresUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    Jti = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    UserId = table.Column<string>(type: "character varying(320)", maxLength: 320, nullable: false),
+                    RevokedAt = table.Column<string>(type: "text", nullable: false),
+                    ExpiresUtc = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -598,15 +600,15 @@ namespace FocusDeck.Persistence.Migrations
                 name: "ServiceConfigurations",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ServiceName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    ClientId = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
-                    ClientSecret = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
-                    ApiKey = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
-                    AdditionalConfig = table.Column<string>(type: "TEXT", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    ServiceName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    ClientId = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    ClientSecret = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    ApiKey = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    AdditionalConfig = table.Column<string>(type: "text", nullable: true),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    UpdatedAt = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -617,15 +619,15 @@ namespace FocusDeck.Persistence.Migrations
                 name: "StudentContexts",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Timestamp = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    FocusedAppName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
-                    FocusedWindowTitle = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
-                    ActivityIntensity = table.Column<int>(type: "INTEGER", nullable: false),
-                    IsIdle = table.Column<bool>(type: "INTEGER", nullable: false),
-                    OpenContextsJson = table.Column<string>(type: "TEXT", nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Timestamp = table.Column<string>(type: "text", nullable: false),
+                    FocusedAppName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    FocusedWindowTitle = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    ActivityIntensity = table.Column<int>(type: "integer", nullable: false),
+                    IsIdle = table.Column<int>(type: "integer", nullable: false),
+                    OpenContextsJson = table.Column<string>(type: "text", nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -636,16 +638,16 @@ namespace FocusDeck.Persistence.Migrations
                 name: "StudentWellnessMetrics",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    CapturedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    HoursWorked = table.Column<double>(type: "REAL", nullable: false),
-                    BreakFrequency = table.Column<double>(type: "REAL", nullable: false),
-                    QualityScore = table.Column<double>(type: "REAL", nullable: false),
-                    SleepHours = table.Column<double>(type: "REAL", nullable: false),
-                    IsUnsustainable = table.Column<bool>(type: "INTEGER", nullable: false),
-                    Notes = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: true)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    CapturedAtUtc = table.Column<string>(type: "text", nullable: false),
+                    HoursWorked = table.Column<double>(type: "double precision", nullable: false),
+                    BreakFrequency = table.Column<double>(type: "double precision", nullable: false),
+                    QualityScore = table.Column<double>(type: "double precision", nullable: false),
+                    SleepHours = table.Column<double>(type: "double precision", nullable: false),
+                    IsUnsustainable = table.Column<int>(type: "integer", nullable: false),
+                    Notes = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -656,19 +658,19 @@ namespace FocusDeck.Persistence.Migrations
                 name: "StudySessions",
                 columns: table => new
                 {
-                    SessionId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    StartTime = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    EndTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    DurationMinutes = table.Column<int>(type: "INTEGER", nullable: false),
-                    SessionNotes = table.Column<string>(type: "TEXT", nullable: true),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    FocusRate = table.Column<int>(type: "INTEGER", nullable: true),
-                    BreaksCount = table.Column<int>(type: "INTEGER", nullable: false, defaultValue: 0),
-                    BreakDurationMinutes = table.Column<int>(type: "INTEGER", nullable: false, defaultValue: 0),
-                    Category = table.Column<string>(type: "TEXT", maxLength: 120, nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    SessionId = table.Column<string>(type: "text", nullable: false),
+                    StartTime = table.Column<string>(type: "text", nullable: false),
+                    EndTime = table.Column<string>(type: "text", nullable: true),
+                    DurationMinutes = table.Column<int>(type: "integer", nullable: false),
+                    SessionNotes = table.Column<string>(type: "text", nullable: true),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    UpdatedAt = table.Column<string>(type: "text", nullable: false),
+                    FocusRate = table.Column<int>(type: "integer", nullable: true),
+                    BreaksCount = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
+                    BreakDurationMinutes = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
+                    Category = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -679,15 +681,15 @@ namespace FocusDeck.Persistence.Migrations
                 name: "SyncChanges",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    TransactionId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    EntityType = table.Column<int>(type: "INTEGER", nullable: false),
-                    EntityId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    Operation = table.Column<int>(type: "INTEGER", nullable: false),
-                    DataJson = table.Column<string>(type: "TEXT", nullable: false),
-                    ChangedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    ChangeVersion = table.Column<long>(type: "INTEGER", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    TransactionId = table.Column<string>(type: "text", nullable: false),
+                    EntityType = table.Column<int>(type: "integer", nullable: false),
+                    EntityId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    Operation = table.Column<int>(type: "integer", nullable: false),
+                    DataJson = table.Column<string>(type: "text", nullable: false),
+                    ChangedAt = table.Column<string>(type: "text", nullable: false),
+                    ChangeVersion = table.Column<long>(type: "bigint", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -698,12 +700,12 @@ namespace FocusDeck.Persistence.Migrations
                 name: "SyncMetadata",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    DeviceId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    LastSyncVersion = table.Column<long>(type: "INTEGER", nullable: false),
-                    LastSyncTime = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    DeviceId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    LastSyncVersion = table.Column<long>(type: "bigint", nullable: false),
+                    LastSyncTime = table.Column<string>(type: "text", nullable: false),
                     EntityVersions = table.Column<string>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -714,12 +716,12 @@ namespace FocusDeck.Persistence.Migrations
                 name: "SyncTransactions",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    DeviceId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Timestamp = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    ErrorMessage = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    DeviceId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Timestamp = table.Column<string>(type: "text", nullable: false),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    ErrorMessage = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -730,10 +732,10 @@ namespace FocusDeck.Persistence.Migrations
                 name: "SyncVersions",
                 columns: table => new
                 {
-                    Id = table.Column<long>(type: "INTEGER", nullable: false)
-                        .Annotation("Sqlite:Autoincrement", true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -744,13 +746,13 @@ namespace FocusDeck.Persistence.Migrations
                 name: "TenantAudits",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    EntityType = table.Column<string>(type: "TEXT", nullable: false),
-                    EntityId = table.Column<string>(type: "TEXT", nullable: false),
-                    Action = table.Column<string>(type: "TEXT", nullable: false),
-                    Timestamp = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    ActorId = table.Column<string>(type: "TEXT", nullable: true)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false),
+                    EntityType = table.Column<string>(type: "text", nullable: false),
+                    EntityId = table.Column<string>(type: "text", nullable: false),
+                    Action = table.Column<string>(type: "text", nullable: false),
+                    Timestamp = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    ActorId = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -761,11 +763,11 @@ namespace FocusDeck.Persistence.Migrations
                 name: "Tenants",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Slug = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: true)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Slug = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    UpdatedAt = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -776,12 +778,12 @@ namespace FocusDeck.Persistence.Migrations
                 name: "TenantUsers",
                 columns: table => new
                 {
-                    Id = table.Column<string>(type: "TEXT", nullable: false),
-                    Email = table.Column<string>(type: "TEXT", maxLength: 255, nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Picture = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    LastLoginAt = table.Column<DateTime>(type: "TEXT", nullable: true)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    Email = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Picture = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    LastLoginAt = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -789,19 +791,39 @@ namespace FocusDeck.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "UserSettings",
+                columns: table => new
+                {
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "text", nullable: false),
+                    GoogleApiKey = table.Column<string>(type: "text", nullable: true),
+                    CanvasApiToken = table.Column<string>(type: "text", nullable: true),
+                    HomeAssistantUrl = table.Column<string>(type: "text", nullable: true),
+                    HomeAssistantToken = table.Column<string>(type: "text", nullable: true),
+                    OpenAiKey = table.Column<string>(type: "text", nullable: true),
+                    AnthropicKey = table.Column<string>(type: "text", nullable: true),
+                    UpdatedAt = table.Column<string>(type: "text", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserSettings", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "EventCache",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    CalendarSourceId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ExternalEventId = table.Column<string>(type: "TEXT", nullable: false),
-                    Title = table.Column<string>(type: "TEXT", nullable: false),
-                    StartTime = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    EndTime = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    Description = table.Column<string>(type: "TEXT", nullable: true),
-                    Location = table.Column<string>(type: "TEXT", nullable: true),
-                    IsAllDay = table.Column<bool>(type: "INTEGER", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    CalendarSourceId = table.Column<string>(type: "text", nullable: false),
+                    ExternalEventId = table.Column<string>(type: "text", nullable: false),
+                    Title = table.Column<string>(type: "text", nullable: false),
+                    StartTime = table.Column<string>(type: "text", nullable: false),
+                    EndTime = table.Column<string>(type: "text", nullable: false),
+                    Description = table.Column<string>(type: "text", nullable: true),
+                    Location = table.Column<string>(type: "text", nullable: true),
+                    IsAllDay = table.Column<int>(type: "integer", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -818,11 +840,11 @@ namespace FocusDeck.Persistence.Migrations
                 name: "ContextSlices",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    SnapshotId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    SourceType = table.Column<int>(type: "INTEGER", nullable: false),
-                    Timestamp = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                    Data = table.Column<string>(type: "TEXT", nullable: true)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    SnapshotId = table.Column<string>(type: "text", nullable: false),
+                    SourceType = table.Column<int>(type: "integer", nullable: false),
+                    Timestamp = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    Data = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -839,13 +861,13 @@ namespace FocusDeck.Persistence.Migrations
                 name: "ContextVectors",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    SnapshotId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    VectorData = table.Column<byte[]>(type: "BLOB", nullable: false),
-                    Dimensions = table.Column<int>(type: "INTEGER", nullable: false),
-                    ModelName = table.Column<string>(type: "TEXT", nullable: false),
-                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false),
+                    SnapshotId = table.Column<string>(type: "text", nullable: false),
+                    VectorData = table.Column<byte[]>(type: "bytea", nullable: false),
+                    Dimensions = table.Column<int>(type: "integer", nullable: false),
+                    ModelName = table.Column<string>(type: "text", nullable: false),
+                    CreatedAtUtc = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -862,21 +884,21 @@ namespace FocusDeck.Persistence.Migrations
                 name: "Lectures",
                 columns: table => new
                 {
-                    Id = table.Column<string>(type: "TEXT", nullable: false),
-                    CourseId = table.Column<string>(type: "TEXT", nullable: false),
-                    Title = table.Column<string>(type: "TEXT", maxLength: 300, nullable: false),
-                    Description = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: true),
-                    RecordedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    CreatedBy = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    AudioAssetId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    TranscriptionText = table.Column<string>(type: "TEXT", nullable: true),
-                    SummaryText = table.Column<string>(type: "TEXT", nullable: true),
-                    GeneratedNoteId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
-                    DurationSeconds = table.Column<int>(type: "INTEGER", nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    CourseId = table.Column<string>(type: "text", nullable: false),
+                    Title = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: false),
+                    Description = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    RecordedAt = table.Column<string>(type: "text", nullable: false),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    UpdatedAt = table.Column<string>(type: "text", nullable: true),
+                    CreatedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    AudioAssetId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    TranscriptionText = table.Column<string>(type: "text", nullable: true),
+                    SummaryText = table.Column<string>(type: "text", nullable: true),
+                    GeneratedNoteId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    DurationSeconds = table.Column<int>(type: "integer", nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -899,15 +921,15 @@ namespace FocusDeck.Persistence.Migrations
                 name: "DesignIdeas",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ProjectId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Type = table.Column<string>(type: "TEXT", nullable: false),
-                    Content = table.Column<string>(type: "TEXT", nullable: false),
-                    AssetId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    Score = table.Column<double>(type: "REAL", nullable: true),
-                    IsPinned = table.Column<bool>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    ProjectId = table.Column<string>(type: "text", nullable: false),
+                    Type = table.Column<string>(type: "text", nullable: false),
+                    Content = table.Column<string>(type: "text", nullable: false),
+                    AssetId = table.Column<string>(type: "text", nullable: true),
+                    Score = table.Column<double>(type: "double precision", nullable: true),
+                    IsPinned = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -924,11 +946,11 @@ namespace FocusDeck.Persistence.Migrations
                 name: "JarvisRunSteps",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    RunId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Order = table.Column<int>(type: "INTEGER", nullable: false),
-                    StepType = table.Column<int>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    RunId = table.Column<string>(type: "text", nullable: false),
+                    Order = table.Column<int>(type: "integer", nullable: false),
+                    StepType = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     RequestJson = table.Column<string>(type: "jsonb", nullable: true),
                     ResponseJson = table.Column<string>(type: "jsonb", nullable: true),
                     ErrorJson = table.Column<string>(type: "jsonb", nullable: true)
@@ -948,15 +970,15 @@ namespace FocusDeck.Persistence.Migrations
                 name: "AcademicSources",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Title = table.Column<string>(type: "TEXT", nullable: false),
-                    Author = table.Column<string>(type: "TEXT", nullable: false),
-                    Publisher = table.Column<string>(type: "TEXT", nullable: false),
-                    Year = table.Column<int>(type: "INTEGER", nullable: false),
-                    Url = table.Column<string>(type: "TEXT", nullable: false),
-                    Doi = table.Column<string>(type: "TEXT", nullable: false),
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    Title = table.Column<string>(type: "text", nullable: false),
+                    Author = table.Column<string>(type: "text", nullable: false),
+                    Publisher = table.Column<string>(type: "text", nullable: false),
+                    Year = table.Column<int>(type: "integer", nullable: false),
+                    Url = table.Column<string>(type: "text", nullable: false),
+                    Doi = table.Column<string>(type: "text", nullable: false),
                     NoteId = table.Column<string>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -973,16 +995,16 @@ namespace FocusDeck.Persistence.Migrations
                 name: "NoteSuggestions",
                 columns: table => new
                 {
-                    Id = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    Id = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     NoteId = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    Type = table.Column<int>(type: "INTEGER", nullable: false),
-                    ContentMarkdown = table.Column<string>(type: "TEXT", nullable: false),
-                    Source = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
-                    Confidence = table.Column<double>(type: "REAL", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    AcceptedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    AcceptedBy = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Type = table.Column<int>(type: "integer", nullable: false),
+                    ContentMarkdown = table.Column<string>(type: "text", nullable: false),
+                    Source = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    Confidence = table.Column<double>(type: "double precision", nullable: false),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    AcceptedAt = table.Column<string>(type: "text", nullable: true),
+                    AcceptedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -999,19 +1021,19 @@ namespace FocusDeck.Persistence.Migrations
                 name: "CapturedItems",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Url = table.Column<string>(type: "TEXT", nullable: false),
-                    Title = table.Column<string>(type: "TEXT", nullable: false),
-                    Content = table.Column<string>(type: "TEXT", nullable: true),
-                    Summary = table.Column<string>(type: "TEXT", nullable: true),
-                    TagsJson = table.Column<string>(type: "TEXT", nullable: false),
-                    Kind = table.Column<int>(type: "INTEGER", nullable: false),
-                    ProjectId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    SuggestedProjectId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    SuggestionConfidence = table.Column<double>(type: "REAL", nullable: true),
-                    SuggestionReason = table.Column<string>(type: "TEXT", nullable: true),
-                    CapturedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    Url = table.Column<string>(type: "text", nullable: false),
+                    Title = table.Column<string>(type: "text", nullable: false),
+                    Content = table.Column<string>(type: "text", nullable: true),
+                    Summary = table.Column<string>(type: "text", nullable: true),
+                    TagsJson = table.Column<string>(type: "text", nullable: false),
+                    Kind = table.Column<int>(type: "integer", nullable: false),
+                    ProjectId = table.Column<string>(type: "text", nullable: true),
+                    SuggestedProjectId = table.Column<string>(type: "text", nullable: true),
+                    SuggestionConfidence = table.Column<double>(type: "double precision", nullable: true),
+                    SuggestionReason = table.Column<string>(type: "text", nullable: true),
+                    CapturedAt = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -1028,13 +1050,13 @@ namespace FocusDeck.Persistence.Migrations
                 name: "ProjectResources",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ProjectId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ResourceType = table.Column<int>(type: "INTEGER", nullable: false),
-                    ResourceValue = table.Column<string>(type: "TEXT", nullable: false),
-                    Title = table.Column<string>(type: "TEXT", nullable: true),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    ProjectId = table.Column<string>(type: "text", nullable: false),
+                    ResourceType = table.Column<int>(type: "integer", nullable: false),
+                    ResourceValue = table.Column<string>(type: "text", nullable: false),
+                    Title = table.Column<string>(type: "text", nullable: true),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -1051,14 +1073,14 @@ namespace FocusDeck.Persistence.Migrations
                 name: "WorkspaceSnapshots",
                 columns: table => new
                 {
-                    Id = table.Column<string>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    WindowLayoutJson = table.Column<string>(type: "TEXT", nullable: false),
-                    BrowserSessionId = table.Column<string>(type: "TEXT", nullable: true),
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    WindowLayoutJson = table.Column<string>(type: "text", nullable: false),
+                    BrowserSessionId = table.Column<string>(type: "text", nullable: true),
                     ActiveNoteId = table.Column<string>(type: "TEXT", nullable: true),
-                    ProjectId = table.Column<Guid>(type: "TEXT", nullable: true)
+                    ProjectId = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1084,14 +1106,14 @@ namespace FocusDeck.Persistence.Migrations
                 name: "ReviewSessions",
                 columns: table => new
                 {
-                    Id = table.Column<string>(type: "TEXT", nullable: false),
-                    ReviewPlanId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    ScheduledDate = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    CompletedDate = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    Score = table.Column<int>(type: "INTEGER", nullable: true),
-                    Notes = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: true),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    ReviewPlanId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    ScheduledDate = table.Column<string>(type: "text", nullable: false),
+                    CompletedDate = table.Column<string>(type: "text", nullable: true),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    Score = table.Column<int>(type: "integer", nullable: true),
+                    Notes = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    TenantId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -1108,15 +1130,15 @@ namespace FocusDeck.Persistence.Migrations
                 name: "TenantInvites",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Email = table.Column<string>(type: "TEXT", maxLength: 255, nullable: false),
-                    Role = table.Column<int>(type: "INTEGER", nullable: false),
-                    Token = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    ExpiresAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    AcceptedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    AcceptedByUserId = table.Column<string>(type: "TEXT", nullable: true)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false),
+                    Email = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    Role = table.Column<int>(type: "integer", nullable: false),
+                    Token = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    CreatedAt = table.Column<string>(type: "text", nullable: false),
+                    ExpiresAt = table.Column<string>(type: "text", nullable: false),
+                    AcceptedAt = table.Column<string>(type: "text", nullable: true),
+                    AcceptedByUserId = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1133,11 +1155,11 @@ namespace FocusDeck.Persistence.Migrations
                 name: "UserTenants",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    TenantId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", nullable: false),
-                    Role = table.Column<int>(type: "INTEGER", nullable: false),
-                    JoinedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    TenantId = table.Column<string>(type: "text", nullable: false),
+                    UserId = table.Column<string>(type: "text", nullable: false),
+                    Role = table.Column<int>(type: "integer", nullable: false),
+                    JoinedAt = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -1771,6 +1793,9 @@ namespace FocusDeck.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "TenantInvites");
+
+            migrationBuilder.DropTable(
+                name: "UserSettings");
 
             migrationBuilder.DropTable(
                 name: "UserTenants");

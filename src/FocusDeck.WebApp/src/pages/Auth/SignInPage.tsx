@@ -1,89 +1,148 @@
 
-import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { pakeLogin } from '../../lib/pake'
+import { storeTokens } from '../../lib/utils'
 
 export const SignInPage: React.FC = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [loading, setLoading] = useState(false);
-    const navigate = useNavigate();
-    const location = useLocation();
+    const navigate = useNavigate()
+    const location = useLocation()
 
-    // Mock login for now
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
+    const [userId, setUserId] = useState('')
+    const [password, setPassword] = useState('')
+    const [showPassword, setShowPassword] = useState(false)
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
 
-        // Simulate API call
-        setTimeout(() => {
-            // Set mock token
-            localStorage.setItem('focusdeck_access_token', 'mock_token_123');
-            localStorage.setItem('focusdeck_user', JSON.stringify({ name: 'User', email }));
+    const from = (location.state as any)?.from?.pathname || '/'
 
-            // Dispatch storage event to notify other tabs/components if listening
-            window.dispatchEvent(new Event('storage'));
+    function mapError(raw: string): string {
+        switch (raw) {
+            case 'Missing KDF salt':
+                return 'Account upgrade required — reset password or contact support.'
+            case 'Invalid KDF salt':
+                return 'Credential metadata mismatch — please retry or contact support.'
+            case 'User not found':
+                return 'No account found. Check your user ID or register.'
+            case 'Login failed':
+                return 'Authentication failed — verify credentials.'
+            default:
+                return raw || 'Authentication failed'
+        }
+    }
 
-            setLoading(false);
-
-            // Redirect
-            const from = (location.state as any)?.from?.pathname || '/';
-            navigate(from, { replace: true });
-        }, 1000);
-    };
+    async function handleSubmit(e: React.FormEvent) {
+        e.preventDefault()
+        setError(null)
+        setLoading(true)
+        try {
+            const res = await pakeLogin(userId.trim(), password)
+            storeTokens(res.accessToken, res.refreshToken, userId.trim())
+            navigate(from, { replace: true })
+        } catch (err: any) {
+            const msg = mapError(err?.message)
+            setError(msg)
+            console.error('Login error:', err)
+        } finally {
+            setLoading(false)
+        }
+    }
 
     return (
-        <div className="min-h-screen w-full flex items-center justify-center bg-gray-100 dark:bg-gray-900 bg-cover bg-center relative" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1497294815431-9365093b7331?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80)' }}>
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+        <div className="min-h-screen w-full flex items-center justify-center bg-paper dark:bg-gray-900 relative px-4 py-10">
+            {/* Decorative grid / retro accents */}
+            <div className="absolute inset-0 pointer-events-none opacity-10 mix-blend-overlay" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, var(--ink) 1px, transparent 0)', backgroundSize: '28px 28px' }} />
 
-            <div className="relative z-10 w-full max-w-md bg-white/90 dark:bg-gray-950/90 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20">
-                <div className="text-center mb-8">
-                    <div className="w-12 h-12 bg-blue-600 rounded-xl mx-auto flex items-center justify-center mb-4 shadow-lg rotate-3">
-                         <i className="fa-solid fa-layer-group text-white text-2xl"></i>
-                    </div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Welcome back</h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Sign in to your FocusDeck Workspace</p>
-                </div>
-
-                <form onSubmit={handleLogin} className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Email</label>
-                        <input
-                            type="email"
-                            required
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
-                            className="w-full px-4 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 dark:text-white placeholder-gray-400"
-                            placeholder="name@company.com"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 flex justify-between">
-                            Password
-                            <a href="#" className="text-blue-600 hover:text-blue-500 normal-case font-medium">Forgot?</a>
-                        </label>
-                        <input
-                            type="password"
-                            required
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            className="w-full px-4 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900 dark:text-white"
-                            placeholder="••••••••"
-                        />
+            <div className="max-w-md w-full relative z-10">
+                <div className="bg-surface border-2 border-ink rounded-xl shadow-hard overflow-hidden flex flex-col">
+                    {/* Header */}
+                    <div className="px-6 py-5 border-b-2 border-ink bg-subtle flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-ink text-white rounded-lg flex items-center justify-center shadow-inner">
+                                <i className="fa-solid fa-layer-group"></i>
+                            </div>
+                            <div>
+                                <h1 className="font-display text-xl font-bold leading-none">FocusDeck Login</h1>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 tracking-wide">Secure SRP / PAKE Authentication</p>
+                            </div>
+                        </div>
+                        <div className="hidden md:flex gap-1">
+                            <div className="w-3 h-3 rounded-full bg-red-500" />
+                            <div className="w-3 h-3 rounded-full bg-yellow-400" />
+                            <div className="w-3 h-3 rounded-full bg-green-500" />
+                        </div>
                     </div>
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg hover:shadow-blue-500/30 transition-all flex items-center justify-center gap-2"
-                    >
-                        {loading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : 'Sign In'}
-                    </button>
-                </form>
+                    {/* Body */}
+                    <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                        {error && (
+                            <div className="border-2 border-red-600 bg-red-100 text-red-800 rounded-lg p-3 text-sm flex items-start gap-3 shadow-sm">
+                                <i className="fa-solid fa-triangle-exclamation mt-0.5"></i>
+                                <div className="flex-1">
+                                    <div className="font-bold mb-0.5">Sign in failed</div>
+                                    <div>{error}</div>
+                                </div>
+                                <button type="button" onClick={() => setError(null)} className="text-red-700 hover:text-red-900">
+                                    <i className="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                        )}
 
-                <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800 text-center">
-                    <p className="text-sm text-gray-500">Don't have an account? <a href="#" className="text-blue-600 font-bold hover:underline">Create Account</a></p>
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold tracking-wide uppercase text-gray-600 dark:text-gray-300">User ID or Email</label>
+                            <input
+                                autoComplete="username"
+                                required
+                                value={userId}
+                                onChange={(e) => setUserId(e.target.value)}
+                                placeholder="you@example.com"
+                                className="w-full px-4 py-2.5 rounded-lg bg-white dark:bg-gray-950 border-2 border-ink focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono text-sm"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-bold tracking-wide uppercase text-gray-600 dark:text-gray-300">Password</label>
+                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-xs font-semibold text-primary hover:underline">
+                                    {showPassword ? 'Hide' : 'Show'}
+                                </button>
+                            </div>
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    autoComplete="current-password"
+                                    required
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="w-full px-4 py-2.5 rounded-lg bg-white dark:bg-gray-950 border-2 border-ink focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono text-sm pr-10"
+                                />
+                                <i className="fa-solid fa-key absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                            </div>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full py-3 rounded-lg bg-ink text-white font-bold text-sm tracking-wide flex items-center justify-center gap-2 hover:opacity-90 transition disabled:opacity-50"
+                        >
+                            {loading && <i className="fa-solid fa-circle-notch fa-spin"></i>}
+                            {loading ? 'Authenticating…' : 'Sign In Securely'}
+                        </button>
+
+                        <div className="text-center text-xs text-gray-500 space-y-1 pt-2">
+                            <p>Encrypted SRP handshake protects your password.</p>
+                            <p className="italic">Need an account? <a href="/register" className="text-primary font-semibold hover:underline">Register</a></p>
+                        </div>
+                    </form>
+
+                    {/* Footer */}
+                    <div className="px-6 py-4 border-t-2 border-ink bg-subtle flex items-center justify-between text-xs text-gray-500">
+                        <span className="font-mono">v{import.meta.env.VITE_APP_VERSION || '0.1.0'}</span>
+                        <span>© FocusDeck</span>
+                    </div>
                 </div>
             </div>
         </div>
-    );
-};
+    )
+}

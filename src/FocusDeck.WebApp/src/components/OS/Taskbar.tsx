@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useWindowManager, APPS } from '../../contexts/WindowManagerContext';
 
 interface TaskbarProps {
@@ -9,6 +9,10 @@ export const Taskbar: React.FC<TaskbarProps> = ({ onToggleStart }) => {
   const { openApps, minimizedApps, activeApp, splitMode, splitApps, focusApp, isDarkMode, toggleDarkMode } = useWindowManager();
 
   const processedIds = new Set<string>();
+
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userId = typeof window !== 'undefined' ? localStorage.getItem('focusdeck_user') || 'Guest' : 'Guest';
+  const { launchApp } = useWindowManager();
 
   return (
     <div className="h-14 bg-subtle dark:bg-gray-900 border-t-2 border-border dark:border-gray-700 flex items-center px-2 md:px-4 gap-2 md:gap-4 z-50 shrink-0 relative shadow-[0_-4px_10px_rgba(0,0,0,0.02)] transition-colors duration-300">
@@ -28,6 +32,40 @@ export const Taskbar: React.FC<TaskbarProps> = ({ onToggleStart }) => {
       </button>
 
       <div className="w-px h-8 bg-gray-300 dark:bg-gray-700 hidden md:block"></div>
+
+      {/* Auth / User Indicator */}
+      <div className="relative mr-2">
+        <button
+          onClick={() => setShowUserMenu(m => !m)}
+          className="h-10 px-3 rounded-lg flex items-center gap-2 bg-white dark:bg-gray-800 border-2 border-ink dark:border-gray-600 text-ink dark:text-gray-200 text-sm font-bold shadow-hard hover:bg-gray-100 dark:hover:bg-gray-700 transition active:scale-[0.97]"
+        >
+          <i className="fa-solid fa-user-shield"></i>
+          <span className="hidden sm:inline max-w-[140px] truncate">{userId}</span>
+          <i className={`fa-solid fa-chevron-${showUserMenu ? 'up' : 'down'} text-xs opacity-70`}></i>
+        </button>
+        {showUserMenu && (
+          <div className="absolute left-0 mt-2 w-56 bg-surface border-2 border-ink rounded-xl shadow-hard z-50 overflow-hidden">
+            <div className="px-4 py-3 border-b-2 border-ink bg-subtle flex items-center gap-2">
+              <i className="fa-solid fa-id-badge text-accent-blue"></i>
+              <div className="text-xs font-mono truncate" title={userId}>{userId}</div>
+            </div>
+            <div className="flex flex-col py-2">
+              <button
+                onClick={() => { setShowUserMenu(false); launchApp('win-account-settings'); }}
+                className="text-left px-4 py-2 text-xs font-semibold hover:bg-white/70 dark:hover:bg-gray-800 transition flex items-center gap-2"
+              >
+                <i className="fa-solid fa-gears"></i> Account Settings
+              </button>
+              <button
+                onClick={() => { setShowUserMenu(false); localStorage.removeItem('fd.accessToken'); localStorage.removeItem('fd.refreshToken'); localStorage.removeItem('fd.userId'); window.location.href = '/login'; }}
+                className="text-left px-4 py-2 text-xs font-semibold hover:bg-white/70 dark:hover:bg-gray-800 transition flex items-center gap-2 text-red-600"
+              >
+                <i className="fa-solid fa-right-from-bracket"></i> Sign Out
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="flex-1 flex items-end gap-2 overflow-x-auto h-full pb-1 no-scrollbar" id="task-dock">
         {openApps.map(id => {

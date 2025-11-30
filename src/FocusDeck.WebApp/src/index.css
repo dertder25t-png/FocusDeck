@@ -14,13 +14,13 @@
 }
 
 .dark {
-  --color-paper: #000000;
-  --color-surface: #121212;
-  --color-subtle: #1e1e1e;
-  --color-ink: #ffffff;
-  --color-border: #333333;
+  --color-paper: #1e1e1e;
+  --color-surface: #252526;
+  --color-subtle: #2d2d30;
+  --color-ink: #cccccc;
+  --color-border: #3e3e42;
   --shadow-color: #000000;
-  --dot-color: #333333;
+  --dot-color: #2d2d30;
 }
 
 @theme {

@@ -174,13 +174,14 @@ export const KanbanApp: React.FC = () => {
   };
 
   const handleAddTask = (laneId: string) => {
-      setEditingTask({
-          title: '',
+      const newTask = {
+          title: 'New Task',
           description: '',
           tags: [laneId],
           dueDate: new Date().toISOString(),
           isCompleted: false
-      });
+      };
+      setEditingTask(newTask);
       setIsModalOpen(true);
   };
 

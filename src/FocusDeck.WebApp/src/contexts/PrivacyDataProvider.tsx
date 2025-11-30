@@ -8,18 +8,26 @@ export function PrivacyDataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const token = getAuthToken();
-    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getAuthToken();
+        if (!token || cancelled) return;
 
-    const newConnection = new HubConnectionBuilder()
-      .withUrl('/hubs/privacydata', {
-        accessTokenFactory: () => token
-      })
-      .withAutomaticReconnect()
-      .configureLogging(LogLevel.Information)
-      .build();
+        const newConnection = new HubConnectionBuilder()
+          .withUrl('/hubs/privacydata', {
+            accessTokenFactory: () => token
+          })
+          .withAutomaticReconnect()
+          .configureLogging(LogLevel.Information)
+          .build();
 
-    setConnection(newConnection);
+        if (!cancelled) setConnection(newConnection);
+      } catch (err) {
+        console.warn('PrivacyDataHub init skipped (no auth token)', err);
+      }
+    })();
+    return () => { cancelled = true };
   }, []);
 
   useEffect(() => {

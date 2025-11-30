@@ -144,27 +144,64 @@ export async function getAuthToken(): Promise<string> {
     return cookieToken
   }
 
-  // No token — redirect to login
-  if (isBrowser()) {
-    const loc = window.location
-    if (!loc.pathname.includes('/login')) {
-      window.location.href = '/login'
-    }
-  }
+  // No token found - just throw error, don't redirect (let React Router handle that)
   throw new Error('Not authenticated')
 }
 
 export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const token = await getAuthToken();
-  
-  return fetch(url, {
+  const isAbsolute = /^https?:\/\//i.test(url)
+  const path = isAbsolute ? new URL(url).pathname : url
+  const isProtected = path.startsWith('/v1/')
+
+  let token: string | null = null
+  if (isProtected) {
+    // Protected APIs must have a token
+    token = await getAuthToken()
+  } else {
+    // Public APIs: try to attach a token if available, but do not require it
+    try {
+      token = await getAuthToken()
+    } catch {
+      token = null
+    }
+  }
+
+  const response = await fetch(url, {
     ...options,
     headers: {
-      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
-  });
+  })
+
+  if (response.status === 401 && isBrowser()) {
+    // Only force redirect if we appear to have a real JWT that likely expired/invalidated.
+    const looksLikeJwt = typeof token === 'string' && token.includes('.')
+    const payload = looksLikeJwt ? parseJwtPayload(token!) : null
+    const hasExp = !!payload && (typeof (payload as any)['exp'] !== 'undefined')
+
+    if (isProtected && looksLikeJwt && hasExp) {
+      try {
+        cachedToken = null
+        try {
+          localStorage.removeItem('focusdeck_access_token')
+          localStorage.removeItem('focusdeck_refresh_token')
+          localStorage.removeItem('focusdeck_user')
+        } catch {
+          // ignore
+        }
+        deleteCookie(ACCESS_COOKIE_NAME)
+        deleteCookie(REFRESH_COOKIE_NAME)
+      } finally {
+        const redirectUrl = encodeURIComponent(window.location.pathname + window.location.search)
+        window.location.href = `/login?redirectUrl=${redirectUrl}`
+      }
+    }
+    // For mock tokens or public flows, do not auto-redirect; let callers handle.
+  }
+
+  return response
 }
 
 export function storeTokens(accessToken: string, refreshToken?: string, userId?: string) {

@@ -8,7 +8,8 @@ export type WindowId =
   | 'win-whiteboard'
   | 'win-jarvis'
   | 'win-files'
-  | 'win-flashcards';
+  | 'win-flashcards'
+  | 'win-account-settings';
 
 export type WorkspaceType = 'work' | 'school';
 
@@ -27,6 +28,7 @@ export const APPS: Record<WindowId, AppDefinition> = {
   'win-jarvis': { id: 'win-jarvis', title: 'Jarvis', icon: 'fa-robot' },
   'win-files': { id: 'win-files', title: 'Files', icon: 'fa-folder-open' },
   'win-flashcards': { id: 'win-flashcards', title: 'Flashcards', icon: 'fa-layer-group' },
+  'win-account-settings': { id: 'win-account-settings', title: 'Account', icon: 'fa-user-shield' },
 };
 
 export interface FileItem {
@@ -116,6 +118,15 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     // If it's minimized, restore it
     if (minimizedApps.includes(id)) {
       setMinimizedApps(prev => prev.filter(appId => appId !== id));
+    }
+
+    // Auto-minimize the previously active app when switching tabs in split mode
+    if (activeApp && activeApp !== id && splitMode && splitApps.length === 2) {
+      // If we're switching to a different tab and we're in split mode,
+      // minimize the previous active app if it's not in the split pair
+      if (!splitApps.includes(activeApp)) {
+        setMinimizedApps(prev => [...prev, activeApp]);
+      }
     }
 
     setActiveApp(id);

@@ -21,6 +21,7 @@ using FocusDeck.Server.Services.Privacy;
 using FocusDeck.Server.Services.Jarvis;
 using FocusDeck.Server.Jobs.Jarvis;
 using FocusDeck.Server.Services.Tenancy;
+using FocusDeck.Server.Services.Security;
 using FocusDeck.Services.Jarvis;
 using FocusDeck.Persistence.Repositories;
 using FocusDeck.Persistence.Repositories.Context;
@@ -38,6 +39,7 @@ using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -203,6 +205,17 @@ public sealed class Startup
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidIdGenerator>();
         services.AddSingleton<FocusDeck.Services.Abstractions.IEncryptionService, FocusDeck.Services.Implementations.Core.EncryptionService>();
+
+        // Data Protection for API key encryption
+        var dataProtectionPath = Path.Combine(AppContext.BaseDirectory, "data", "keys");
+        if (!Directory.Exists(dataProtectionPath))
+        {
+            Directory.CreateDirectory(dataProtectionPath);
+        }
+        services.AddDataProtection()
+            .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath))
+            .SetApplicationName("FocusDeck");
+        services.AddScoped<IApiKeyEncryptionService, ApiKeyEncryptionService>();
 
         // Redis (optional)
         var redisConnection = _configuration.GetConnectionString("Redis");
