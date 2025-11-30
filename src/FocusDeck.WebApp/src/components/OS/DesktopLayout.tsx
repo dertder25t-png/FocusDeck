@@ -34,6 +34,28 @@ export const DesktopLayout: React.FC = () => {
   const [startMenuOpen, setStartMenuOpen] = useState(false);
   const [toolPickerOpen, setToolPickerOpen] = useState(false);
 
+  // Wallpaper Logic
+  const [wallpaper, setWallpaper] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    const saved = localStorage.getItem('focusdeck-wallpaper');
+    if (saved) setWallpaper(saved);
+
+    // Listen for storage events (if setting changes in another tab/window) or custom event
+    const handleStorage = () => {
+        const updated = localStorage.getItem('focusdeck-wallpaper');
+        if (updated) setWallpaper(updated);
+    };
+    window.addEventListener('storage', handleStorage);
+    // Custom event hack for same-window updates
+    window.addEventListener('focusdeck-wallpaper-changed', handleStorage);
+
+    return () => {
+        window.removeEventListener('storage', handleStorage);
+        window.removeEventListener('focusdeck-wallpaper-changed', handleStorage);
+    };
+  }, []);
+
   // File System State (Local for now, can move to Context if needed globally)
   const [currentFiles, setCurrentFiles] = useState(MOCK_FILES);
   const [activeFile, setActiveFile] = useState<{name: string, type: string, targetContent: WindowId} | null>(null);
@@ -72,7 +94,11 @@ export const DesktopLayout: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen w-full font-sans overflow-hidden bg-paper dark:bg-gray-900 text-ink dark:text-white transition-colors duration-300">
-        <main className="flex-1 relative bg-paper dark:bg-gray-900 bg-dot-pattern overflow-hidden p-0 md:p-4" id="desktop-area">
+        <main
+            className="flex-1 relative bg-paper dark:bg-gray-900 bg-dot-pattern overflow-hidden p-0 md:p-4"
+            id="desktop-area"
+            style={wallpaper ? { backgroundImage: `url(${wallpaper})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
+        >
 
             <PlacementModal />
 

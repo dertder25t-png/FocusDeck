@@ -6,7 +6,7 @@ interface TaskbarProps {
 }
 
 export const Taskbar: React.FC<TaskbarProps> = ({ onToggleStart }) => {
-  const { openApps, activeApp, splitMode, splitApps, focusApp, isDarkMode, toggleDarkMode } = useWindowManager();
+  const { openApps, minimizedApps, activeApp, splitMode, splitApps, focusApp, isDarkMode, toggleDarkMode } = useWindowManager();
 
   const processedIds = new Set<string>();
 
@@ -62,15 +62,21 @@ export const Taskbar: React.FC<TaskbarProps> = ({ onToggleStart }) => {
             // Render Single App
             processedIds.add(id);
             const isActive = activeApp === id;
+            const isMinimized = minimizedApps.includes(id);
+
             return (
                 <button
                     key={id}
                     onClick={() => focusApp(id)}
-                    className={`task-tab h-10 px-3 md:px-4 rounded-t-lg flex items-center gap-2 text-sm font-medium transition-all flex-shrink-0 relative ${isActive ? 'active text-ink font-bold bg-white border-t-2 border-ink shadow-sm -translate-y-[2px]' : 'text-gray-500 hover:bg-white/50 border-t-2 border-transparent'}`}
+                    className={`task-tab h-10 px-3 md:px-4 rounded-t-lg flex items-center gap-2 text-sm font-medium transition-all flex-shrink-0 relative
+                        ${isActive ? 'active text-ink font-bold bg-white border-t-2 border-ink shadow-sm -translate-y-[2px]' :
+                            isMinimized ? 'opacity-50 hover:opacity-100 bg-gray-100 border-t-2 border-transparent hover:bg-white/50' :
+                            'text-gray-500 hover:bg-white/50 border-t-2 border-transparent'}`}
                 >
                     <i className={`fa-solid ${APPS[id].icon} ${isActive ? 'text-accent-blue' : ''}`}></i>
                     <span className="hidden md:inline">{APPS[id].title}</span>
                     {isActive && <div className="absolute bottom-0 left-2 right-2 h-[2px] bg-accent-blue"></div>}
+                    {isMinimized && <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-gray-400 rounded-full"></div>}
                 </button>
             );
         })}

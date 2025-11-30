@@ -37,6 +37,7 @@ export interface FileItem {
 
 interface WindowManagerContextType {
   openApps: WindowId[];
+  minimizedApps: WindowId[];
   activeApp: WindowId | null;
   splitMode: boolean;
   splitApps: [WindowId, WindowId] | [];
@@ -44,6 +45,7 @@ interface WindowManagerContextType {
 
   launchApp: (id: WindowId) => void;
   closeApp: (id: WindowId) => void;
+  minimizeApp: (id: WindowId) => void;
   focusApp: (id: WindowId) => void;
   snapPair: (leftId: WindowId, rightId: WindowId) => void;
   openWorkspace: (type: WorkspaceType) => void;
@@ -64,6 +66,7 @@ const WindowManagerContext = createContext<WindowManagerContextType | undefined>
 
 export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [openApps, setOpenApps] = useState<WindowId[]>(['win-dashboard']);
+  const [minimizedApps, setMinimizedApps] = useState<WindowId[]>([]);
   const [activeApp, setActiveApp] = useState<WindowId | null>('win-dashboard');
   const [splitMode, setSplitMode] = useState(false);
   const [splitApps, setSplitApps] = useState<[WindowId, WindowId] | []>([]);
@@ -88,6 +91,12 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
   const [showPlacementModal, setShowPlacementModal] = useState(false);
 
   const launchApp = (id: WindowId) => {
+    if (minimizedApps.includes(id)) {
+      setMinimizedApps(prev => prev.filter(appId => appId !== id));
+      focusApp(id);
+      return;
+    }
+
     if (openApps.includes(id)) {
       focusApp(id);
       return;
@@ -104,6 +113,11 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const focusApp = (id: WindowId) => {
+    // If it's minimized, restore it
+    if (minimizedApps.includes(id)) {
+      setMinimizedApps(prev => prev.filter(appId => appId !== id));
+    }
+
     setActiveApp(id);
 
     // If focusing an app in the split pair
@@ -119,6 +133,7 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const closeApp = (id: WindowId) => {
     setOpenApps(prev => prev.filter(appId => appId !== id));
+    setMinimizedApps(prev => prev.filter(appId => appId !== id));
 
     if (splitApps.length > 0 && (splitApps as WindowId[]).includes(id)) {
       const other = (splitApps as WindowId[]).find(a => a !== id);
@@ -144,18 +159,37 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const minimizeApp = (id: WindowId) => {
+    if (!minimizedApps.includes(id)) {
+      setMinimizedApps(prev => [...prev, id]);
+    }
+    // If we minimize the active app, we should focus the next available one
+    if (activeApp === id) {
+      const remaining = openApps.filter(a => a !== id && !minimizedApps.includes(a));
+      // Note: minimizedApps isn't updated in this closure yet, so we have to account for that
+      const actuallyRemaining = remaining.filter(a => a !== id); // Redundant check for safety
+
+      if (actuallyRemaining.length > 0) {
+        setActiveApp(actuallyRemaining[actuallyRemaining.length - 1]);
+      } else {
+        setActiveApp(null);
+      }
+    }
+  };
+
   const snapPair = (leftId: WindowId, rightId: WindowId) => {
     setSplitMode(true);
     setSplitApps([leftId, rightId] as [WindowId, WindowId]);
     setActiveApp(leftId);
 
-    // Ensure both are open
+    // Ensure both are open and not minimized
     setOpenApps(prev => {
         const newSet = new Set(prev);
         newSet.add(leftId);
         newSet.add(rightId);
         return Array.from(newSet) as WindowId[];
     });
+    setMinimizedApps(prev => prev.filter(id => id !== leftId && id !== rightId));
   };
 
   const confirmPlacement = (location: 'left' | 'right' | 'over') => {
@@ -165,6 +199,9 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!openApps.includes(pendingLaunchId)) {
         setOpenApps(prev => [...prev, pendingLaunchId]);
     }
+    // Ensure not minimized
+    setMinimizedApps(prev => prev.filter(id => id !== pendingLaunchId));
+
 
     if (location === 'over') {
         focusApp(pendingLaunchId);
@@ -188,8 +225,8 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <WindowManagerContext.Provider value={{
-      openApps, activeApp, splitMode, splitApps, currentWorkspace,
-      launchApp, closeApp, focusApp, snapPair, openWorkspace,
+      openApps, minimizedApps, activeApp, splitMode, splitApps, currentWorkspace,
+      launchApp, closeApp, minimizeApp, focusApp, snapPair, openWorkspace,
       pendingLaunchId, setPendingLaunchId, showPlacementModal, setShowPlacementModal, confirmPlacement,
       isDarkMode, toggleDarkMode
     }}>
