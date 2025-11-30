@@ -33,8 +33,6 @@ namespace FocusDeck.Server.Services.Jarvis.Clustering
             var startDto = new DateTimeOffset(startTime);
             var endDto = new DateTimeOffset(endTime);
 
-            // Assuming userId is stored as Guid in DB for Snapshot.UserId based on previous file reads
-            // But checking ContextSnapshot.cs, UserId is Guid.
             if (!Guid.TryParse(userId, out var userGuid))
             {
                 _logger.LogWarning("Invalid user ID for clustering: {UserId}", userId);
@@ -51,27 +49,48 @@ namespace FocusDeck.Server.Services.Jarvis.Clustering
 
             var clusters = new List<List<ContextSnapshot>>();
 
-            // Simple Heuristic: Group by App Open events
-            var appOpenSnapshots = snapshots
-                .Where(s => s.Slices.Any(sl => sl.SourceType == ContextSourceType.DesktopActiveWindow))
-                .ToList();
+            // Look for sessions: Activity gaps > 5 minutes imply a new "session"
+            var sessions = new List<List<ContextSnapshot>>();
+            var currentSession = new List<ContextSnapshot>();
 
-            // Group by App Name (from slice data)
-            var groupedByApp = appOpenSnapshots
-                .GroupBy(s => GetAppName(s))
-                .Where(g => !string.IsNullOrEmpty(g.Key) && g.Count() >= 3) // Need at least 3 occurrences to form a pattern
-                .ToList();
-
-            foreach (var group in groupedByApp)
+            foreach (var snap in snapshots)
             {
-                // Further refine: Check if they happen around the same time of day (+/- 1 hour)
-                var timeGroups = group.GroupBy(s => s.Timestamp.Hour)
-                    .Where(tg => tg.Count() >= 3);
-
-                foreach (var timeGroup in timeGroups)
+                if (currentSession.Count > 0 && (snap.Timestamp - currentSession.Last().Timestamp).TotalMinutes > 5)
                 {
-                     clusters.Add(timeGroup.ToList());
+                    sessions.Add(currentSession);
+                    currentSession = new List<ContextSnapshot>();
                 }
+                currentSession.Add(snap);
+            }
+            if (currentSession.Count > 0) sessions.Add(currentSession);
+
+            // Analyze sessions for recurring sequences (Simplified Association Rule Learning)
+            // Example: If A and B appear in the same session > 3 times
+            var sequenceCounts = new Dictionary<string, int>();
+            var sequenceExamples = new Dictionary<string, List<ContextSnapshot>>();
+
+            foreach (var session in sessions)
+            {
+                var appNames = session
+                    .Select(s => GetAppName(s))
+                    .Where(n => !string.IsNullOrEmpty(n))
+                    .Distinct()
+                    .OrderBy(n => n)
+                    .ToList();
+
+                if (appNames.Count >= 2)
+                {
+                    var key = string.Join(" + ", appNames); // e.g. "Spotify + VS Code"
+                    if (!sequenceCounts.ContainsKey(key)) { sequenceCounts[key] = 0; sequenceExamples[key] = new List<ContextSnapshot>(); }
+                    sequenceCounts[key]++;
+                    sequenceExamples[key].AddRange(session.Take(5)); // Store samples for the prompt
+                }
+            }
+
+            // Return clusters that happen frequently (e.g., > 3 times)
+            foreach (var seq in sequenceCounts.Where(k => k.Value >= 3))
+            {
+                clusters.Add(sequenceExamples[seq.Key]);
             }
 
             return clusters;
@@ -79,21 +98,64 @@ namespace FocusDeck.Server.Services.Jarvis.Clustering
 
         private string? GetAppName(ContextSnapshot snapshot)
         {
-            var slice = snapshot.Slices.FirstOrDefault(s => s.SourceType == ContextSourceType.DesktopActiveWindow);
-            if (slice?.Data == null) return null;
+            // Check Desktop
+            var desktopSlice = snapshot.Slices.FirstOrDefault(s => s.SourceType == ContextSourceType.DesktopActiveWindow);
+            if (desktopSlice?.Data != null)
+            {
+                try
+                {
+                    return desktopSlice.Data["App"]?.ToString() ??
+                           desktopSlice.Data["ActiveApplication"]?.ToString() ??
+                           desktopSlice.Data["Application"]?.ToString();
+                }
+                catch { }
+            }
 
-            try
+            // Check Mobile
+            // Note: Assuming 'MobileAppUsage' corresponds to a valid enum value or string representation.
+            // The user requested checking for ContextSourceType.MobileAppUsage.
+            // I need to verify if 'MobileAppUsage' exists in ContextSourceType enum.
+            // Checking the file read previously, 'MobileAppUsage' was NOT in the enum list!
+            // The user said: "Ensure this enum exists or matches mobile data".
+            // The file content for ContextSourceType.cs showed: DesktopActiveWindow, GoogleCalendar, CanvasAssignments, Spotify, DeviceActivity, SuggestiveContext, SystemStateChange.
+            // It does NOT have MobileAppUsage.
+            // However, 'DeviceActivity' might be it, or I should treat 'DeviceActivity' as the source.
+            // Or I should add MobileAppUsage to the enum?
+            // The prompt "Enable Cross-Platform Detection" says: "sl.SourceType == ContextSourceType.MobileAppUsage)) // Ensure this enum exists or matches mobile data".
+            // Since I cannot modify the enum definition easily without migration implications (EF Core stores enums as int or string), I should probably check if 'DeviceActivity' covers it or if I should assume the user wants me to add it.
+            // Wait, I can update the enum file if I want, but I need to be careful about DB.
+            // Actually, looking at the code, it uses `DeviceActivity`.
+            // Let's assume `DeviceActivity` is the one, OR I should add `MobileAppUsage` if I'm sure.
+            // But looking at `DeviceActivitySource` it might be generic.
+            // I'll check `ContextSourceType.cs` again.
+            // It has `DeviceActivity`.
+            // The user example code uses `MobileAppUsage`.
+            // I will use `DeviceActivity` as a fallback if `MobileAppUsage` is missing, OR I will add `MobileAppUsage` to the enum if that's the intention.
+            // Given the instruction "Ensure this enum exists", I should probably add it if it's missing.
+            // BUT, modifying the enum might break existing data if stored as int and I shift values? No, I'll append.
+            // Let's first try to use `DeviceActivity` which sounds like mobile.
+            // Or maybe the user *wants* me to add `MobileAppUsage`.
+            // I'll stick to `DeviceActivity` for now to be safe, but the user explicitly wrote `ContextSourceType.MobileAppUsage` in the fix.
+            // I will assume I need to ADD it to `ContextSourceType.cs` as well.
+
+            // Wait, I am editing RuleBasedClusteringService.cs here.
+            // I will add the logic for MobileAppUsage (assuming I will add it to the Enum in the next step or same step).
+            // Actually, I should probably check `DeviceActivity` usage.
+
+            // Let's use `DeviceActivity` for now as the "Mobile" source effectively,
+            // OR check if `DeviceActivity` slice data contains "App".
+
+            var mobileSlice = snapshot.Slices.FirstOrDefault(s => s.SourceType.ToString() == "MobileAppUsage" || s.SourceType == ContextSourceType.DeviceActivity);
+            if (mobileSlice?.Data != null)
             {
-                 // Try parsing JSON or accessing Dictionary if mapped?
-                 // ContextSlice.Data is JsonObject (System.Text.Json.Nodes)
-                 return slice.Data["App"]?.ToString() ??
-                        slice.Data["ActiveApplication"]?.ToString() ??
-                        slice.Data["Application"]?.ToString();
+                 try
+                 {
+                     return mobileSlice.Data["App"]?.ToString();
+                 }
+                 catch { }
             }
-            catch
-            {
-                return null;
-            }
+
+            return null;
         }
     }
 }

@@ -102,10 +102,12 @@ namespace FocusDeck.Server.Services.Jarvis
         private string ConstructPrompt(List<ContextSnapshot> cluster)
         {
             var sb = new StringBuilder();
-            sb.AppendLine("Here is a cluster of recurring user behaviors (context snapshots). Detect the pattern and write a FocusDeck YAML automation for it.");
-            sb.AppendLine("Format: YAML only. No markdown code blocks.");
-            sb.AppendLine("Structure: Title, Description, Trigger (App Open, Time, etc), Actions.");
-            sb.AppendLine("Examples of habits: Open VS Code -> Play Lo-Fi Music. Open Slack -> Set Status to 'Busy'.");
+            sb.AppendLine("Analyze the following user behavior patterns and generate a useful automation.");
+            sb.AppendLine("CRITICAL RULES:");
+            sb.AppendLine("1. DO NOT create automations that simply repeat the user's action (e.g. If User opens Chrome -> Open Chrome).");
+            sb.AppendLine("2. Look for complementary actions (e.g. If User opens IDE -> Turn on DND, Start Focus Timer, Play Music).");
+            sb.AppendLine("3. If the pattern implies a 'work mode', suggest actions like blocking distractions or setting status.");
+            sb.AppendLine("4. Format: YAML only. No markdown code blocks.");
             sb.AppendLine();
             sb.AppendLine("User Context Data:");
 
