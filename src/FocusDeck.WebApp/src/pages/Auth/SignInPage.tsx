@@ -1,11 +1,10 @@
 
 import React, { useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { pakeLogin } from '../../lib/pake'
 import { storeTokens } from '../../lib/utils'
 
 export const SignInPage: React.FC = () => {
-    const navigate = useNavigate()
     const location = useLocation()
 
     const [userId, setUserId] = useState('')
@@ -36,13 +35,17 @@ export const SignInPage: React.FC = () => {
         setError(null)
         setLoading(true)
         try {
+            console.log('[SignIn] Starting login for user:', userId.trim());
             const res = await pakeLogin(userId.trim(), password)
+            console.log('[SignIn] Login successful, storing tokens');
             storeTokens(res.accessToken, res.refreshToken, userId.trim())
-            navigate(from, { replace: true })
+            console.log('[SignIn] Tokens stored, reloading page');
+            // Force a full page reload to ensure all state is fresh
+            window.location.href = from
         } catch (err: any) {
             const msg = mapError(err?.message)
             setError(msg)
-            console.error('Login error:', err)
+            console.error('[SignIn] Login error:', err)
         } finally {
             setLoading(false)
         }

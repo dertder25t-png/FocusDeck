@@ -1,10 +1,9 @@
 import React, { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { pakeRegister } from '../../lib/pake'
 import { storeTokens } from '../../lib/utils'
 
 export const RegisterPage: React.FC = () => {
-  const navigate = useNavigate()
   const [userId, setUserId] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -49,11 +48,14 @@ export const RegisterPage: React.FC = () => {
       const res: any = await pakeRegister(userId.trim(), password)
       if (res?.accessToken && res?.refreshToken) {
         storeTokens(res.accessToken, res.refreshToken, userId.trim())
-        navigate('/', { replace: true })
+        // Force full page reload to ensure clean state
+        window.location.href = '/'
         return
       }
       setSuccess('Account created. Redirecting to login…')
-      setTimeout(() => navigate('/login', { replace: true, state: { registeredUserId: userId.trim() } }), 1200)
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 1200)
     } catch (err: any) {
       const msg = mapError(err?.message)
       setError(msg)
