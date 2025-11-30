@@ -65,11 +65,8 @@ public class AuthPakeController : ControllerBase
 
         if (string.IsNullOrWhiteSpace(request.UserId)) return BadRequest(new { error = "UserId required" });
 
-        // Web clients use SHA256 KDF due to browser WASM limitations with Argon2id
-        // Mobile and desktop clients use Argon2id for better security
-        var kdfParameters = request.DevicePlatform?.ToLowerInvariant() == "web"
-            ? Srp.GenerateLegacyKdfParameters()
-            : Srp.GenerateKdfParameters();
+        // Use Argon2id for all clients, including web (WASM supported)
+        var kdfParameters = Srp.GenerateKdfParameters();
         var kdfParametersJson = JsonSerializer.Serialize(kdfParameters);
 
         return Ok(new RegisterStartResponse(kdfParametersJson, Srp.Algorithm, Srp.ModulusHex, (int)Srp.G));
