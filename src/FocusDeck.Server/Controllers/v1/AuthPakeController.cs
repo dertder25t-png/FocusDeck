@@ -225,14 +225,16 @@ public class AuthPakeController : ControllerBase
 
         // Normalize email to lowercase for case-insensitive matching
         var normalizedUserId = request.UserId?.Trim().ToLowerInvariant() ?? string.Empty;
-        var cred = await _db.PakeCredentials.AsNoTracking().FirstOrDefaultAsync(c => c.UserId.ToLower() == normalizedUserId);
 
-        if (await _authLimiter.IsBlockedAsync(request.UserId, remoteIp))
+        // FIX: Use normalized ID for rate limiting checks to prevent casing bypass
+        if (await _authLimiter.IsBlockedAsync(normalizedUserId, remoteIp))
         {
             await LogAuthEventAsync("PAKE_LOGIN_START", request.UserId, false, "Too many failed attempts", request.ClientId, request.DeviceName);
             TrackLoginFailure("blocked", request.UserId, request.ClientId, request.DevicePlatform);
             return StatusCode(StatusCodes.Status429TooManyRequests, new { error = "Too many attempts. Try again later." });
         }
+
+        var cred = await _db.PakeCredentials.AsNoTracking().FirstOrDefaultAsync(c => c.UserId == normalizedUserId);
 
         if (cred == null)
         {
@@ -407,7 +409,10 @@ public class AuthPakeController : ControllerBase
             return Unauthorized(new { error = "Session expired" });
         }
 
-        if (!string.Equals(session.UserId, request.UserId, StringComparison.Ordinal))
+        // FIX: Normalize input to match session storage format (which is always lowercase)
+        var normalizedRequestId = request.UserId?.Trim().ToLowerInvariant();
+
+        if (!string.Equals(session.UserId, normalizedRequestId, StringComparison.Ordinal))
         {
             _srpSessions.Remove(request.SessionId);
             await _authLimiter.RecordFailureAsync(request.UserId, remoteIp);
