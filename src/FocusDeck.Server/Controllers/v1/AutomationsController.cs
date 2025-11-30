@@ -21,11 +21,13 @@ namespace FocusDeck.Server.Controllers.v1
     {
         private readonly AutomationDbContext _dbContext;
         private readonly IYamlAutomationLoader _yamlLoader;
+        private readonly ActionExecutor _actionExecutor;
 
-        public AutomationsController(AutomationDbContext dbContext, IYamlAutomationLoader yamlLoader)
+        public AutomationsController(AutomationDbContext dbContext, IYamlAutomationLoader yamlLoader, ActionExecutor actionExecutor)
         {
             _dbContext = dbContext;
             _yamlLoader = yamlLoader;
+            _actionExecutor = actionExecutor;
         }
 
         /// <summary>
@@ -157,6 +159,64 @@ namespace FocusDeck.Server.Controllers.v1
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             return NoContent();
+        }
+
+        /// <summary>
+        /// Manually triggers an automation for testing purposes.
+        /// </summary>
+        [HttpPost("{id}/run")]
+        public async Task<IActionResult> RunAutomation(Guid id, CancellationToken cancellationToken)
+        {
+            var automation = await _dbContext.Automations.FindAsync(new object[] { id }, cancellationToken);
+            if (automation == null) return NotFound();
+
+            // Refresh actions from YAML definition
+            try
+            {
+                _yamlLoader.UpdateAutomationFromYaml(automation, automation.YamlDefinition);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = "Invalid YAML definition", details = ex.Message });
+            }
+
+            // Execute each action in the automation
+            var results = new List<object>();
+            var allSuccess = true;
+            var startTime = DateTime.UtcNow;
+
+            foreach (var action in automation.Actions)
+            {
+                var result = await _actionExecutor.ExecuteActionAsync(action, _dbContext);
+                results.Add(new { action.ActionType, result });
+                if (!result.Success) allSuccess = false;
+            }
+
+            var duration = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
+
+            // Log execution
+            var execution = new AutomationExecution
+            {
+                Id = 0, // Auto-increment
+                AutomationId = automation.Id,
+                ExecutedAt = DateTime.UtcNow,
+                Success = allSuccess,
+                ErrorMessage = allSuccess ? null : "Manual execution completed with errors",
+                DurationMs = duration,
+                TriggerData = JsonSerializer.Serialize(new { type = "Manual", results })
+            };
+
+            _dbContext.AutomationExecutions.Add(execution);
+            automation.LastRunAt = DateTime.UtcNow;
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            return Ok(new
+            {
+                success = allSuccess,
+                durationMs = duration,
+                results
+            });
         }
 
         /// <summary>

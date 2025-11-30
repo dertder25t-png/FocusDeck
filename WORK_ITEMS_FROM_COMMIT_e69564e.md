@@ -515,10 +515,8 @@ Other docs:
 - **Issue**: Need to test key resolution when no keys are configured
 
 ### 4.2 Workflow Execution
-- **Risk**: StubMcpGateway is not a real implementation - will need replacement
-- **Issue**: No actual LLM integration yet
-- **Issue**: Error handling may not cover all edge cases
-- **Issue**: No rate limiting on workflow execution
+- **Risk**: Complex triggers in `AutomationEngine` might miss events if not persistent.
+- **Issue**: Error handling in `ActionExecutor` needs to be robust (e.g. timeout handling for external APIs).
 
 ### 4.3 Database
 - **Risk**: Migration might fail in production - plan rollback strategy
