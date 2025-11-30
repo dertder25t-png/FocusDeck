@@ -25,15 +25,60 @@ interface SystemInfo {
   };
 }
 
+const WALLPAPERS = [
+    '/assets/wallpapers/1.jpg',
+    '/assets/wallpapers/2.jpg',
+    '/assets/wallpapers/3.jpg',
+    '/assets/wallpapers/4.jpg',
+    '/assets/wallpapers/5.jpg'
+];
+
 export function SettingsPage() {
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null)
-  const [activeTab, setActiveTab] = useState<'profile' | 'tenant' | 'integrations' | 'privacy' | 'system'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'appearance' | 'tenant' | 'integrations' | 'privacy' | 'system'>('profile')
   const { settings: privacySettings, loading: privacyLoading, updateSetting } = usePrivacySettings()
   const { exportAllData, deleteAllData, isExporting, isDeleting } = usePrivacyActions()
   const [pendingPrivacy, setPendingPrivacy] = useState<string[]>([])
   const [geminiKey, setGeminiKey] = useState('')
   const [geminiKeySaved, setGeminiKeySaved] = useState(false)
   const [isSavingKey, setIsSavingKey] = useState(false)
+
+  // Theme Settings (Mocked for now or use context)
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [activeWallpaper, setActiveWallpaper] = useState(WALLPAPERS[0]);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
+  useEffect(() => {
+      // Load settings from local storage if available
+      const savedTheme = localStorage.getItem('focusdeck-theme') as 'light' | 'dark';
+      if (savedTheme) setTheme(savedTheme);
+
+      if (savedTheme === 'dark') {
+          document.documentElement.classList.add('dark');
+      } else {
+          document.documentElement.classList.remove('dark');
+      }
+
+      const savedWallpaper = localStorage.getItem('focusdeck-wallpaper');
+      if (savedWallpaper) setActiveWallpaper(savedWallpaper);
+  }, []);
+
+  const handleThemeChange = (newTheme: 'light' | 'dark') => {
+      setTheme(newTheme);
+      localStorage.setItem('focusdeck-theme', newTheme);
+      if (newTheme === 'dark') {
+          document.documentElement.classList.add('dark');
+      } else {
+          document.documentElement.classList.remove('dark');
+      }
+  };
+
+  const handleWallpaperChange = (url: string) => {
+      setActiveWallpaper(url);
+      localStorage.setItem('focusdeck-wallpaper', url);
+      window.dispatchEvent(new Event('focusdeck-wallpaper-changed'));
+  };
 
   useEffect(() => {
     if (activeTab === 'integrations') {
@@ -95,6 +140,7 @@ export function SettingsPage() {
 
   const tabs = [
     { id: 'profile' as const, label: 'Profile' },
+    { id: 'appearance' as const, label: 'Appearance' },
     { id: 'tenant' as const, label: 'Tenant' },
     { id: 'integrations' as const, label: 'Integrations' },
     { id: 'privacy' as const, label: 'Privacy & Consent' },
@@ -111,13 +157,13 @@ export function SettingsPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-800">
+      <div className="border-b border-gray-800 overflow-x-auto">
         <div className="flex space-x-8">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'border-primary text-primary'
                   : 'border-transparent text-gray-400 hover:text-gray-300'
@@ -152,30 +198,86 @@ export function SettingsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Preferences</CardTitle>
-              <CardDescription>Customize your experience</CardDescription>
+              <CardTitle>Notifications</CardTitle>
+              <CardDescription>Customize how you receive alerts</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                 <div>
-                  <div className="font-medium">Theme</div>
-                  <div className="text-sm text-gray-400">Dark mode (default)</div>
+                  <div className="font-medium">Banner Alerts</div>
+                  <div className="text-sm text-gray-400">Show popup notifications</div>
                 </div>
-                <Button variant="secondary" size="sm">
-                  Change
-                </Button>
+                 <button
+                    onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+                    className={`w-12 h-6 rounded-full p-1 transition-colors ${notificationsEnabled ? 'bg-blue-600' : 'bg-gray-600'}`}
+                 >
+                     <div className={`w-4 h-4 bg-white rounded-full transition-transform ${notificationsEnabled ? 'translate-x-6' : ''}`}></div>
+                 </button>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                 <div>
-                  <div className="font-medium">Notifications</div>
-                  <div className="text-sm text-gray-400">Receive real-time updates</div>
+                  <div className="font-medium">Sound Effects</div>
+                  <div className="text-sm text-gray-400">Play sounds for notifications</div>
                 </div>
-                <Button variant="secondary" size="sm">
-                  Configure
-                </Button>
+                 <button
+                    onClick={() => setSoundEnabled(!soundEnabled)}
+                    className={`w-12 h-6 rounded-full p-1 transition-colors ${soundEnabled ? 'bg-blue-600' : 'bg-gray-600'}`}
+                 >
+                     <div className={`w-4 h-4 bg-white rounded-full transition-transform ${soundEnabled ? 'translate-x-6' : ''}`}></div>
+                 </button>
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* Appearance Tab */}
+      {activeTab === 'appearance' && (
+        <div className="space-y-6">
+             <Card>
+                <CardHeader>
+                  <CardTitle>Theme</CardTitle>
+                  <CardDescription>Select your interface theme</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div
+                            onClick={() => handleThemeChange('light')}
+                            className={`p-4 border-2 rounded-xl cursor-pointer hover:border-blue-400 transition-all ${theme === 'light' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-transparent bg-gray-100 dark:bg-gray-800'}`}
+                        >
+                            <div className="h-24 bg-white rounded-lg shadow-sm mb-2 border border-gray-200"></div>
+                            <div className="text-center font-bold">Light</div>
+                        </div>
+                         <div
+                            onClick={() => handleThemeChange('dark')}
+                            className={`p-4 border-2 rounded-xl cursor-pointer hover:border-blue-400 transition-all ${theme === 'dark' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-transparent bg-gray-100 dark:bg-gray-800'}`}
+                        >
+                            <div className="h-24 bg-gray-900 rounded-lg shadow-sm mb-2 border border-gray-700"></div>
+                            <div className="text-center font-bold">Dark</div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                  <CardTitle>Wallpaper</CardTitle>
+                  <CardDescription>Choose your desktop background</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                         {WALLPAPERS.map((wp, i) => (
+                             <div
+                                key={i}
+                                onClick={() => handleWallpaperChange(wp)}
+                                className={`aspect-video rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${activeWallpaper === wp ? 'border-blue-500 scale-105' : 'border-transparent hover:border-gray-400'}`}
+                             >
+                                 <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(https://picsum.photos/seed/${i + 10}/300/200)` }}></div>
+                             </div>
+                         ))}
+                    </div>
+                </CardContent>
+            </Card>
         </div>
       )}
 
