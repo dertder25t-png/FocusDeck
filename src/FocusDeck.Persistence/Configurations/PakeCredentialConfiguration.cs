@@ -17,5 +17,8 @@ public class PakeCredentialConfiguration : IEntityTypeConfiguration<PakeCredenti
         builder.Property(x => x.ModulusHex).IsRequired();
         builder.Property(x => x.Generator).IsRequired();
         builder.Property(x => x.KdfParametersJson);
+
+        // Ensure unique constraint on UserId (Primary Key is inherently unique, but explicit index requested)
+        builder.HasIndex(x => x.UserId).IsUnique();
     }
 }

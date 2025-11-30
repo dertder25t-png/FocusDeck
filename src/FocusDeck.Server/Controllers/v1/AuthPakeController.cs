@@ -180,6 +180,12 @@ public class AuthPakeController : ControllerBase
             {
                 await _db.SaveChangesAsync();
             }
+            catch (DbUpdateException dbEx)
+            {
+                _logger.LogWarning(dbEx, "Race condition detected in PAKE registration for user {UserId}", request.UserId);
+                // Assume unique constraint violation on UserId
+                return Conflict(new { error = "User already registered" });
+            }
             catch (Exception dbEx)
             {
                 _logger.LogError(dbEx, "Database SaveChangesAsync failed for user {UserId}. InnerException: {InnerMessage}", request.UserId, dbEx.InnerException?.Message);

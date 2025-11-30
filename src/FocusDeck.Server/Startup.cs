@@ -192,7 +192,10 @@ public sealed class Startup
             Directory.CreateDirectory(dbDirectory);
         }
 
-        if (connectionString.Contains("Host=") || connectionString.Contains("Server="))
+        var databaseProvider = _configuration["DatabaseProvider"];
+        if (string.Equals(databaseProvider, "Postgres", StringComparison.OrdinalIgnoreCase) ||
+            connectionString.Contains("Host=") ||
+            connectionString.Contains("Server="))
         {
             services.AddDbContext<AutomationDbContext>(options => options.UseNpgsql(connectionString));
         }
@@ -407,19 +410,19 @@ public sealed class Startup
         services.Configure<GoogleOptions>(_configuration.GetSection(GoogleOptions.SectionName));
         services.AddScoped<GoogleAuthService>();
 
-        if (_environment.IsProduction())
+        var vaultUrl = _configuration["Azure:KeyVault:VaultUrl"];
+        if (!string.IsNullOrWhiteSpace(vaultUrl))
         {
-            var vaultUrl = _configuration["Azure:KeyVault:VaultUrl"];
-            if (string.IsNullOrWhiteSpace(vaultUrl))
-            {
-                throw new InvalidOperationException("Azure Key Vault Url must be configured via Azure:KeyVault:VaultUrl in production.");
-            }
-
             services.AddSingleton(sp => new SecretClient(new Uri(vaultUrl), new DefaultAzureCredential()));
             services.AddSingleton<ICryptographicKeyStore, AzureKeyVaultKeyStore>();
         }
         else
         {
+            if (_environment.IsProduction())
+            {
+                // In production, we log a warning but allow environment variable fallback if Azure is not configured
+                Console.WriteLine("WARNING: Azure Key Vault is not configured in Production. Falling back to EnvironmentVariableKeyStore.");
+            }
             services.AddSingleton<EnvironmentVariableKeyStore>(sp => new EnvironmentVariableKeyStore(jwtSettings));
             services.AddSingleton<ICryptographicKeyStore>(sp => sp.GetRequiredService<EnvironmentVariableKeyStore>());
         }

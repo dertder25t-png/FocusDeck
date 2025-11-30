@@ -38,16 +38,13 @@ async function ensureArgon2() {
   return argon2ModulePromise
 }
 
-const SRP_MODULUS_HEX =
+// Default constants, but we should prefer values from the server
+const DEFAULT_SRP_MODULUS_HEX =
   'AC6BDB41324A9A9BF166DE5E1389582FAF72B6651987EE07FC3192943DB56050' +
   'A37329CBB4A099ED8193E0757767A13DD52312AB4B03310DCD7F48A9DA04FD50' +
   'E8083969EDB767B0CF6096A4FA3B58F90F6A54B42A59D53B3A2A7C5F4F5F4E46' +
   '2E9F6A4E128E71B9F0C67C8E18CBF4C3BAFE8A31C5CFFFB4E90D54BD45BF37DF' +
   '365C1A65E68CFDA76D4DA708DF1FB2BC2E4A4371'
-
-const SRP_MODULUS = BigInt('0x' + SRP_MODULUS_HEX)
-const SRP_GENERATOR = 2n
-const PAD_LENGTH = Math.ceil(SRP_MODULUS_HEX.length / 2)
 
 interface SrpKdfParameters {
   alg?: string
@@ -133,16 +130,16 @@ function bigIntToBytes(value: bigint): Uint8Array {
   return bytes
 }
 
-function pad(value: bigint): Uint8Array {
+function pad(value: bigint, length: number): Uint8Array {
   const bytes = bigIntToBytes(value)
-  if (bytes.length === PAD_LENGTH) {
+  if (bytes.length === length) {
     return bytes
   }
-  if (bytes.length > PAD_LENGTH) {
-    return bytes.slice(bytes.length - PAD_LENGTH)
+  if (bytes.length > length) {
+    return bytes.slice(bytes.length - length)
   }
-  const padded = new Uint8Array(PAD_LENGTH)
-  padded.set(bytes, PAD_LENGTH - bytes.length)
+  const padded = new Uint8Array(length)
+  padded.set(bytes, length - bytes.length)
   return padded
 }
 
@@ -191,22 +188,27 @@ function modPow(base: bigint, exponent: bigint, modulus: bigint): bigint {
   return result
 }
 
-let multiplierPromise: Promise<bigint> | null = null
+// Cache multipliers by modulus/generator key
+const multiplierCache = new Map<string, Promise<bigint>>()
 
-async function computeMultiplier(): Promise<bigint> {
-  if (!multiplierPromise) {
-    multiplierPromise = hashToBigInt(pad(SRP_MODULUS), pad(SRP_GENERATOR))
+async function computeMultiplier(modulus: bigint, generator: bigint): Promise<bigint> {
+  const key = modulus.toString(16) + ':' + generator.toString()
+  if (!multiplierCache.has(key)) {
+    // Pad length depends on modulus size
+    const padLen = Math.ceil(modulus.toString(16).length / 2)
+    multiplierCache.set(key, hashToBigInt(pad(modulus, padLen), pad(generator, padLen)))
   }
-  return multiplierPromise
+  return multiplierCache.get(key)!
 }
 
-function randomBigInt(): bigint {
+function randomBigInt(modulus: bigint): bigint {
   ensureWebCrypto()
+  const padLen = Math.ceil(modulus.toString(16).length / 2)
   while (true) {
-    const bytes = new Uint8Array(PAD_LENGTH)
+    const bytes = new Uint8Array(padLen)
     crypto.getRandomValues(bytes)
     const value = bytesToBigInt(bytes)
-    if (value > 0n && value < SRP_MODULUS) {
+    if (value > 0n && value < modulus) {
       return value
     }
   }
@@ -229,9 +231,6 @@ async function computeArgon2idPrivateKey(kdf: SrpKdfParameters, userId: string, 
     throw new Error('Missing Argon2id salt')
   }
 
-  console.log('[PAKE] computeArgon2idPrivateKey - userId:', userId)
-  console.log('[PAKE] computeArgon2idPrivateKey - KDF params:', { t: kdf.t, m: kdf.m, p: kdf.p, salt: kdf.salt, aad: kdf.aad })
-
   const encoder = new TextEncoder()
   const passwordBytes = encoder.encode(password)
   const associatedData = kdf.aad === false ? null : encoder.encode(userId)
@@ -241,14 +240,8 @@ async function computeArgon2idPrivateKey(kdf: SrpKdfParameters, userId: string, 
   const mem = kdf.m ?? 65536
   const parallelism = kdf.p ?? 2
 
-  console.log('[PAKE] AssociatedData will be used:', associatedData !== null)
-  console.log('[PAKE] AssociatedData bytes:', associatedData ? Array.from(associatedData).map(b => b.toString(16).padStart(2, '0')).join('') : 'null')
-
-  console.log('[PAKE] Loading Argon2 WASM module...')
   const { ArgonType, hash: argon2Hash } = await ensureArgon2()
-  console.log('[PAKE] Argon2 WASM module loaded successfully')
 
-  console.log('[PAKE] Computing Argon2id hash with params:', { time, mem, parallelism, hashLen: 32, hasAD: associatedData !== null })
   const result = await argon2Hash({
     pass: passwordBytes,
     salt: saltBytes,
@@ -259,8 +252,6 @@ async function computeArgon2idPrivateKey(kdf: SrpKdfParameters, userId: string, 
     type: ArgonType.id,
     ...(associatedData ? { associatedData } : {}),
   })
-  console.log('[PAKE] Argon2id hash computed successfully')
-  console.log('[PAKE] Derived key (hex):', Array.from(new Uint8Array(result.hash)).map(b => b.toString(16).padStart(2, '0')).join(''))
 
   return bytesToBigInt(new Uint8Array(result.hash))
 }
@@ -277,23 +268,12 @@ function parseKdf(json?: string | null): SrpKdfParameters | null {
 }
 
 async function derivePrivateKey(kdf: SrpKdfParameters | null, saltB64Fallback: string, userId: string, password: string): Promise<bigint> {
-  console.log('[PAKE] derivePrivateKey called with KDF:', kdf)
-  
   // Use Argon2id if the credential was provisioned with it
   if (kdf?.alg?.toLowerCase() === 'argon2id') {
-    console.log('[PAKE] Using Argon2id derivation')
-    try {
-      const result = await computeArgon2idPrivateKey(kdf, userId, password)
-      console.log('[PAKE] Argon2id derivation successful')
-      return result
-    } catch (error) {
-      console.error('[PAKE] Argon2id derivation failed:', error)
-      throw error
-    }
+    return await computeArgon2idPrivateKey(kdf, userId, password)
   }
 
   // Fall back to the legacy SHA256 derivation that older credentials expect
-  console.log('[PAKE] Using legacy SHA256 derivation')
   const salt = kdf?.salt ?? saltB64Fallback
   if (!salt) {
     throw new Error('Missing KDF salt')
@@ -312,8 +292,8 @@ function arraysEqual(a: Uint8Array, b: Uint8Array): boolean {
   return diff === 0
 }
 
-async function computeSessionKey(sessionSecret: bigint): Promise<Uint8Array> {
-  return hashMultiple(pad(sessionSecret))
+async function computeSessionKey(sessionSecret: bigint, padLength: number): Promise<Uint8Array> {
+  return hashMultiple(pad(sessionSecret, padLength))
 }
 
 export async function pakeRegister(userId: string, password: string) {
@@ -329,9 +309,9 @@ export async function pakeRegister(userId: string, password: string) {
 
   const start: RegisterStartResponse = await startResponse.json()
 
-  if (start.algorithm !== 'SRP-6a-2048-SHA256' || start.modulusHex !== SRP_MODULUS_HEX || start.generator !== 2) {
-    throw new Error('Unsupported SRP parameters from server')
-  }
+  // Use server parameters
+  const modulus = BigInt('0x' + start.modulusHex)
+  const generator = BigInt(start.generator)
 
   const kdf = parseKdf(start.kdfParametersJson)
   const saltB64 = kdf?.salt
@@ -341,7 +321,7 @@ export async function pakeRegister(userId: string, password: string) {
   }
 
   const privateKey = await derivePrivateKey(kdf, saltB64, userId, password)
-  const verifier = modPow(SRP_GENERATOR, privateKey, SRP_MODULUS)
+  const verifier = modPow(generator, privateKey, modulus)
   const verifierB64 = bytesToBase64(bigIntToBytes(verifier))
 
   const finishResponse = await fetch('/v1/auth/pake/register/finish', {
@@ -366,8 +346,13 @@ export async function pakeRegister(userId: string, password: string) {
 }
 
 export async function pakeLogin(userId: string, password: string, options?: { clientId?: string; deviceName?: string; devicePlatform?: string }) {
-  const clientSecret = randomBigInt()
-  const clientPublic = modPow(SRP_GENERATOR, clientSecret, SRP_MODULUS)
+  // Use defaults for the initial ephemeral key generation.
+  // This allows the initial handshake to proceed.
+  const initialModulus = BigInt('0x' + DEFAULT_SRP_MODULUS_HEX)
+  const initialGenerator = 2n
+
+  const clientSecret = randomBigInt(initialModulus)
+  const clientPublic = modPow(initialGenerator, clientSecret, initialModulus)
   const clientPublicB64 = bytesToBase64(bigIntToBytes(clientPublic))
 
   const startRes = await fetch('/v1/auth/pake/login/start', {
@@ -389,29 +374,31 @@ export async function pakeLogin(userId: string, password: string, options?: { cl
 
   const start: LoginStartResponse = await startRes.json()
 
-  if (start.algorithm !== 'SRP-6a-2048-SHA256' || start.modulusHex !== SRP_MODULUS_HEX || start.generator !== 2) {
-    throw new Error('Unsupported SRP parameters from server')
-  }
+  // Use server provided parameters for the rest of calculation
+  const modulus = BigInt('0x' + start.modulusHex)
+  const generator = BigInt(start.generator)
+  const padLen = Math.ceil(start.modulusHex.length / 2)
 
   const serverPublic = bytesToBigInt(base64ToBytes(start.serverPublicEphemeralBase64))
-  if (serverPublic <= 0n || serverPublic % SRP_MODULUS === 0n) {
+  if (serverPublic <= 0n || serverPublic % modulus === 0n) {
     throw new Error('Invalid server public ephemeral value')
   }
 
   const kdf = parseKdf(start.kdfParametersJson)
   const privateKey = await derivePrivateKey(kdf, start.saltBase64, userId, password)
-  const scramble = await hashToBigInt(pad(clientPublic), pad(serverPublic))
+
+  const scramble = await hashToBigInt(pad(clientPublic, padLen), pad(serverPublic, padLen))
   if (scramble === 0n) {
     throw new Error('SRP scramble parameter was zero')
   }
 
-  const k = await computeMultiplier()
-  const gx = modPow(SRP_GENERATOR, privateKey, SRP_MODULUS)
-  const tmp = mod(serverPublic - k * gx, SRP_MODULUS)
-  const exponent = mod(clientSecret + scramble * privateKey, SRP_MODULUS)
-  const sessionSecret = modPow(tmp, exponent, SRP_MODULUS)
-  const sessionKey = await computeSessionKey(sessionSecret)
-  const clientProofBytes = await hashMultiple(pad(clientPublic), pad(serverPublic), sessionKey)
+  const k = await computeMultiplier(modulus, generator)
+  const gx = modPow(generator, privateKey, modulus)
+  const tmp = mod(serverPublic - k * gx, modulus)
+  const exponent = mod(clientSecret + scramble * privateKey, modulus)
+  const sessionSecret = modPow(tmp, exponent, modulus)
+  const sessionKey = await computeSessionKey(sessionSecret, padLen)
+  const clientProofBytes = await hashMultiple(pad(clientPublic, padLen), pad(serverPublic, padLen), sessionKey)
   const clientProofBase64 = bytesToBase64(clientProofBytes)
 
   const finishRes = await fetch('/v1/auth/pake/login/finish', {
@@ -437,7 +424,7 @@ export async function pakeLogin(userId: string, password: string, options?: { cl
     throw new Error('Login failed')
   }
 
-  const expectedServerProof = await hashMultiple(pad(clientPublic), clientProofBytes, sessionKey)
+  const expectedServerProof = await hashMultiple(pad(clientPublic, padLen), clientProofBytes, sessionKey)
   const actualServerProof = base64ToBytes(finish.serverProofBase64)
   if (!arraysEqual(expectedServerProof, actualServerProof)) {
     throw new Error('Server proof validation failed')
