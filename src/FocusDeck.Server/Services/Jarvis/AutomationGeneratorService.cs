@@ -59,7 +59,9 @@ namespace FocusDeck.Server.Services.Jarvis
             }
 
             // 4. Parse and Save Proposal
-            await SaveProposalAsync(cluster.First().UserId.ToString(), yamlResponse);
+            var userId = cluster.First().UserId.ToString();
+            var tenantId = await GetTenantIdForUserAsync(userId);
+            await SaveProposalAsync(userId, yamlResponse, tenantId);
         }
 
         public async Task<AutomationProposal> GenerateProposalFromIntentAsync(string intent, string userId)
@@ -88,7 +90,22 @@ namespace FocusDeck.Server.Services.Jarvis
             }
 
             // 4. Parse and Save Proposal
-            return await SaveProposalAsync(userId, yamlResponse);
+            // For intent-based generation, we might not have the TenantId handy in the method signature.
+            // Ideally we should look it up or require it. For now, we'll try to look up the user's tenant.
+            var tenantId = await GetTenantIdForUserAsync(userId);
+            return await SaveProposalAsync(userId, yamlResponse, tenantId);
+        }
+
+        private async Task<Guid> GetTenantIdForUserAsync(string userId)
+        {
+            // Simple lookup for the user's primary tenant.
+            // In a real multi-tenant scenario, this might need more context (e.g. current active tenant).
+            // Assuming 1:1 for simplicity or picking the first one.
+            var membership = await _dbContext.UserTenants
+                .AsNoTracking()
+                .FirstOrDefaultAsync(ut => ut.UserId == userId);
+
+            return membership?.TenantId ?? Guid.Empty;
         }
 
         private async Task<string?> GetApiKeyAsync()
@@ -185,7 +202,7 @@ namespace FocusDeck.Server.Services.Jarvis
             }
         }
 
-        private async Task<AutomationProposal> SaveProposalAsync(string userId, string yaml)
+        private async Task<AutomationProposal> SaveProposalAsync(string userId, string yaml, Guid tenantId)
         {
             // Parse title/desc from yaml simply for now
             var title = "New Automation Proposal";
@@ -208,7 +225,7 @@ namespace FocusDeck.Server.Services.Jarvis
                 Status = ProposalStatus.Pending,
                 ConfidenceScore = 0.85f, // Placeholder/Mock score
                 CreatedAt = DateTime.UtcNow,
-                TenantId = Guid.Empty, // Should infer from context/user
+                TenantId = tenantId,
                 UserId = userId
             };
 
