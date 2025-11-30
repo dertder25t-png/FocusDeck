@@ -103,6 +103,8 @@ namespace FocusDeck.Server.Services.Jarvis
         {
             var sb = new StringBuilder();
             sb.AppendLine("Analyze the following user behavior patterns and generate a useful automation.");
+            sb.AppendLine("STRATEGY: Identify the 'initiating event' (Trigger) and the 'subsequent response' (Action).");
+            sb.AppendLine("Example: If 'VS Code' and 'Spotify' appear together, the Trigger is 'App Open: VS Code' and Action is 'Spotify: Play'.");
             sb.AppendLine("CRITICAL RULES:");
             sb.AppendLine("1. DO NOT create automations that simply repeat the user's action (e.g. If User opens Chrome -> Open Chrome).");
             sb.AppendLine("2. Look for complementary actions (e.g. If User opens IDE -> Turn on DND, Start Focus Timer, Play Music).");

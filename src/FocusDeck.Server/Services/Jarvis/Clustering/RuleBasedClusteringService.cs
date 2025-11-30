@@ -112,45 +112,19 @@ namespace FocusDeck.Server.Services.Jarvis.Clustering
             }
 
             // Check Mobile
-            // Note: Assuming 'MobileAppUsage' corresponds to a valid enum value or string representation.
-            // The user requested checking for ContextSourceType.MobileAppUsage.
-            // I need to verify if 'MobileAppUsage' exists in ContextSourceType enum.
-            // Checking the file read previously, 'MobileAppUsage' was NOT in the enum list!
-            // The user said: "Ensure this enum exists or matches mobile data".
-            // The file content for ContextSourceType.cs showed: DesktopActiveWindow, GoogleCalendar, CanvasAssignments, Spotify, DeviceActivity, SuggestiveContext, SystemStateChange.
-            // It does NOT have MobileAppUsage.
-            // However, 'DeviceActivity' might be it, or I should treat 'DeviceActivity' as the source.
-            // Or I should add MobileAppUsage to the enum?
-            // The prompt "Enable Cross-Platform Detection" says: "sl.SourceType == ContextSourceType.MobileAppUsage)) // Ensure this enum exists or matches mobile data".
-            // Since I cannot modify the enum definition easily without migration implications (EF Core stores enums as int or string), I should probably check if 'DeviceActivity' covers it or if I should assume the user wants me to add it.
-            // Wait, I can update the enum file if I want, but I need to be careful about DB.
-            // Actually, looking at the code, it uses `DeviceActivity`.
-            // Let's assume `DeviceActivity` is the one, OR I should add `MobileAppUsage` if I'm sure.
-            // But looking at `DeviceActivitySource` it might be generic.
-            // I'll check `ContextSourceType.cs` again.
-            // It has `DeviceActivity`.
-            // The user example code uses `MobileAppUsage`.
-            // I will use `DeviceActivity` as a fallback if `MobileAppUsage` is missing, OR I will add `MobileAppUsage` to the enum if that's the intention.
-            // Given the instruction "Ensure this enum exists", I should probably add it if it's missing.
-            // BUT, modifying the enum might break existing data if stored as int and I shift values? No, I'll append.
-            // Let's first try to use `DeviceActivity` which sounds like mobile.
-            // Or maybe the user *wants* me to add `MobileAppUsage`.
-            // I'll stick to `DeviceActivity` for now to be safe, but the user explicitly wrote `ContextSourceType.MobileAppUsage` in the fix.
-            // I will assume I need to ADD it to `ContextSourceType.cs` as well.
+            // Using explicit Enum member now that it is defined
+            var mobileSlice = snapshot.Slices.FirstOrDefault(s =>
+                s.SourceType == ContextSourceType.DeviceActivity ||
+                s.SourceType == ContextSourceType.MobileAppUsage);
 
-            // Wait, I am editing RuleBasedClusteringService.cs here.
-            // I will add the logic for MobileAppUsage (assuming I will add it to the Enum in the next step or same step).
-            // Actually, I should probably check `DeviceActivity` usage.
-
-            // Let's use `DeviceActivity` for now as the "Mobile" source effectively,
-            // OR check if `DeviceActivity` slice data contains "App".
-
-            var mobileSlice = snapshot.Slices.FirstOrDefault(s => s.SourceType.ToString() == "MobileAppUsage" || s.SourceType == ContextSourceType.DeviceActivity);
             if (mobileSlice?.Data != null)
             {
                  try
                  {
-                     return mobileSlice.Data["App"]?.ToString();
+                     // Robust property checking for mobile data structures
+                     return mobileSlice.Data["App"]?.ToString() ??
+                            mobileSlice.Data["AppName"]?.ToString() ??
+                            mobileSlice.Data["Application"]?.ToString();
                  }
                  catch { }
             }
