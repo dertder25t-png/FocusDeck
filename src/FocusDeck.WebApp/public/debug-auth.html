@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auth Debug - FocusDeck</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #0f0; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #0f0; border-radius: 5px; }
+        .label { color: #0ff; font-weight: bold; }
+        .value { margin-left: 10px; }
+        .error { color: #f00; }
+        .success { color: #0f0; }
+        .warning { color: #ff0; }
+        button { background: #0f0; color: #000; padding: 10px 20px; border: none; cursor: pointer; margin: 5px; }
+        button:hover { background: #0ff; }
+        pre { background: #000; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔐 FocusDeck Authentication Debugger</h1>
+    
+    <div class="section">
+        <h2>Current Time Info</h2>
+        <div><span class="label">Client Time:</span> <span id="clientTime" class="value"></span></div>
+        <div><span class="label">Client Timezone:</span> <span id="clientTz" class="value"></span></div>
+        <div><span class="label">Server Time:</span> <span id="serverTime" class="value"></span></div>
+        <div><span class="label">Clock Difference:</span> <span id="clockDiff" class="value"></span></div>
+    </div>
+
+    <div class="section">
+        <h2>Token Status</h2>
+        <div><span class="label">Token Exists:</span> <span id="tokenExists" class="value"></span></div>
+        <div><span class="label">Token Length:</span> <span id="tokenLength" class="value"></span></div>
+        <div><span class="label">Token Valid:</span> <span id="tokenValid" class="value"></span></div>
+    </div>
+
+    <div class="section">
+        <h2>Token Details (if exists)</h2>
+        <pre id="tokenDetails"></pre>
+    </div>
+
+    <div class="section">
+        <h2>Actions</h2>
+        <button onclick="checkAuth()">Refresh Check</button>
+        <button onclick="clearTokens()">Clear All Tokens</button>
+        <button onclick="window.location.href='/login'">Go to Login</button>
+        <button onclick="window.location.href='/'">Go to Dashboard</button>
+    </div>
+
+    <div class="section">
+        <h2>Console Log</h2>
+        <pre id="consoleLog"></pre>
+    </div>
+
+    <script>
+        function log(msg, type = 'info') {
+            const consoleLog = document.getElementById('consoleLog');
+            const timestamp = new Date().toISOString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : '';
+            consoleLog.innerHTML += `<div class="${className}">[${timestamp}] ${msg}</div>`;
+            console.log(msg);
+        }
+
+        function parseJwt(token) {
+            try {
+                const parts = token.split('.');
+                if (parts.length !== 3) return null;
+                const payload = JSON.parse(atob(parts[1]));
+                return payload;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function checkServerTime() {
+            try {
+                const response = await fetch('/api/health');
+                const serverDate = response.headers.get('date');
+                if (serverDate) {
+                    document.getElementById('serverTime').textContent = new Date(serverDate).toLocaleString();
+                    const serverMs = new Date(serverDate).getTime();
+                    const clientMs = Date.now();
+                    const diffMs = Math.abs(serverMs - clientMs);
+                    const diffSec = Math.round(diffMs / 1000);
+                    document.getElementById('clockDiff').textContent = `${diffSec} seconds`;
+                    if (diffSec > 300) {
+                        document.getElementById('clockDiff').className = 'value error';
+                        log(`⚠️ CLOCK SKEW DETECTED: ${diffSec}s difference!`, 'error');
+                    } else if (diffSec > 60) {
+                        document.getElementById('clockDiff').className = 'value warning';
+                        log(`⚠️ Clock difference: ${diffSec}s`, 'warning');
+                    } else {
+                        document.getElementById('clockDiff').className = 'value success';
+                        log(`✓ Clock sync OK (${diffSec}s)`, 'success');
+                    }
+                }
+            } catch (e) {
+                document.getElementById('serverTime').textContent = 'Error: ' + e.message;
+                log('Error checking server time: ' + e.message, 'error');
+            }
+        }
+
+        function checkAuth() {
+            log('=== Starting Auth Check ===');
+            
+            // Update client time
+            const now = new Date();
+            document.getElementById('clientTime').textContent = now.toLocaleString();
+            document.getElementById('clientTz').textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            
+            // Check server time
+            checkServerTime();
+            
+            // Check token
+            const token = localStorage.getItem('focusdeck_access_token');
+            const refreshToken = localStorage.getItem('focusdeck_refresh_token');
+            const user = localStorage.getItem('focusdeck_user');
+            
+            document.getElementById('tokenExists').textContent = token ? '✓ Yes' : '✗ No';
+            document.getElementById('tokenExists').className = token ? 'value success' : 'value error';
+            
+            if (token) {
+                document.getElementById('tokenLength').textContent = token.length + ' chars';
+                
+                const payload = parseJwt(token);
+                if (payload) {
+                    const exp = payload.exp;
+                    const expDate = new Date(exp * 1000);
+                    const now = Date.now();
+                    const isExpired = now >= exp * 1000;
+                    const timeLeft = Math.floor((exp * 1000 - now) / 1000);
+                    
+                    document.getElementById('tokenValid').textContent = isExpired ? '✗ EXPIRED' : `✓ Valid (${Math.floor(timeLeft / 60)}m ${timeLeft % 60}s left)`;
+                    document.getElementById('tokenValid').className = isExpired ? 'value error' : 'value success';
+                    
+                    const details = {
+                        'User ID (sub)': payload.sub,
+                        'Tenant ID': payload.app_tenant_id,
+                        'Issuer (iss)': payload.iss,
+                        'Audience (aud)': payload.aud,
+                        'Issued At (iat)': payload.iat ? new Date(payload.iat * 1000).toLocaleString() : 'N/A',
+                        'Expires At (exp)': expDate.toLocaleString(),
+                        'Time Until Expiry': isExpired ? 'EXPIRED' : `${Math.floor(timeLeft / 60)}m ${timeLeft % 60}s`,
+                        'Stored User': user,
+                        'Has Refresh Token': refreshToken ? 'Yes' : 'No',
+                        'Full Payload': JSON.stringify(payload, null, 2)
+                    };
+                    
+                    let detailsHtml = '';
+                    for (const [key, value] of Object.entries(details)) {
+                        detailsHtml += `${key}: ${value}\n`;
+                    }
+                    document.getElementById('tokenDetails').textContent = detailsHtml;
+                    
+                    if (isExpired) {
+                        log('✗ Token is EXPIRED!', 'error');
+                    } else {
+                        log(`✓ Token is valid for ${Math.floor(timeLeft / 60)}m ${timeLeft % 60}s`, 'success');
+                    }
+                } else {
+                    document.getElementById('tokenValid').textContent = '✗ Invalid JWT format';
+                    document.getElementById('tokenValid').className = 'value error';
+                    document.getElementById('tokenDetails').textContent = 'Token appears to be malformed (not valid JWT)';
+                    log('✗ Token is malformed', 'error');
+                }
+            } else {
+                document.getElementById('tokenLength').textContent = 'N/A';
+                document.getElementById('tokenValid').textContent = 'N/A';
+                document.getElementById('tokenDetails').textContent = 'No token found in localStorage';
+                log('No token in localStorage', 'warning');
+            }
+        }
+
+        function clearTokens() {
+            localStorage.removeItem('focusdeck_access_token');
+            localStorage.removeItem('focusdeck_refresh_token');
+            localStorage.removeItem('focusdeck_user');
+            log('✓ All tokens cleared', 'success');
+            checkAuth();
+        }
+
+        // Auto-run on load
+        checkAuth();
+        
+        // Auto-refresh every 5 seconds
+        setInterval(checkAuth, 5000);
+    </script>
+</body>
+</html>
