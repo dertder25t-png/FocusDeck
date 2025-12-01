@@ -165,8 +165,12 @@ namespace FocusDeck.Server.Controllers
             var now = DateTime.UtcNow;
             var threshold = now.AddDays(days);
 
+            // We include tasks due in the last 24 hours (not yet "overdue" by the +1 day definition)
+            // to ensure tasks due "today" are visible here.
+            var startRange = now.AddDays(-1);
+
             var dueSoonTasks = await _context.TodoItems
-                .Where(t => !t.IsCompleted && t.DueDate.HasValue && t.DueDate.Value > now && t.DueDate.Value <= threshold)
+                .Where(t => !t.IsCompleted && t.DueDate.HasValue && t.DueDate.Value > startRange && t.DueDate.Value <= threshold)
                 .ToListAsync();
 
             return Ok(dueSoonTasks);
