@@ -59,7 +59,9 @@ namespace FocusDeck.Server.Services.Jarvis
             }
 
             // 4. Parse and Save Proposal
-            await SaveProposalAsync(cluster.First().UserId.ToString(), yamlResponse);
+            var userId = cluster.First().UserId.ToString();
+            var tenantId = await GetTenantIdForUserAsync(userId);
+            await SaveProposalAsync(userId, yamlResponse, tenantId);
         }
 
         public async Task<AutomationProposal> GenerateProposalFromIntentAsync(string intent, string userId)
@@ -88,7 +90,22 @@ namespace FocusDeck.Server.Services.Jarvis
             }
 
             // 4. Parse and Save Proposal
-            return await SaveProposalAsync(userId, yamlResponse);
+            // For intent-based generation, we might not have the TenantId handy in the method signature.
+            // Ideally we should look it up or require it. For now, we'll try to look up the user's tenant.
+            var tenantId = await GetTenantIdForUserAsync(userId);
+            return await SaveProposalAsync(userId, yamlResponse, tenantId);
+        }
+
+        private async Task<Guid> GetTenantIdForUserAsync(string userId)
+        {
+            // Simple lookup for the user's primary tenant.
+            // In a real multi-tenant scenario, this might need more context (e.g. current active tenant).
+            // Assuming 1:1 for simplicity or picking the first one.
+            var membership = await _dbContext.UserTenants
+                .AsNoTracking()
+                .FirstOrDefaultAsync(ut => ut.UserId == userId);
+
+            return membership?.TenantId ?? Guid.Empty;
         }
 
         private async Task<string?> GetApiKeyAsync()
@@ -102,10 +119,14 @@ namespace FocusDeck.Server.Services.Jarvis
         private string ConstructPrompt(List<ContextSnapshot> cluster)
         {
             var sb = new StringBuilder();
-            sb.AppendLine("Here is a cluster of recurring user behaviors (context snapshots). Detect the pattern and write a FocusDeck YAML automation for it.");
-            sb.AppendLine("Format: YAML only. No markdown code blocks.");
-            sb.AppendLine("Structure: Title, Description, Trigger (App Open, Time, etc), Actions.");
-            sb.AppendLine("Examples of habits: Open VS Code -> Play Lo-Fi Music. Open Slack -> Set Status to 'Busy'.");
+            sb.AppendLine("Analyze the following user behavior patterns and generate a useful automation.");
+            sb.AppendLine("STRATEGY: Identify the 'initiating event' (Trigger) and the 'subsequent response' (Action).");
+            sb.AppendLine("Example: If 'VS Code' and 'Spotify' appear together, the Trigger is 'App Open: VS Code' and Action is 'Spotify: Play'.");
+            sb.AppendLine("CRITICAL RULES:");
+            sb.AppendLine("1. DO NOT create automations that simply repeat the user's action (e.g. If User opens Chrome -> Open Chrome).");
+            sb.AppendLine("2. Look for complementary actions (e.g. If User opens IDE -> Turn on DND, Start Focus Timer, Play Music).");
+            sb.AppendLine("3. If the pattern implies a 'work mode', suggest actions like blocking distractions or setting status.");
+            sb.AppendLine("4. Format: YAML only. No markdown code blocks.");
             sb.AppendLine();
             sb.AppendLine("User Context Data:");
 
@@ -181,7 +202,7 @@ namespace FocusDeck.Server.Services.Jarvis
             }
         }
 
-        private async Task<AutomationProposal> SaveProposalAsync(string userId, string yaml)
+        private async Task<AutomationProposal> SaveProposalAsync(string userId, string yaml, Guid tenantId)
         {
             // Parse title/desc from yaml simply for now
             var title = "New Automation Proposal";
@@ -204,7 +225,7 @@ namespace FocusDeck.Server.Services.Jarvis
                 Status = ProposalStatus.Pending,
                 ConfidenceScore = 0.85f, // Placeholder/Mock score
                 CreatedAt = DateTime.UtcNow,
-                TenantId = Guid.Empty, // Should infer from context/user
+                TenantId = tenantId,
                 UserId = userId
             };
 

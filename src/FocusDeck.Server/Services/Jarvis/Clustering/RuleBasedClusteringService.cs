@@ -33,8 +33,6 @@ namespace FocusDeck.Server.Services.Jarvis.Clustering
             var startDto = new DateTimeOffset(startTime);
             var endDto = new DateTimeOffset(endTime);
 
-            // Assuming userId is stored as Guid in DB for Snapshot.UserId based on previous file reads
-            // But checking ContextSnapshot.cs, UserId is Guid.
             if (!Guid.TryParse(userId, out var userGuid))
             {
                 _logger.LogWarning("Invalid user ID for clustering: {UserId}", userId);
@@ -51,27 +49,48 @@ namespace FocusDeck.Server.Services.Jarvis.Clustering
 
             var clusters = new List<List<ContextSnapshot>>();
 
-            // Simple Heuristic: Group by App Open events
-            var appOpenSnapshots = snapshots
-                .Where(s => s.Slices.Any(sl => sl.SourceType == ContextSourceType.DesktopActiveWindow))
-                .ToList();
+            // Look for sessions: Activity gaps > 5 minutes imply a new "session"
+            var sessions = new List<List<ContextSnapshot>>();
+            var currentSession = new List<ContextSnapshot>();
 
-            // Group by App Name (from slice data)
-            var groupedByApp = appOpenSnapshots
-                .GroupBy(s => GetAppName(s))
-                .Where(g => !string.IsNullOrEmpty(g.Key) && g.Count() >= 3) // Need at least 3 occurrences to form a pattern
-                .ToList();
-
-            foreach (var group in groupedByApp)
+            foreach (var snap in snapshots)
             {
-                // Further refine: Check if they happen around the same time of day (+/- 1 hour)
-                var timeGroups = group.GroupBy(s => s.Timestamp.Hour)
-                    .Where(tg => tg.Count() >= 3);
-
-                foreach (var timeGroup in timeGroups)
+                if (currentSession.Count > 0 && (snap.Timestamp - currentSession.Last().Timestamp).TotalMinutes > 5)
                 {
-                     clusters.Add(timeGroup.ToList());
+                    sessions.Add(currentSession);
+                    currentSession = new List<ContextSnapshot>();
                 }
+                currentSession.Add(snap);
+            }
+            if (currentSession.Count > 0) sessions.Add(currentSession);
+
+            // Analyze sessions for recurring sequences (Simplified Association Rule Learning)
+            // Example: If A and B appear in the same session > 3 times
+            var sequenceCounts = new Dictionary<string, int>();
+            var sequenceExamples = new Dictionary<string, List<ContextSnapshot>>();
+
+            foreach (var session in sessions)
+            {
+                var appNames = session
+                    .Select(s => GetAppName(s))
+                    .Where(n => !string.IsNullOrEmpty(n))
+                    .Distinct()
+                    .OrderBy(n => n)
+                    .ToList();
+
+                if (appNames.Count >= 2)
+                {
+                    var key = string.Join(" + ", appNames); // e.g. "Spotify + VS Code"
+                    if (!sequenceCounts.ContainsKey(key)) { sequenceCounts[key] = 0; sequenceExamples[key] = new List<ContextSnapshot>(); }
+                    sequenceCounts[key]++;
+                    sequenceExamples[key].AddRange(session.Take(5)); // Store samples for the prompt
+                }
+            }
+
+            // Return clusters that happen frequently (e.g., > 3 times)
+            foreach (var seq in sequenceCounts.Where(k => k.Value >= 3))
+            {
+                clusters.Add(sequenceExamples[seq.Key]);
             }
 
             return clusters;
@@ -79,21 +98,38 @@ namespace FocusDeck.Server.Services.Jarvis.Clustering
 
         private string? GetAppName(ContextSnapshot snapshot)
         {
-            var slice = snapshot.Slices.FirstOrDefault(s => s.SourceType == ContextSourceType.DesktopActiveWindow);
-            if (slice?.Data == null) return null;
+            // Check Desktop
+            var desktopSlice = snapshot.Slices.FirstOrDefault(s => s.SourceType == ContextSourceType.DesktopActiveWindow);
+            if (desktopSlice?.Data != null)
+            {
+                try
+                {
+                    return desktopSlice.Data["App"]?.ToString() ??
+                           desktopSlice.Data["ActiveApplication"]?.ToString() ??
+                           desktopSlice.Data["Application"]?.ToString();
+                }
+                catch { }
+            }
 
-            try
+            // Check Mobile
+            // Using explicit Enum member now that it is defined
+            var mobileSlice = snapshot.Slices.FirstOrDefault(s =>
+                s.SourceType == ContextSourceType.DeviceActivity ||
+                s.SourceType == ContextSourceType.MobileAppUsage);
+
+            if (mobileSlice?.Data != null)
             {
-                 // Try parsing JSON or accessing Dictionary if mapped?
-                 // ContextSlice.Data is JsonObject (System.Text.Json.Nodes)
-                 return slice.Data["App"]?.ToString() ??
-                        slice.Data["ActiveApplication"]?.ToString() ??
-                        slice.Data["Application"]?.ToString();
+                 try
+                 {
+                     // Robust property checking for mobile data structures
+                     return mobileSlice.Data["App"]?.ToString() ??
+                            mobileSlice.Data["AppName"]?.ToString() ??
+                            mobileSlice.Data["Application"]?.ToString();
+                 }
+                 catch { }
             }
-            catch
-            {
-                return null;
-            }
+
+            return null;
         }
     }
 }

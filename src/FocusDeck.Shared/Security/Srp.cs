@@ -59,7 +59,9 @@ public static class Srp
 
     private static readonly BigInteger NValue = ParsePositiveHex(ModulusHex);
     private static readonly BigInteger GValue = new(2);
-    private static readonly int PadLength = (int)(((long)NValue.GetBitLength() + 7L) / 8L);
+    // PadLength is dynamic based on Modulus N, but we use the default N for static helpers.
+    // For future-proofing, we should avoid relying on this static default where possible.
+    private static readonly int DefaultPadLength = (int)(((long)NValue.GetBitLength() + 7L) / 8L);
     private static readonly BigInteger KValue = HashToInteger(Pad(NValue), Pad(GValue));
 
     /// <summary>Gets SRP modulus N.</summary>
@@ -220,6 +222,7 @@ public static class Srp
 
     /// <summary>
     /// Computes client proof M1 = H(PAD(A) || PAD(B) || K).
+    /// Note: This is a simplified proof format intended for internal ecosystem use and deviates from RFC 5054.
     /// </summary>
     public static byte[] ComputeClientProof(BigInteger clientPublic, BigInteger serverPublic, byte[] sessionKey)
     {
@@ -260,7 +263,9 @@ public static class Srp
 
     private static BigInteger GenerateRandomBigInteger()
     {
-        var bytes = new byte[PadLength];
+        // Use default N length for static generation.
+        // TODO: In future, this should take N as parameter.
+        var bytes = new byte[DefaultPadLength];
         BigInteger value;
         do
         {
@@ -271,18 +276,20 @@ public static class Srp
         return value;
     }
 
-    private static byte[] Pad(BigInteger value)
+    private static byte[] Pad(BigInteger value, int? length = null)
     {
+        // Use provided length or fallback to default N length
+        var targetLength = length ?? DefaultPadLength;
         var bytes = value.ToByteArray(isUnsigned: true, isBigEndian: true);
-        if (bytes.Length == PadLength) return bytes;
-        if (bytes.Length > PadLength)
+        if (bytes.Length == targetLength) return bytes;
+        if (bytes.Length > targetLength)
         {
-            var trimmed = new byte[PadLength];
-            Buffer.BlockCopy(bytes, bytes.Length - PadLength, trimmed, 0, PadLength);
+            var trimmed = new byte[targetLength];
+            Buffer.BlockCopy(bytes, bytes.Length - targetLength, trimmed, 0, targetLength);
             return trimmed;
         }
-        var padded = new byte[PadLength];
-        Buffer.BlockCopy(bytes, 0, padded, PadLength - bytes.Length, bytes.Length);
+        var padded = new byte[targetLength];
+        Buffer.BlockCopy(bytes, 0, padded, targetLength - bytes.Length, bytes.Length);
         return padded;
     }
 

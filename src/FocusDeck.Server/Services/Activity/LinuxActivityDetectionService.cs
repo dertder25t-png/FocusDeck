@@ -34,6 +34,15 @@ namespace FocusDeck.Server.Services.Activity
         {
             try
             {
+                // Check if Wayland is in use, as xdotool/wmctrl might fail or return incorrect data
+                var sessionType = Environment.GetEnvironmentVariable("XDG_SESSION_TYPE");
+                if (string.Equals(sessionType, "wayland", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogDebug("Wayland detected. xdotool/wmctrl may not work for window tracking.");
+                    // In a real implementation, we would use GNOME Shell extensions or similar here.
+                    // For now, fail gracefully or try anyway but expect failure.
+                }
+
                 // Use xdotool to get active window ID
                 var windowIdOutput = await ExecuteCommandAsync("xdotool", "getactivewindow", ct);
                 if (string.IsNullOrWhiteSpace(windowIdOutput))

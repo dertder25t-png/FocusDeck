@@ -56,61 +56,6 @@ public class AuthController : ControllerBase
         _tenantMembership = tenantMembership;
     }
 
-    [HttpPost("login")]
-    [AllowAnonymous]
-    public async Task<IActionResult> Login([FromBody] LoginRequest request)
-    {
-        // Simple dev authentication - replace with proper authentication
-        if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
-        {
-            return BadRequest(new { code = "INVALID_INPUT", message = "Username and password are required", traceId = HttpContext.TraceIdentifier });
-        }
-
-        // For development: accept any username/password
-        // TODO: Replace with proper user authentication
-        var userId = request.Username;
-        var roles = new[] { "User" };
-
-        var tenantId = await _tenantMembership.EnsureTenantAsync(userId, request.Username, request.Username, HttpContext.RequestAborted);
-        var accessToken = await _tokenService.GenerateAccessTokenAsync(userId, roles, tenantId, HttpContext.RequestAborted);
-        var refreshToken = _tokenService.GenerateRefreshToken();
-
-        // Compute device context
-        var deviceId = request.ClientId ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-device";
-        var deviceName = request.DeviceName ?? request.ClientId ?? request.Username ?? "unknown";
-        var devicePlatform = request.DevicePlatform;
-
-        var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
-        var clientFingerprint = _tokenService.ComputeClientFingerprint(deviceId, userAgent);
-
-        // Store refresh token with hash
-        var refreshTokenEntity = new RefreshToken
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            TokenHash = _tokenService.ComputeTokenHash(refreshToken),
-            ClientFingerprint = clientFingerprint,
-            IssuedUtc = DateTime.UtcNow,
-            ExpiresUtc = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
-            DeviceId = deviceId,
-            DeviceName = deviceName,
-            DevicePlatform = devicePlatform,
-            LastAccessUtc = DateTime.UtcNow,
-            TenantId = tenantId
-        };
-
-        _db.RefreshTokens.Add(refreshTokenEntity);
-        await UpsertDeviceRegistrationAsync(userId, tenantId, deviceId, deviceName, devicePlatform);
-        await _db.SaveChangesAsync();
-
-        return Ok(new
-        {
-            accessToken,
-            refreshToken,
-            expiresIn = _jwtSettings.AccessTokenExpirationMinutes * 60 // in seconds
-        });
-    }
-
     [HttpPost("refresh")]
     [AllowAnonymous]
     public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)

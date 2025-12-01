@@ -46,7 +46,7 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] [{CorrelationId}] {Message:lj}{NewLine}{Exception}")
     .WriteTo.OpenTelemetry(options =>
     {
-        options.Endpoint = "http://localhost:4317"; // Default OTLP endpoint
+        options.Endpoint = "http://localhost:4317"; // Default OTLP endpoint - will be overridden by configuration in CreateBuilder
         options.Protocol = Serilog.Sinks.OpenTelemetry.OtlpProtocol.Grpc;
         options.ResourceAttributes = new Dictionary<string, object>
         {
@@ -71,7 +71,7 @@ try
         .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] [{CorrelationId}] {Message:lj}{NewLine}{Exception}")
         .WriteTo.OpenTelemetry(options =>
         {
-            options.Endpoint = "http://localhost:4317";
+            options.Endpoint = context.Configuration["Telemetry:Endpoint"] ?? "http://localhost:4317";
             options.Protocol = Serilog.Sinks.OpenTelemetry.OtlpProtocol.Grpc;
             options.ResourceAttributes = new Dictionary<string, object>
             {
@@ -111,7 +111,7 @@ public partial class Program
                 .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] [{CorrelationId}] {Message:lj}{NewLine}{Exception}")
                 .WriteTo.OpenTelemetry(options =>
                 {
-                    options.Endpoint = "http://localhost:4317";
+                    options.Endpoint = context.Configuration["Telemetry:Endpoint"] ?? "http://localhost:4317";
                     options.Protocol = Serilog.Sinks.OpenTelemetry.OtlpProtocol.Grpc;
                     options.ResourceAttributes = new Dictionary<string, object>
                     {

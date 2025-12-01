@@ -9,13 +9,19 @@ export function ProtectedRoute() {
   useEffect(() => {
     // Check for valid JWT token
     const token = localStorage.getItem('focusdeck_access_token')
-    const isValid = !!(token && token.length > 0 && !isTokenExpired(token))
-    setIsAuthed(isValid)
-    setChecking(false)
     
-    if (!isValid) {
-      console.info('No valid authentication token found, will redirect to login')
+    if (token && token.length > 0) {
+      if (!isTokenExpired(token)) {
+        setIsAuthed(true)
+      } else {
+        console.warn('Token found but expired')
+        setIsAuthed(false)
+      }
+    } else {
+      setIsAuthed(false)
     }
+
+    setChecking(false)
   }, [])
 
   if (checking) {
@@ -61,15 +67,17 @@ function isTokenExpired(token: string): boolean {
     
     // Check if exp claim exists
     if (!payload.exp) {
-      console.warn('Token missing exp claim')
-      return true
+      // If no exp claim, assume valid if it has valid structure
+      // Server validation will catch invalid tokens
+      return false
     }
     
     const expiryTime = payload.exp * 1000 // exp is in seconds, convert to ms
-    const isExpired = Date.now() >= expiryTime
+    // Add a 30-second buffer to avoid race conditions
+    const isExpired = Date.now() >= (expiryTime - 30000)
     
     if (isExpired) {
-      console.info('Token has expired')
+      console.info('Token has expired locally')
     }
     
     return isExpired
@@ -78,4 +86,3 @@ function isTokenExpired(token: string): boolean {
     return true
   }
 }
-
