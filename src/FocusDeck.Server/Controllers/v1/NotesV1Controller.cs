@@ -16,12 +16,18 @@ public class NotesV1Controller : ControllerBase
     private readonly AutomationDbContext _db;
     private readonly ILogger<NotesV1Controller> _logger;
     private readonly CalendarResolver _calendarResolver;
+    private readonly FocusDeck.Server.Services.Jarvis.ISuggestionService _jarvisService;
 
-    public NotesV1Controller(AutomationDbContext db, ILogger<NotesV1Controller> logger, CalendarResolver calendarResolver)
+    public NotesV1Controller(
+        AutomationDbContext db,
+        ILogger<NotesV1Controller> logger,
+        CalendarResolver calendarResolver,
+        FocusDeck.Server.Services.Jarvis.ISuggestionService jarvisService)
     {
         _db = db;
         _logger = logger;
         _calendarResolver = calendarResolver;
+        _jarvisService = jarvisService;
     }
 
     // POST: v1/notes/start
@@ -146,20 +152,25 @@ public class NotesV1Controller : ControllerBase
             return NotFound(new { code = "NOTE_NOT_FOUND", message = "Note not found" });
         }
 
-        // TODO: Enqueue VerifyNoteCompleteness job
-        // For now, generate mock suggestions
+        // Hook up Jarvis AI for real analysis
         var existingSuggestions = await _db.NoteSuggestions
             .Where(ns => ns.NoteId == id)
             .ToListAsync();
 
-        // Generate 2-3 new suggestions if less than 5 exist
+        // Generate new suggestions if less than 5 exist to avoid spamming
         if (existingSuggestions.Count < 5)
         {
-            var newSuggestions = GenerateMockSuggestions(note, existingSuggestions.Count);
-            await _db.NoteSuggestions.AddRangeAsync(newSuggestions);
-            await _db.SaveChangesAsync();
-
-            _logger.LogInformation("Generated {Count} suggestions for note {NoteId}", newSuggestions.Count, id);
+            var newSuggestions = await _jarvisService.AnalyzeNoteAsync(note);
+            if (newSuggestions.Any())
+            {
+                await _db.NoteSuggestions.AddRangeAsync(newSuggestions);
+                await _db.SaveChangesAsync();
+                _logger.LogInformation("Generated {Count} suggestions for note {NoteId} via Jarvis", newSuggestions.Count, id);
+            }
+            else
+            {
+                _logger.LogInformation("Jarvis generated no suggestions for note {NoteId}", id);
+            }
         }
 
         return Ok(new { message = "Note verification started" });
@@ -351,31 +362,4 @@ public class NotesV1Controller : ControllerBase
         return Math.Min(100, baseScore);
     }
 
-    private List<NoteSuggestion> GenerateMockSuggestions(Note note, int existingCount)
-    {
-        var suggestions = new List<NoteSuggestion>();
-        var types = new[] {
-            (NoteSuggestionType.MissingPoint, "Consider adding: The fundamental theorem states that..."),
-            (NoteSuggestionType.Definition, "**Definition**: Algorithm complexity refers to..."),
-            (NoteSuggestionType.Reference, "See also: Chapter 5, Section 2.3 for related concepts")
-        };
-
-        var count = Math.Min(3, 5 - existingCount);
-        for (int i = 0; i < count; i++)
-        {
-            var (type, content) = types[i % types.Length];
-            suggestions.Add(new NoteSuggestion
-            {
-                Id = Guid.NewGuid().ToString(),
-                NoteId = note.Id,
-                Type = type,
-                ContentMarkdown = $"{content} (suggestion #{existingCount + i + 1})",
-                Source = $"Lecture transcript timestamp {12 + i * 5}:{30 + i * 10}",
-                Confidence = 0.85 - (i * 0.1),
-                CreatedAt = DateTime.UtcNow
-            });
-        }
-
-        return suggestions;
-    }
 }

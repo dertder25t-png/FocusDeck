@@ -93,6 +93,10 @@ public class AutomationDbContext : DbContext
     // Academic Writing
     public DbSet<AcademicSource> AcademicSources { get; set; }
 
+    // Tasks and Flashcards
+    public DbSet<TodoItem> TodoItems { get; set; }
+    public DbSet<Deck> Decks { get; set; }
+
     // Browser Bridge & Memory Vault
     public DbSet<Project> Projects { get; set; }
     public DbSet<ProjectResource> ProjectResources { get; set; }
