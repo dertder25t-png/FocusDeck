@@ -90,7 +90,8 @@ public class AuthPakeController : ControllerBase
             // Normalize email to lowercase for case-insensitive matching
             var normalizedUserId = request.UserId.Trim().ToLowerInvariant();
 
-            var existing = await _db.PakeCredentials.FirstOrDefaultAsync(c => c.UserId.ToLower() == normalizedUserId);
+            // Use IgnoreQueryFilters() to bypass tenant filter - auth registration is before tenant assignment
+            var existing = await _db.PakeCredentials.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.UserId.ToLower() == normalizedUserId);
             if (existing != null)
             {
                 await LogAuthEventAsync("PAKE_REGISTER_FINISH", request.UserId, false, "User already registered");
@@ -234,7 +235,8 @@ public class AuthPakeController : ControllerBase
             return StatusCode(StatusCodes.Status429TooManyRequests, new { error = "Too many attempts. Try again later." });
         }
 
-        var cred = await _db.PakeCredentials.AsNoTracking().FirstOrDefaultAsync(c => c.UserId == normalizedUserId);
+        // Use IgnoreQueryFilters() to bypass tenant filter - auth login is before tenant context is established
+        var cred = await _db.PakeCredentials.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(c => c.UserId == normalizedUserId);
 
         if (cred == null)
         {
@@ -475,7 +477,8 @@ public class AuthPakeController : ControllerBase
 
             await _db.SaveChangesAsync();
 
-            var vault = await _db.KeyVaults.FindAsync(session.UserId);
+            // Use IgnoreQueryFilters() to bypass tenant filter for vault lookup during login
+            var vault = await _db.KeyVaults.IgnoreQueryFilters().FirstOrDefaultAsync(v => v.UserId == session.UserId);
 
             _srpSessions.Remove(request.SessionId);
 
@@ -529,7 +532,8 @@ public class AuthPakeController : ControllerBase
 
         // Use case-insensitive lookup
         var normalizedUserId = userId.Trim().ToLowerInvariant();
-        var cred = await _db.PakeCredentials.FirstOrDefaultAsync(c => c.UserId.ToLower() == normalizedUserId);
+        // Use IgnoreQueryFilters() to bypass tenant filter during credential upgrade
+        var cred = await _db.PakeCredentials.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.UserId.ToLower() == normalizedUserId);
         if (cred == null)
         {
             return NotFound(new { error = "User credential not found" });
@@ -601,7 +605,8 @@ public class AuthPakeController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> PairRedeem([FromBody] PairRedeemRequest request)
     {
-        var session = await _db.PairingSessions.FirstOrDefaultAsync(p => p.Id == request.PairingId && p.Code == request.Code);
+        // Use IgnoreQueryFilters() to bypass tenant filter for pairing lookup during redemption
+        var session = await _db.PairingSessions.IgnoreQueryFilters().FirstOrDefaultAsync(p => p.Id == request.PairingId && p.Code == request.Code);
         if (session == null || session.ExpiresAt < DateTime.UtcNow) return NotFound(new { error = "Pairing not found or expired" });
 
         if (session.Status != PairingStatus.Ready || string.IsNullOrEmpty(session.VaultDataBase64))
