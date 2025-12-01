@@ -37,14 +37,20 @@ public class NotesV1Controller : ControllerBase
     [HttpPost("start")]
     public async Task<ActionResult> StartNote([FromBody] CreateNoteDto? request)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (string.IsNullOrEmpty(userId) || !_currentTenant.HasTenant || !_currentTenant.TenantId.HasValue)
+        // Enforce strict tenancy via ICurrentTenant
+        if (!_currentTenant.HasTenant || !_currentTenant.TenantId.HasValue)
         {
+            _logger.LogWarning("StartNote blocked: Missing tenant context");
             return Unauthorized();
         }
 
         var tenantId = _currentTenant.TenantId.Value;
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
 
         // Resolve context (Auto-Tag)
         var (evt, course) = await _calendarResolver.ResolveCurrentContextAsync(tenantId);

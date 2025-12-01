@@ -247,7 +247,7 @@ public sealed class Startup
 
         // Transcription & TextGen
         services.AddSingleton<FocusDeck.Server.Services.Transcription.IWhisperAdapter, FocusDeck.Server.Services.Transcription.StubWhisperAdapter>();
-        services.AddSingleton<FocusDeck.Server.Services.TextGeneration.ITextGen, FocusDeck.Server.Services.TextGeneration.StubTextGen>();
+        services.AddHttpClient<FocusDeck.Server.Services.TextGeneration.ITextGen, FocusDeck.Server.Services.TextGeneration.GeminiTextGenService>();
         services.AddScoped<FocusDeck.Contracts.Services.Context.IEmbeddingGenerationService, FocusDeck.Server.Services.Context.GeminiEmbeddingService>();
 
         // Automation
