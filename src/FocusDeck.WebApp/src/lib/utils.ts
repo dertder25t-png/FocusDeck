@@ -164,7 +164,14 @@ export async function logout() {
   }
   deleteCookie(ACCESS_COOKIE_NAME)
   deleteCookie(REFRESH_COOKIE_NAME)
-  if (isBrowser()) window.location.href = '/login'
+  
+  // Only redirect if not already on login/register pages to prevent infinite loops
+  if (isBrowser()) {
+    const currentPath = window.location.pathname
+    if (currentPath !== '/login' && currentPath !== '/register') {
+      window.location.href = '/login'
+    }
+  }
 }
 
 interface RefreshResponse {
@@ -267,10 +274,14 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
     } catch (err) {
       // Refresh failed (token revoked or expired), force logout
       processQueue(err, null);
-      await logout();
-      throw err;
-    } finally {
       isRefreshing = false;
+      
+      // Only logout if not already on auth pages to prevent infinite loops
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login' && currentPath !== '/register') {
+        await logout();
+      }
+      throw err;
     }
   }
 

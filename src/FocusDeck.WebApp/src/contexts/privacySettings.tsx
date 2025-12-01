@@ -28,7 +28,12 @@ export function PrivacySettingsProvider({ children }: { children: ReactNode }) {
       const payload = (await response.json()) as PrivacySetting[]
       setSettings(payload)
     } catch (error) {
-      if (error instanceof Error && error.message === 'Not authenticated') {
+      // Silently ignore auth errors - these are handled by apiFetch/logout
+      if (error instanceof Error && (
+        error.message === 'Not authenticated' || 
+        error.message === 'Session expired' ||
+        error.message === 'Refresh failed'
+      )) {
         return
       }
       console.error('Unable to refresh privacy settings', error)
