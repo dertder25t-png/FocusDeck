@@ -27,6 +27,19 @@ public sealed class TenancyMiddleware
             return;
         }
 
+        // 1. Allow specific paths to bypass tenant checks (e.g., User Settings, Tenant Selection)
+        var path = context.Request.Path.Value?.ToLower();
+        if (path != null && (
+            path.StartsWith("/api/v1/tenants") ||
+            path.StartsWith("/api/v1/usersettings") ||
+            path.StartsWith("/api/v1/onboarding")
+        ))
+        {
+            // Proceed without setting a tenant. The Controller must handle "No Tenant" logic.
+            await _next(context);
+            return;
+        }
+
         if (context.User?.Identity?.IsAuthenticated != true)
         {
             await _next(context);

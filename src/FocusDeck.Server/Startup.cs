@@ -241,6 +241,7 @@ public sealed class Startup
         // Tenancy
         services.AddScoped<ITenantMembershipService, TenantMembershipService>();
         services.AddScoped<ICurrentTenant, HttpContextCurrentTenant>();
+        services.AddTransient<BackgroundWorkerTenant>(); // For background jobs explicitly requesting it
 
         // Storage
         services.AddSingleton<FocusDeck.Server.Services.Storage.IAssetStorage, FocusDeck.Server.Services.Storage.LocalFileSystemAssetStorage>();
