@@ -89,7 +89,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1Ni...
 
 #### Web App (React)
 
-The issue is likely in how the token is being sent. Check `src/FocusDeck.WebApp/src/lib/api.ts`:
+The issue is likely in how the token is being sent. Check `src/FocusDeck.WebApp/src/lib/utils.ts`:
 
 ```typescript
 // ✅ Correct

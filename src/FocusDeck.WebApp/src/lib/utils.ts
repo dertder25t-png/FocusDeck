@@ -148,75 +148,6 @@ export async function getAuthToken(): Promise<string> {
   throw new Error('Not authenticated')
 }
 
-export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const isAbsolute = /^https?:\/\//i.test(url)
-  const path = isAbsolute ? new URL(url).pathname : url
-  const isProtected = path.startsWith('/v1/')
-
-  let token: string | null = null
-  if (isProtected) {
-    // Protected APIs must have a token
-    token = await getAuthToken()
-  } else {
-    // Public APIs: try to attach a token if available, but do not require it
-    try {
-      token = await getAuthToken()
-    } catch {
-      token = null
-    }
-  }
-
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  })
-
-  if (response.status === 401 && isBrowser()) {
-    // Only force redirect if we appear to have a real JWT that likely expired/invalidated.
-    const looksLikeJwt = typeof token === 'string' && token.includes('.')
-    const payload = looksLikeJwt ? parseJwtPayload(token!) : null
-    const hasExp = !!payload && (typeof (payload as any)['exp'] !== 'undefined')
-
-    if (isProtected && looksLikeJwt && hasExp) {
-      try {
-        cachedToken = null
-        try {
-          localStorage.removeItem('focusdeck_access_token')
-          localStorage.removeItem('focusdeck_refresh_token')
-          localStorage.removeItem('focusdeck_user')
-        } catch {
-          // ignore
-        }
-        deleteCookie(ACCESS_COOKIE_NAME)
-        deleteCookie(REFRESH_COOKIE_NAME)
-      } finally {
-        const redirectUrl = encodeURIComponent(window.location.pathname + window.location.search)
-        window.location.href = `/login?redirectUrl=${redirectUrl}`
-      }
-    }
-    // For mock tokens or public flows, do not auto-redirect; let callers handle.
-  }
-
-  return response
-}
-
-export function storeTokens(accessToken: string, refreshToken?: string, userId?: string) {
-  cachedToken = accessToken
-  persistAccessToken(accessToken)
-  persistRefreshToken(refreshToken)
-  if (userId) {
-    try {
-      localStorage.setItem('focusdeck_user', userId)
-    } catch (error) {
-      console.warn('Unable to persist user info to localStorage', error)
-    }
-  }
-}
-
 export async function logout() {
   try {
     await fetch('/v1/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${await getAuthToken()}` } })
@@ -234,6 +165,129 @@ export async function logout() {
   deleteCookie(ACCESS_COOKIE_NAME)
   deleteCookie(REFRESH_COOKIE_NAME)
   if (isBrowser()) window.location.href = '/login'
+}
+
+interface RefreshResponse {
+  accessToken: string;
+  refreshToken: string;
+}
+
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value: unknown) => void;
+  reject: (reason?: any) => void;
+}> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const isAbsolute = /^https?:\/\//i.test(url);
+  const path = isAbsolute ? new URL(url).pathname : url;
+  const isProtected = path.startsWith('/v1/') && !path.startsWith('/v1/auth/');
+
+  let token = await getAuthToken().catch(() => null);
+
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  if (token && isProtected) {
+    (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+  }
+
+  let response = await fetch(url, { ...options, headers });
+
+  // If we get a 401 on a protected endpoint, try to refresh
+  if (response.status === 401 && isProtected) {
+    if (isRefreshing) {
+      // If already refreshing, queue this request to retry later
+      return new Promise((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      })
+        .then((newToken) => {
+          (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
+          return fetch(url, { ...options, headers });
+        })
+        .catch((err) => {
+          return Promise.reject(err);
+        });
+    }
+
+    const refreshToken = localStorage.getItem('focusdeck_refresh_token');
+    const accessToken = localStorage.getItem('focusdeck_access_token');
+
+    if (!refreshToken) {
+      // No refresh token available, logout truly required
+      await logout();
+      throw new Error('Session expired');
+    }
+
+    isRefreshing = true;
+
+    try {
+      // Attempt to refresh tokens - send both access and refresh tokens
+      const refreshRes = await fetch('/v1/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          accessToken: accessToken || '',
+          refreshToken,
+          clientId: navigator.userAgent,
+          deviceName: navigator.userAgent,
+          devicePlatform: 'web'
+        }),
+      });
+
+      if (!refreshRes.ok) {
+        throw new Error('Refresh failed');
+      }
+
+      const data: RefreshResponse = await refreshRes.json();
+
+      // Store new tokens
+      storeTokens(data.accessToken, data.refreshToken);
+
+      // Process queued requests with new token
+      processQueue(null, data.accessToken);
+
+      // Retry original request
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${data.accessToken}`;
+      return fetch(url, { ...options, headers });
+
+    } catch (err) {
+      // Refresh failed (token revoked or expired), force logout
+      processQueue(err, null);
+      await logout();
+      throw err;
+    } finally {
+      isRefreshing = false;
+    }
+  }
+
+  return response;
+}
+
+export function storeTokens(accessToken: string, refreshToken?: string, userId?: string) {
+  cachedToken = accessToken
+  persistAccessToken(accessToken)
+  persistRefreshToken(refreshToken)
+  if (userId) {
+    try {
+      localStorage.setItem('focusdeck_user', userId)
+    } catch (error) {
+      console.warn('Unable to persist user info to localStorage', error)
+    }
+  }
 }
 
 export function parseJwtPayload(token: string): Record<string, unknown> | null {

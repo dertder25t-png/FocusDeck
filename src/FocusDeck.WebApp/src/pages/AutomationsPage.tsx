@@ -4,7 +4,7 @@ import { Button } from '../components/Button';
 import { Link } from 'react-router-dom';
 import { AutomationEditor } from './AutomationEditor';
 import { AutomationHistory } from './AutomationHistory';
-import { apiFetch } from '../lib/api';
+import { apiFetch } from '../lib/utils';
 
 interface Automation {
   id: string;
@@ -30,10 +30,15 @@ export function AutomationsPage() {
 
   const fetchAutomations = async () => {
     try {
-      const data = await apiFetch('/v1/automations');
+      const response = await apiFetch('/v1/automations');
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to fetch automations');
+      }
+      const data = await response.json();
       setAutomations(data);
-    } catch (error) {
-      setError('Failed to fetch automations');
+    } catch (error: any) {
+      setError(error.message || 'Failed to fetch automations');
       console.error('Failed to fetch automations', error);
     } finally {
       setLoading(false);
@@ -42,7 +47,9 @@ export function AutomationsPage() {
 
   const toggleAutomation = async (id: string) => {
     try {
-      const data = await apiFetch(`/v1/automations/${id}/toggle`, { method: 'PATCH' });
+      const response = await apiFetch(`/v1/automations/${id}/toggle`, { method: 'PATCH' });
+      if (!response.ok) throw new Error('Failed to toggle automation');
+      const data = await response.json();
       setAutomations(prev => prev.map(a =>
         a.id === id ? { ...a, isEnabled: data.isEnabled } : a
       ));
@@ -55,7 +62,8 @@ export function AutomationsPage() {
     if (!confirm('Are you sure you want to delete this automation?')) return;
 
     try {
-      await apiFetch(`/v1/automations/${id}`, { method: 'DELETE' });
+      const response = await apiFetch(`/v1/automations/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to delete automation');
       setAutomations(prev => prev.filter(a => a.id !== id));
     } catch (error) {
       console.error('Failed to delete automation', error);

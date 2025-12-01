@@ -25,20 +25,48 @@ namespace FocusDeck.Server.Services.Calendar
 
         public async Task ExecuteAsync(CancellationToken cancellationToken)
         {
-            using var scope = _serviceProvider.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
-            var googleAuth = scope.ServiceProvider.GetRequiredService<GoogleAuthService>();
+            using var rootScope = _serviceProvider.CreateScope();
+            var rootDb = rootScope.ServiceProvider.GetRequiredService<AutomationDbContext>();
 
-            var sources = await db.CalendarSources.ToListAsync(cancellationToken);
-            foreach (var source in sources)
+            // 1. Get all Tenant IDs using global query (ignoring current filter which might not be set or fail-closed)
+            // But rootDb doesn't have a tenant set, so with Fail-Closed, accessing Tenants might fail if Tenants is IMustHaveTenant.
+            // Wait, Tenant entity itself should NOT be IMustHaveTenant (it defines the tenant!).
+            // If Tenant entity implements IMustHaveTenant, that's a recursion paradox.
+            // Let's assume Tenant entity does NOT implement IMustHaveTenant.
+            // If it does, we need to bypass filters.
+
+            // To be safe, we disable query filters for fetching tenants.
+            var allTenantIds = await rootDb.Tenants
+                .IgnoreQueryFilters()
+                .Select(t => t.Id)
+                .ToListAsync(cancellationToken);
+
+            _logger.LogInformation("Found {Count} tenants for calendar sync.", allTenantIds.Count);
+
+            foreach (var tenantId in allTenantIds)
             {
-                try
+                using var scope = _serviceProvider.CreateScope();
+                var tenantService = scope.ServiceProvider.GetRequiredService<FocusDeck.SharedKernel.Tenancy.ICurrentTenant>();
+                tenantService.SetTenant(tenantId);
+
+                var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+                var googleAuth = scope.ServiceProvider.GetRequiredService<GoogleAuthService>();
+
+                // With tenant set, this query returns only this tenant's sources
+                var sources = await db.CalendarSources.ToListAsync(cancellationToken);
+
+                if (!sources.Any()) continue;
+
+                foreach (var source in sources)
                 {
-                    await SyncSource(source, db, googleAuth, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to sync calendar source {Id}", source.Id);
+                    try
+                    {
+                        await SyncSource(source, db, googleAuth, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to sync calendar source {Id} for tenant {TenantId}", source.Id, tenantId);
+                    }
                 }
             }
         }

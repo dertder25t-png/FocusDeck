@@ -1,27 +1,40 @@
 using Microsoft.AspNetCore.Mvc;
 using FocusDeck.Domain.Entities;
+using FocusDeck.Persistence;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 
 namespace FocusDeck.Server.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class DecksController : ControllerBase
     {
-        private static readonly List<Deck> _decks = new List<Deck>();
+        private readonly AutomationDbContext _context;
+
+        public DecksController(AutomationDbContext context)
+        {
+            _context = context;
+        }
 
         [HttpGet]
-        public ActionResult<IEnumerable<Deck>> GetDecks()
+        public async Task<ActionResult<IEnumerable<Deck>>> GetDecks()
         {
-            return Ok(_decks);
+            var decks = await _context.Decks
+                .AsNoTracking()
+                .ToListAsync();
+            return Ok(decks);
         }
 
         [HttpGet("{id}")]
-        public ActionResult<Deck> GetDeck(Guid id)
+        public async Task<ActionResult<Deck>> GetDeck(Guid id)
         {
-            var deck = _decks.FirstOrDefault(d => d.Id == id);
+            var deck = await _context.Decks.FindAsync(id);
             if (deck == null)
             {
                 return NotFound();
@@ -30,26 +43,35 @@ namespace FocusDeck.Server.Controllers
         }
 
         [HttpPost]
-        public ActionResult<Deck> CreateDeck([FromBody] Deck newDeck)
+        public async Task<ActionResult<Deck>> CreateDeck([FromBody] Deck newDeck)
         {
             if (newDeck == null)
             {
                 return BadRequest("Deck object is null");
             }
-            newDeck.Id = Guid.NewGuid();
-            _decks.Add(newDeck);
+
+            // Generate ID if missing
+            if (newDeck.Id == Guid.Empty)
+            {
+                newDeck.Id = Guid.NewGuid();
+            }
+
+            // TenantId handled automatically by DbContext/Middleware
+            _context.Decks.Add(newDeck);
+            await _context.SaveChangesAsync();
+
             return CreatedAtAction(nameof(GetDeck), new { id = newDeck.Id }, newDeck);
         }
 
         [HttpPut("{id}")]
-        public IActionResult UpdateDeck(Guid id, [FromBody] Deck updatedDeck)
+        public async Task<IActionResult> UpdateDeck(Guid id, [FromBody] Deck updatedDeck)
         {
             if (updatedDeck == null || id != updatedDeck.Id)
             {
                 return BadRequest("Invalid deck data");
             }
 
-            var deck = _decks.FirstOrDefault(d => d.Id == id);
+            var deck = await _context.Decks.FindAsync(id);
             if (deck == null)
             {
                 return NotFound();
@@ -58,19 +80,22 @@ namespace FocusDeck.Server.Controllers
             deck.Name = updatedDeck.Name;
             deck.Cards = updatedDeck.Cards;
 
+            await _context.SaveChangesAsync();
+
             return NoContent();
         }
 
         [HttpDelete("{id}")]
-        public IActionResult DeleteDeck(Guid id)
+        public async Task<IActionResult> DeleteDeck(Guid id)
         {
-            var deck = _decks.FirstOrDefault(d => d.Id == id);
+            var deck = await _context.Decks.FindAsync(id);
             if (deck == null)
             {
                 return NotFound();
             }
 
-            _decks.Remove(deck);
+            _context.Decks.Remove(deck);
+            await _context.SaveChangesAsync();
             return NoContent();
         }
     }

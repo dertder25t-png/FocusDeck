@@ -5,7 +5,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent } from '../components/Card';
-import { apiFetch } from '../lib/api';
+import { apiFetch } from '../lib/utils';
 
 interface SortableItemProps {
   id: string;
@@ -106,7 +106,7 @@ export function KanbanPage() {
 
       try {
         // TODO: Replace with actual API endpoint and payload
-        await apiFetch(`/v1/tasks/update-status`, {
+        const response = await apiFetch(`/v1/tasks/update-status`, {
           method: 'POST',
           body: JSON.stringify({
             taskId: active.id,
@@ -114,6 +114,7 @@ export function KanbanPage() {
             newOrder: newTasks[overContainer].map(t => t.id),
           }),
         });
+        if (!response.ok) throw new Error('Failed to update task status');
       } catch (error) {
         console.error('Failed to update task status', error);
         // Optionally, revert the state change on error

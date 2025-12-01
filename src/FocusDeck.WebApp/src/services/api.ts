@@ -1,5 +1,5 @@
 
-import { apiFetch } from '../lib/utils';
+import { apiFetch } from '../lib/utils'; // Safe: Handles silent refresh
 import type { Note, TodoItem } from '../types';
 
 export const noteService = {
