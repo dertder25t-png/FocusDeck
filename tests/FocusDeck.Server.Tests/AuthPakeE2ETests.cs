@@ -374,7 +374,8 @@ public class AuthPakeE2ETests
         await db.SaveChangesAsync();
 
         // Run the same backfill logic the server will use (simulates Startup backfill step)
-        var rows = await db.PakeCredentials
+        // Use IgnoreQueryFilters() because this is a migration/admin operation without tenant context
+        var rows = await db.PakeCredentials.IgnoreQueryFilters()
             .Where(p => string.IsNullOrWhiteSpace(p.SaltBase64) && !string.IsNullOrWhiteSpace(p.KdfParametersJson))
             .ToListAsync();
         foreach (var row in rows)
@@ -388,7 +389,8 @@ public class AuthPakeE2ETests
         await db.SaveChangesAsync();
 
         // Re-query and assert the SaltBase64 was populated by the backfill logic
-        var cred = await db.PakeCredentials.FirstOrDefaultAsync(p => p.UserId == userId);
+        // Use IgnoreQueryFilters() for consistency with the rest of the test
+        var cred = await db.PakeCredentials.IgnoreQueryFilters().FirstOrDefaultAsync(p => p.UserId == userId);
         Assert.NotNull(cred);
         Assert.False(string.IsNullOrWhiteSpace(cred!.SaltBase64));
         Assert.Equal(derivedSalt, cred.SaltBase64);

@@ -72,7 +72,8 @@ public class AuthController : ControllerBase
         
         try
         {
-            var storedToken = await _db.RefreshTokens
+            // Use IgnoreQueryFilters() to bypass tenant filter - token refresh operates before tenant context is established
+            var storedToken = await _db.RefreshTokens.IgnoreQueryFilters()
                 .FirstOrDefaultAsync(t => t.TokenHash == tokenHash);
             var now = DateTime.UtcNow;
 
@@ -89,7 +90,8 @@ public class AuthController : ControllerBase
                     storedToken.Id, storedToken.UserId);
                 
                 // Revoke all descendant tokens for this user (token family breach)
-                var userTokens = await _db.RefreshTokens
+                // Use IgnoreQueryFilters() as we're in an anonymous context
+                var userTokens = await _db.RefreshTokens.IgnoreQueryFilters()
                     .Where(t => t.UserId == storedToken.UserId && t.RevokedUtc == null && t.ExpiresUtc > now)
                     .ToListAsync();
                 
