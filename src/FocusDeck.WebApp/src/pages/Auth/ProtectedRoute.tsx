@@ -77,7 +77,9 @@ function isTokenExpired(token: string): boolean {
     const isExpired = Date.now() >= (expiryTime - 30000)
     
     if (isExpired) {
-      console.info('Token has expired locally')
+      console.info('Token has expired locally (allowing refresh attempt)')
+      // Relaxed validation: Allow expired tokens to proceed to the server
+      return false
     }
     
     return isExpired
