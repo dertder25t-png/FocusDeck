@@ -224,6 +224,7 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
     }
 
     const refreshToken = localStorage.getItem('focusdeck_refresh_token');
+    const accessToken = localStorage.getItem('focusdeck_access_token');
 
     if (!refreshToken) {
       // No refresh token available, logout truly required
@@ -234,11 +235,17 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
     isRefreshing = true;
 
     try {
-      // Attempt to refresh tokens
+      // Attempt to refresh tokens - send both access and refresh tokens
       const refreshRes = await fetch('/v1/auth/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
+        body: JSON.stringify({ 
+          accessToken: accessToken || '',
+          refreshToken,
+          clientId: navigator.userAgent,
+          deviceName: navigator.userAgent,
+          devicePlatform: 'web'
+        }),
       });
 
       if (!refreshRes.ok) {
