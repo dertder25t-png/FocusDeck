@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using FocusDeck.SharedKernel.Tenancy;
 
 namespace FocusDeck.Domain.Entities
 {

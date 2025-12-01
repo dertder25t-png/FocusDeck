@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using FocusDeck.SharedKernel.Tenancy;
 
 namespace FocusDeck.Domain.Entities.Context
 {
     /// <summary>
     /// Represents a snapshot of the user's context at a specific point in time.
     /// </summary>
-    public class ContextSnapshot
+    public class ContextSnapshot : IMustHaveTenant
     {
         /// <summary>
         /// Gets or sets the unique identifier for the snapshot.
@@ -17,6 +18,8 @@ namespace FocusDeck.Domain.Entities.Context
         /// Gets or sets the user ID associated with this snapshot.
         /// </summary>
         public Guid UserId { get; set; }
+
+        public Guid TenantId { get; set; }
 
         /// <summary>
         /// Gets or sets the timestamp when the snapshot was taken.

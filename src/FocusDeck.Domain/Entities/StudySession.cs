@@ -1,3 +1,5 @@
+using FocusDeck.SharedKernel.Tenancy;
+
 namespace FocusDeck.Domain.Entities;
 
 /// <summary>

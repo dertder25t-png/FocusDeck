@@ -255,8 +255,9 @@ public class AutomationDbContext : DbContext
     private void SetTenantQueryFilter<TEntity>(ModelBuilder modelBuilder)
         where TEntity : class, IMustHaveTenant
     {
+        // Fail-Closed: If no tenant is set, return NO data.
         modelBuilder.Entity<TEntity>()
-            .HasQueryFilter(entity => !_currentTenant.HasTenant || entity.TenantId == _currentTenant.TenantId);
+            .HasQueryFilter(entity => _currentTenant.HasTenant && entity.TenantId == _currentTenant.TenantId.GetValueOrDefault());
     }
 
     private static bool ShouldUseNativeTimestamp(IMutableProperty property)
