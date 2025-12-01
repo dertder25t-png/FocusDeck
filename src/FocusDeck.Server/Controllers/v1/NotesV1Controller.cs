@@ -17,17 +17,20 @@ public class NotesV1Controller : ControllerBase
     private readonly ILogger<NotesV1Controller> _logger;
     private readonly CalendarResolver _calendarResolver;
     private readonly FocusDeck.Server.Services.Jarvis.ISuggestionService _jarvisService;
+    private readonly FocusDeck.SharedKernel.Tenancy.ICurrentTenant _currentTenant;
 
     public NotesV1Controller(
         AutomationDbContext db,
         ILogger<NotesV1Controller> logger,
         CalendarResolver calendarResolver,
-        FocusDeck.Server.Services.Jarvis.ISuggestionService jarvisService)
+        FocusDeck.Server.Services.Jarvis.ISuggestionService jarvisService,
+        FocusDeck.SharedKernel.Tenancy.ICurrentTenant currentTenant)
     {
         _db = db;
         _logger = logger;
         _calendarResolver = calendarResolver;
         _jarvisService = jarvisService;
+        _currentTenant = currentTenant;
     }
 
     // POST: v1/notes/start
@@ -35,12 +38,13 @@ public class NotesV1Controller : ControllerBase
     public async Task<ActionResult> StartNote([FromBody] CreateNoteDto? request)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        var tenantIdStr = User.FindFirst("app_tenant_id")?.Value;
 
-        if (string.IsNullOrEmpty(userId) || !Guid.TryParse(tenantIdStr, out var tenantId))
+        if (string.IsNullOrEmpty(userId) || !_currentTenant.HasTenant || !_currentTenant.TenantId.HasValue)
         {
             return Unauthorized();
         }
+
+        var tenantId = _currentTenant.TenantId.Value;
 
         // Resolve context (Auto-Tag)
         var (evt, course) = await _calendarResolver.ResolveCurrentContextAsync(tenantId);

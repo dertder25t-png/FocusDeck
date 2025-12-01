@@ -97,49 +97,54 @@ Example: [Definition] The term 'polymorphism' refers to...
         var suggestions = new List<NoteSuggestion>();
         var lines = llmOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
+        var regex = new System.Text.RegularExpressions.Regex(
+            @"^\s*(\[|\*\*\[?)?(?<type>Missing\s?Point|Definition|Reference|Clarification)(\]|\*\*\]?)?\s*(?<content>.*)",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Multiline);
+
         foreach (var line in lines)
         {
             var trimmed = line.Trim();
             if (string.IsNullOrWhiteSpace(trimmed)) continue;
 
-            NoteSuggestionType type = NoteSuggestionType.MissingPoint;
-            string content = trimmed;
+            var match = regex.Match(trimmed);
+            if (match.Success)
+            {
+                var typeStr = match.Groups["type"].Value.Replace(" ", ""); // Normalize "Missing Point" to "MissingPoint"
+                var content = match.Groups["content"].Value.Trim();
 
-            if (trimmed.StartsWith("[Definition]", StringComparison.OrdinalIgnoreCase))
-            {
-                type = NoteSuggestionType.Definition;
-                content = trimmed.Substring("[Definition]".Length).Trim();
+                if (Enum.TryParse<NoteSuggestionType>(typeStr, true, out var type) && content.Length > 10)
+                {
+                    suggestions.Add(new NoteSuggestion
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        NoteId = noteId,
+                        Type = type,
+                        ContentMarkdown = content,
+                        Source = "Jarvis AI Analysis",
+                        Confidence = 0.85,
+                        CreatedAt = DateTime.UtcNow,
+                        TenantId = tenantId
+                    });
+                }
             }
-            else if (trimmed.StartsWith("[Reference]", StringComparison.OrdinalIgnoreCase))
+            else if (trimmed.Length > 20 && !trimmed.StartsWith("Note Title:") && !trimmed.StartsWith("Note Content:"))
             {
-                type = NoteSuggestionType.Reference;
-                content = trimmed.Substring("[Reference]".Length).Trim();
-            }
-            else if (trimmed.StartsWith("[MissingPoint]", StringComparison.OrdinalIgnoreCase))
-            {
-                type = NoteSuggestionType.MissingPoint;
-                content = trimmed.Substring("[MissingPoint]".Length).Trim();
-            }
-            // Add other parsing logic as needed or default to MissingPoint if format is loose
-
-            // Only add if we extracted reasonable content
-            if (content.Length > 10)
-            {
+                // Fallback for lines that look like content but missed the type prefix
                 suggestions.Add(new NoteSuggestion
                 {
                     Id = Guid.NewGuid().ToString(),
                     NoteId = noteId,
-                    Type = type,
-                    ContentMarkdown = content,
+                    Type = NoteSuggestionType.MissingPoint,
+                    ContentMarkdown = trimmed,
                     Source = "Jarvis AI Analysis",
-                    Confidence = 0.85,
+                    Confidence = 0.70, // Lower confidence for fallback
                     CreatedAt = DateTime.UtcNow,
                     TenantId = tenantId
                 });
             }
         }
 
-        // Limit to 3
+        // Limit to 3, but after loop to handle filtered results
         if (suggestions.Count > 3)
         {
             suggestions = suggestions.GetRange(0, 3);
