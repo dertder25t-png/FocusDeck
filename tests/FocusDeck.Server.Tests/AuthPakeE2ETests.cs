@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -334,7 +335,7 @@ public class AuthPakeE2ETests
             signingKeyProvider,
             NullLogger<TokenService>.Instance,
             memoryCache);
-        var srpCache = new SrpSessionCache(new MemoryCache(new MemoryCacheOptions()));
+        var srpCache = new SrpSessionCache(new MemoryDistributedCache(Options.Create(new MemoryDistributedCacheOptions())));
         var limiter = new AuthAttemptLimiter(memoryCache: new MemoryCache(new MemoryCacheOptions()));
 
         var controller = new AuthPakeController(db, logger, tokenService, srpCache, CreateConfig(jwtSettings), jwtSettings, limiter, new StubTenantMembershipService())
