@@ -448,6 +448,13 @@ public class AuthPakeController : ControllerBase
             var refreshToken = _tokenService.GenerateRefreshToken();
 
             var deviceId = request.ClientId ?? session.ClientId ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-device";
+
+            // Truncate DeviceId to 200 chars to fit in database
+            if (deviceId.Length > 200)
+            {
+                deviceId = deviceId.Substring(0, 200);
+            }
+
             var deviceName = request.DeviceName ?? session.DeviceName ?? deviceId ?? "unknown";
             var devicePlatform = request.DevicePlatform ?? session.DevicePlatform;
 

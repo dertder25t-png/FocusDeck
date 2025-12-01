@@ -11,12 +11,23 @@ export function PrivacyDataProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        const token = await getAuthToken();
-        if (!token || cancelled) return;
+        const token = await getAuthToken().catch(() => null);
+        if (!token && !cancelled) {
+             console.warn('PrivacyDataHub init skipped (no auth token)');
+             return;
+        }
+
+        if (cancelled) return;
 
         const newConnection = new HubConnectionBuilder()
           .withUrl('/hubs/privacydata', {
-            accessTokenFactory: () => token
+            accessTokenFactory: async () => {
+              try {
+                return await getAuthToken();
+              } catch {
+                return '';
+              }
+            }
           })
           .withAutomaticReconnect()
           .configureLogging(LogLevel.Information)
