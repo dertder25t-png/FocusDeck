@@ -18,6 +18,16 @@ public class WhisperCppAdapter : IWhisperAdapter
 
     public async Task<string> TranscribeAsync(string audioFilePath, string language = "en", CancellationToken cancellationToken = default)
     {
+        // 1. Validate Executable Existence
+        if (!File.Exists(_whisperExecutablePath))
+        {
+            _logger.LogError("Whisper executable not found at configured path: {Path}", _whisperExecutablePath);
+            throw new FileNotFoundException(
+                $"Whisper.cpp executable not found at '{_whisperExecutablePath}'. " +
+                "Please ensure whisper-cpp is installed and the path is correctly configured in appsettings.json (Whisper:ExecutablePath).");
+        }
+
+        // 2. Validate Audio File
         if (!File.Exists(audioFilePath))
         {
             throw new FileNotFoundException($"Audio file not found: {audioFilePath}");

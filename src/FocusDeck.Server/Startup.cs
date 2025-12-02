@@ -258,7 +258,7 @@ public sealed class Startup
         services.AddSingleton<FocusDeck.Server.Services.Storage.IAssetStorage, FocusDeck.Server.Services.Storage.LocalFileSystemAssetStorage>();
 
         // Transcription & TextGen
-        services.AddSingleton<FocusDeck.Server.Services.Transcription.IWhisperAdapter, FocusDeck.Server.Services.Transcription.StubWhisperAdapter>();
+        services.AddSingleton<FocusDeck.Server.Services.Transcription.IWhisperAdapter, FocusDeck.Server.Services.Transcription.WhisperCppAdapter>();
         services.AddHttpClient<FocusDeck.Server.Services.TextGeneration.ITextGen, FocusDeck.Server.Services.TextGeneration.GeminiTextGenService>();
         services.AddScoped<FocusDeck.Contracts.Services.Context.IEmbeddingGenerationService, FocusDeck.Server.Services.Context.GeminiEmbeddingService>();
 
@@ -293,7 +293,7 @@ public sealed class Startup
         services.AddScoped<IEfContextSnapshotRepository, EfContextSnapshotRepository>();
         services.AddScoped<IContextSnapshotRepository, EfContextSnapshotRepository>();
         services.AddScoped<IActivitySignalRepository, FocusDeck.Persistence.Repositories.EfActivitySignalRepository>();
-        services.AddSingleton<IVectorStore, VectorStoreStub>();
+        services.AddScoped<IVectorStore, SqliteVectorStore>();
         services.AddScoped<IEventCacheRepository, EfEventCacheRepository>();
         services.AddScoped<AmbientService>();
         services.AddScoped<KnowledgeVaultService>();

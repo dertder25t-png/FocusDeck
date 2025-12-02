@@ -351,25 +351,28 @@ public class NotesV1Controller : ControllerBase
 
     private double CalculateCoverage(Note note)
     {
-        // Stub calculation based on content length and structure
-        // In production, this would compare against lecture transcripts
-        var hasContent = !string.IsNullOrWhiteSpace(note.Content);
-        var hasTags = note.Tags.Count > 0;
-        var hasTitle = !string.IsNullOrWhiteSpace(note.Title);
-        var contentLength = note.Content?.Length ?? 0;
+        // Calculate coverage based on content density relative to an expected baseline (e.g. 500 words for a lecture)
+        // TODO: Future enhancement - retrieve Linked Transcript via note.EventId and perform semantic similarity check.
 
-        var baseScore = 0.0;
-        if (hasTitle) baseScore += 20;
-        if (hasTags) baseScore += 10;
-        if (hasContent)
-        {
-            if (contentLength > 100) baseScore += 20;
-            if (contentLength > 500) baseScore += 20;
-            if (contentLength > 1000) baseScore += 20;
-            if (note.Content?.Contains("##") == true) baseScore += 10; // Has sections
-        }
+        if (string.IsNullOrWhiteSpace(note.Content)) return 0.0;
 
-        return Math.Min(100, baseScore);
+        // Base metrics
+        var wordCount = note.Content.Split(new[] { ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).Length;
+
+        // Assume a standard lecture note should have at least 300 words for "good" coverage without transcript comparison
+        double densityScore = Math.Min(100.0, (wordCount / 300.0) * 100.0);
+
+        // Quality multipliers
+        bool hasStructure = note.Content.Contains("##") || note.Content.Contains("- ") || note.Content.Contains("* ");
+        bool hasTags = note.Tags != null && note.Tags.Any();
+        bool hasCitations = note.Sources != null && note.Sources.Any();
+
+        double multiplier = 1.0;
+        if (hasStructure) multiplier += 0.1;
+        if (hasTags) multiplier += 0.05;
+        if (hasCitations) multiplier += 0.1;
+
+        return Math.Min(100.0, densityScore * multiplier);
     }
 
 }
