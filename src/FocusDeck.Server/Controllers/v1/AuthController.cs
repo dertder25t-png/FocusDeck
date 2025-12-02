@@ -115,6 +115,13 @@ public class AuthController : ControllerBase
 
             // Verify client fingerprint
             var deviceId = request.ClientId ?? storedToken.DeviceId ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-device";
+
+            // Truncate DeviceId to 200 chars to fit in database
+            if (deviceId.Length > 200)
+            {
+                deviceId = deviceId.Substring(0, 200);
+            }
+
             var deviceName = request.DeviceName ?? storedToken.DeviceName ?? deviceId;
             var devicePlatform = request.DevicePlatform ?? storedToken.DevicePlatform;
             var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
@@ -293,6 +300,13 @@ public class AuthController : ControllerBase
             var refreshToken = _tokenService.GenerateRefreshToken();
 
             var deviceId = request.ClientId ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-device";
+
+            // Truncate DeviceId to 200 chars to fit in database
+            if (deviceId.Length > 200)
+            {
+                deviceId = deviceId.Substring(0, 200);
+            }
+
             var deviceName = request.DeviceName ?? request.ClientId ?? tokenInfo.Name ?? userId;
             var devicePlatform = request.DevicePlatform;
             var userAgent = HttpContext.Request.Headers.UserAgent.ToString();

@@ -32,12 +32,24 @@ export function SignalRProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     ;(async () => {
       try {
-        const token = await getAuthToken()
-        if (!token || cancelled) return
+        // Just check if we *can* get a token, but let the factory get a fresh one each time
+        const token = await getAuthToken().catch(() => null)
+        if (!token && !cancelled) {
+             console.warn('SignalR init skipped (no auth token)')
+             return
+        }
+
+        if (cancelled) return
 
         const newConnection = new HubConnectionBuilder()
           .withUrl('/hubs/notifications', {
-            accessTokenFactory: () => token
+            accessTokenFactory: async () => {
+              try {
+                return await getAuthToken()
+              } catch {
+                return ''
+              }
+            }
           })
           .withAutomaticReconnect()
           .configureLogging(LogLevel.Information)
