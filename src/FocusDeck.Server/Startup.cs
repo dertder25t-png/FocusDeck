@@ -47,6 +47,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -225,6 +226,16 @@ public sealed class Startup
         if (!string.IsNullOrWhiteSpace(redisConnection))
         {
             services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConnection));
+            // Use Redis for distributed cache if available
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = redisConnection;
+            });
+        }
+        else
+        {
+            // Fallback to in-memory distributed cache so ISrpSessionCache has an IDistributedCache backing
+            services.AddDistributedMemoryCache();
         }
 
         // Auth services
@@ -690,11 +701,11 @@ public sealed class Startup
             {
                 context.Response.Headers["Content-Security-Policy"] =
                     "default-src 'self'; " +
-                    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; " +
+                    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
                     "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; " +
                     "img-src 'self' data: https:; " +
                     "font-src 'self' data: https:; " +
-                    "connect-src 'self' ws: wss: https://cloudflareinsights.com; " +
+                    "connect-src 'self' ws: wss:; " +
                     "frame-ancestors 'none';";
 
                 context.Response.Headers["X-Content-Type-Options"] = "nosniff";

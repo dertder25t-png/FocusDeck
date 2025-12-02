@@ -88,6 +88,31 @@ public sealed class JwtBearerOptionsConfigurator : IConfigureNamedOptions<JwtBea
 
         options.Events = new JwtBearerEvents
         {
+            OnMessageReceived = ctx =>
+            {
+                // Support SignalR access token via query string for WebSockets/SSE
+                // The JS client appends ?access_token=... when connecting to hubs.
+                var path = ctx.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(path) && path.StartsWithSegments("/hubs"))
+                {
+                    var token = ctx.Request.Query["access_token"].FirstOrDefault();
+                    if (!string.IsNullOrWhiteSpace(token))
+                    {
+                        ctx.Token = token;
+                    }
+                }
+
+                // Fallback: read JWT from cookie if Authorization header is missing
+                if (string.IsNullOrWhiteSpace(ctx.Token))
+                {
+                    var cookieToken = ctx.Request.Cookies["focusdeck_access_token"];
+                    if (!string.IsNullOrWhiteSpace(cookieToken))
+                    {
+                        ctx.Token = cookieToken;
+                    }
+                }
+                return Task.CompletedTask;
+            },
             OnTokenValidated = async ctx =>
             {
                 var keyVersion = ctx.Principal?.FindFirst("key_version")?.Value;

@@ -18,6 +18,7 @@ public sealed class JwtSettings
         init => _primaryKey = value ?? string.Empty;
     }
 
+    // Back-compat: map legacy keys from config
     [JsonPropertyName("Key")]
     public string LegacyKey
     {
@@ -25,6 +26,16 @@ public sealed class JwtSettings
         init => _primaryKey = value ?? string.Empty;
     }
 
+    // Back-compat: accept 'SigningKey' used in production appsettings
+    [JsonPropertyName("SigningKey")]
+    public string SigningKey
+    {
+        get => _primaryKey;
+        init => _primaryKey = value ?? string.Empty;
+    }
+
+    // Back-compat: accept 'FallbackSigningKey' mapping to SecondaryKey
+    [JsonPropertyName("FallbackSigningKey")]
     public string? SecondaryKey { get; init; }
     public string Issuer { get; init; } = "https://focusdeck.909436.xyz";
     public string Audience { get; init; } = "focusdeck-clients";

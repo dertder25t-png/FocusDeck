@@ -34,9 +34,16 @@ export function formatDuration(seconds: number): string {
 // AUTH UTILITIES
 // ========================================
 
+// Cached token is intentionally NOT persisted across page reloads
+// Each page load should re-read from localStorage/cookies
 let cachedToken: string | null = null
 const ACCESS_COOKIE_NAME = 'focusdeck_access_token'
 const REFRESH_COOKIE_NAME = 'focusdeck_refresh_token'
+
+// Clear cached token on module load to force fresh read after login reload
+if (typeof window !== 'undefined') {
+  cachedToken = null
+}
 
 function isBrowser(): boolean {
   return typeof window !== 'undefined' && typeof document !== 'undefined'
@@ -212,7 +219,8 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
   }
 
-  let response = await fetch(url, { ...options, headers });
+  // Always include credentials so auth cookies (if any) are sent with requests
+  let response = await fetch(url, { ...options, headers, credentials: 'include' });
 
   // If we get a 401 on a protected endpoint, try to refresh
   if (response.status === 401 && isProtected) {
@@ -223,7 +231,7 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
       })
         .then((newToken) => {
           (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
-          return fetch(url, { ...options, headers });
+          return fetch(url, { ...options, headers, credentials: 'include' });
         })
         .catch((err) => {
           return Promise.reject(err);
@@ -253,6 +261,7 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
           deviceName: navigator.userAgent,
           devicePlatform: 'web'
         }),
+        credentials: 'include'
       });
 
       if (!refreshRes.ok) {
@@ -264,12 +273,15 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
       // Store new tokens
       storeTokens(data.accessToken, data.refreshToken);
 
+      // Mark refresh as complete
+      isRefreshing = false;
+
       // Process queued requests with new token
       processQueue(null, data.accessToken);
 
       // Retry original request
       (headers as Record<string, string>)['Authorization'] = `Bearer ${data.accessToken}`;
-      return fetch(url, { ...options, headers });
+      return fetch(url, { ...options, headers, credentials: 'include' });
 
     } catch (err) {
       // Refresh failed (token revoked or expired), force logout
