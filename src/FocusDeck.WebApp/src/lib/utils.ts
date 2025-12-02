@@ -125,9 +125,60 @@ function persistRefreshToken(token?: string) {
   setCookie(REFRESH_COOKIE_NAME, token, getTokenExpiryDate(token))
 }
 
+// Shared refresh logic
+export async function refreshAuthToken(): Promise<string | null> {
+    if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+        });
+    }
+
+    const refreshToken = localStorage.getItem('focusdeck_refresh_token');
+    const accessToken = localStorage.getItem('focusdeck_access_token');
+
+    if (!refreshToken) {
+        return null;
+    }
+
+    isRefreshing = true;
+
+    try {
+        const refreshRes = await fetch('/v1/auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                accessToken: accessToken || '',
+                refreshToken,
+                clientId: navigator.userAgent,
+                deviceName: navigator.userAgent,
+                devicePlatform: 'web'
+            }),
+            credentials: 'include'
+        });
+
+        if (!refreshRes.ok) {
+            throw new Error('Refresh failed');
+        }
+
+        const data: RefreshResponse = await refreshRes.json();
+        storeTokens(data.accessToken, data.refreshToken);
+
+        isRefreshing = false;
+        processQueue(null, data.accessToken);
+
+        return data.accessToken;
+    } catch (err) {
+        processQueue(err, null);
+        isRefreshing = false;
+        return null;
+    }
+}
+
 export async function getAuthToken(): Promise<string> {
+  // 1. Try memory cache
   if (cachedToken) return cachedToken
 
+  // 2. Try localStorage
   let storedToken: string | null = null
   try {
     storedToken = localStorage.getItem('focusdeck_access_token')
@@ -135,29 +186,52 @@ export async function getAuthToken(): Promise<string> {
     storedToken = null
   }
 
-  if (storedToken) {
-    cachedToken = storedToken
-    return storedToken
-  }
-
-  const cookieToken = getCookie(ACCESS_COOKIE_NAME)
-  if (cookieToken) {
-    cachedToken = cookieToken
-    try {
-      localStorage.setItem('focusdeck_access_token', cookieToken)
-    } catch (error) {
-      console.warn('Unable to persist cookie token to localStorage', error)
+  // 3. Try cookie
+  if (!storedToken) {
+    const cookieToken = getCookie(ACCESS_COOKIE_NAME)
+    if (cookieToken) {
+      storedToken = cookieToken
+      try {
+        localStorage.setItem('focusdeck_access_token', cookieToken)
+      } catch (error) {
+        console.warn('Unable to persist cookie token to localStorage', error)
+      }
     }
-    return cookieToken
   }
 
-  // No token found - just throw error, don't redirect (let React Router handle that)
+  // 4. If we have a token, check expiry
+  if (storedToken) {
+      const expiry = getTokenExpiryDate(storedToken)
+      // If expired or expiring in < 30 seconds, try refresh
+      if (expiry && (expiry.getTime() - Date.now()) < 30000) {
+          const refreshed = await refreshAuthToken()
+          if (refreshed) {
+              cachedToken = refreshed
+              return refreshed
+          }
+          // Refresh failed, fall through to throw
+      } else {
+          cachedToken = storedToken
+          return storedToken
+      }
+  }
+
+  // No token found or refresh failed - throw error
   throw new Error('Not authenticated')
+}
+
+// For SignalR usage: returns null instead of throwing if not authenticated
+export async function getOrRefreshAuthToken(): Promise<string | null> {
+    try {
+        return await getAuthToken();
+    } catch {
+        return null;
+    }
 }
 
 export async function logout() {
   try {
-    await fetch('/v1/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${await getAuthToken()}` } })
+    await fetch('/v1/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${await getAuthToken().catch(() => '')}` } })
   } catch (error) {
     console.warn('Logout request failed', error)
   }
@@ -188,7 +262,7 @@ interface RefreshResponse {
 
 let isRefreshing = false;
 let failedQueue: Array<{
-  resolve: (value: unknown) => void;
+  resolve: (value: any) => void;
   reject: (reason?: any) => void;
 }> = [];
 
@@ -208,7 +282,13 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
   const path = isAbsolute ? new URL(url).pathname : url;
   const isProtected = path.startsWith('/v1/') && !path.startsWith('/v1/auth/');
 
-  let token = await getAuthToken().catch(() => null);
+  // Try to get token, but proceed even if missing (getAuthToken throws, so catch it)
+  let token: string | null = null;
+  try {
+      token = await getAuthToken();
+  } catch {
+      // Proceed without token, might be a public endpoint or we want 401
+  }
 
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
@@ -224,77 +304,19 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
 
   // If we get a 401 on a protected endpoint, try to refresh
   if (response.status === 401 && isProtected) {
-    if (isRefreshing) {
-      // If already refreshing, queue this request to retry later
-      return new Promise((resolve, reject) => {
-        failedQueue.push({ resolve, reject });
-      })
-        .then((newToken) => {
+      const newToken = await refreshAuthToken();
+
+      if (newToken) {
           (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
           return fetch(url, { ...options, headers, credentials: 'include' });
-        })
-        .catch((err) => {
-          return Promise.reject(err);
-        });
-    }
-
-    const refreshToken = localStorage.getItem('focusdeck_refresh_token');
-    const accessToken = localStorage.getItem('focusdeck_access_token');
-
-    if (!refreshToken) {
-      // No refresh token available, logout truly required
-      await logout();
-      throw new Error('Session expired');
-    }
-
-    isRefreshing = true;
-
-    try {
-      // Attempt to refresh tokens - send both access and refresh tokens
-      const refreshRes = await fetch('/v1/auth/refresh', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          accessToken: accessToken || '',
-          refreshToken,
-          clientId: navigator.userAgent,
-          deviceName: navigator.userAgent,
-          devicePlatform: 'web'
-        }),
-        credentials: 'include'
-      });
-
-      if (!refreshRes.ok) {
-        throw new Error('Refresh failed');
+      } else {
+           // Only logout if not already on auth pages to prevent infinite loops
+          const currentPath = window.location.pathname;
+          if (currentPath !== '/login' && currentPath !== '/register') {
+            await logout();
+          }
+          throw new Error('Session expired');
       }
-
-      const data: RefreshResponse = await refreshRes.json();
-
-      // Store new tokens
-      storeTokens(data.accessToken, data.refreshToken);
-
-      // Mark refresh as complete
-      isRefreshing = false;
-
-      // Process queued requests with new token
-      processQueue(null, data.accessToken);
-
-      // Retry original request
-      (headers as Record<string, string>)['Authorization'] = `Bearer ${data.accessToken}`;
-      return fetch(url, { ...options, headers, credentials: 'include' });
-
-    } catch (err) {
-      // Refresh failed (token revoked or expired), force logout
-      processQueue(err, null);
-      isRefreshing = false;
-      
-      // Only logout if not already on auth pages to prevent infinite loops
-      const currentPath = window.location.pathname;
-      if (currentPath !== '/login' && currentPath !== '/register') {
-        await logout();
-      }
-      throw err;
-    }
   }
 
   return response;
