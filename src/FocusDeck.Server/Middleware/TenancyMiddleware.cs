@@ -1,9 +1,11 @@
 using System;
 using System.Threading.Tasks;
+using FocusDeck.Server.Services.Tenancy;
 using FocusDeck.SharedKernel.Tenancy;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using System.Security.Claims;
 
 namespace FocusDeck.Server.Middleware;
 
@@ -18,7 +20,7 @@ public sealed class TenancyMiddleware
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext context, ICurrentTenant currentTenant)
+    public async Task InvokeAsync(HttpContext context, ICurrentTenant currentTenant, ITenantMembershipService tenantService)
     {
         var endpoint = context.GetEndpoint();
         if (endpoint == null || endpoint.Metadata.GetMetadata<AllowAnonymousAttribute>() != null)
@@ -51,11 +53,30 @@ public sealed class TenancyMiddleware
 
         if (!Guid.TryParse(tenantClaim, out var tenantId) || tenantId == Guid.Empty)
         {
-            _logger.LogWarning("Tenant context missing for authenticated request {Method} {Path}", context.Request.Method, context.Request.Path);
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            context.Response.ContentType = "application/json";
-            await context.Response.WriteAsJsonAsync(new { error = "Tenant context missing" });
-            return;
+            // Attempt recovery: Resolve tenant from user ID
+            var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                try
+                {
+                    _logger.LogInformation("Recovering missing tenant context for user {UserId}", userId);
+                    tenantId = await tenantService.EnsureTenantAsync(userId, null, null, context.RequestAborted);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to recover tenant for user {UserId}", userId);
+                }
+            }
+
+            // If still invalid after recovery attempt, block
+            if (tenantId == Guid.Empty)
+            {
+                _logger.LogWarning("Tenant context missing for authenticated request {Method} {Path}", context.Request.Method, context.Request.Path);
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsJsonAsync(new { error = "Tenant context missing" });
+                return;
+            }
         }
 
         currentTenant.SetTenant(tenantId);
