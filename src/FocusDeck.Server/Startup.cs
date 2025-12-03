@@ -709,13 +709,16 @@ public sealed class Startup
         {
             if (ShouldServeSpa(context, includeRoot: true))
             {
+                var allowedOrigin = _configuration["AllowedOrigin"] ?? "https://focusdeckv1.909436.xyz";
+
                 context.Response.Headers["Content-Security-Policy"] =
-                    "default-src 'self' https://focusdeckv1.909436.xyz; " +
+                    $"default-src 'self' {allowedOrigin}; " +
                     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; " +
                     "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; " +
-                    "img-src 'self' data: https:; " +
-                    "font-src 'self' data: https:; " +
-                    "connect-src 'self' ws: wss: https://focusdeckv1.909436.xyz; " +
+                    $"img-src 'self' data: {allowedOrigin} https://cdn.example.com; " +
+                    "font-src 'self' data: https://fonts.gstatic.com; " +
+                    $"connect-src 'self' ws: wss: {allowedOrigin}; " +
+                    "worker-src 'self' blob:; " +
                     "frame-ancestors 'none';";
 
                 context.Response.Headers["X-Content-Type-Options"] = "nosniff";

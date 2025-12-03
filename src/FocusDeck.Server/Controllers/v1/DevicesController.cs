@@ -26,8 +26,7 @@ public class DevicesController : ControllerBase
     }
 
     /// <summary>
-    /// Get current user ID from claims with fallback for testing
-    /// TODO: Remove fallback in production - require proper authentication
+    /// Get current user ID from claims
     /// </summary>
     private string GetUserId()
     {
@@ -35,8 +34,7 @@ public class DevicesController : ControllerBase
         
         if (string.IsNullOrEmpty(userId))
         {
-            _logger.LogWarning("No authenticated user found. Using test user.");
-            return "test-user";
+            throw new UnauthorizedAccessException("User is not authenticated");
         }
         
         return userId;

@@ -304,6 +304,21 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
 
   // If we get a 401 on a protected endpoint, try to refresh
   if (response.status === 401 && isProtected) {
+      // Check queue before initiating a new refresh request
+      if (isRefreshing) {
+          try {
+              const newToken = await new Promise<string | null>((resolve, reject) => {
+                  failedQueue.push({ resolve, reject });
+              });
+              if (newToken) {
+                   (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
+                   return fetch(url, { ...options, headers, credentials: 'include' });
+              }
+          } catch {
+              // fall through to logout
+          }
+      }
+
       const newToken = await refreshAuthToken();
 
       if (newToken) {
