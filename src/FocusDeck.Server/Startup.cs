@@ -37,6 +37,7 @@ using FocusDeck.SharedKernel.Auditing;
 using FocusDeck.SharedKernel.Tenancy;
 using Hangfire;
 using Hangfire.PostgreSql;
+using Hangfire.MemoryStorage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
@@ -352,7 +353,18 @@ public sealed class Startup
         }
         else
         {
-            services.AddSingleton<Hangfire.IBackgroundJobClient>(_ => new StubBackgroundJobClient());
+            // Fallback to MemoryStorage instead of Stub, so jobs actually run (even if transient)
+            services.AddHangfire(configuration => configuration
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings()
+                .UseMemoryStorage());
+
+            services.AddHangfireServer(options =>
+            {
+                options.WorkerCount = 2; // Lower concurrency for local memory-only dev
+                options.ServerName = $"FocusDeck-Local-{Environment.MachineName}";
+            });
         }
 
         // Health checks
@@ -593,40 +605,38 @@ public sealed class Startup
             ?? _configuration.GetConnectionString("DefaultConnection")
             ?? "Data Source=focusdeck.db";
 
-        if (hangfireConnection.Contains("Host=") || hangfireConnection.Contains("Server="))
+        // Enable Hangfire Dashboard and Jobs for BOTH Postgres and MemoryStorage modes
+        // Previous logic only enabled it if Postgres connection string was detected
+        app.UseHangfireDashboard("/hangfire", new DashboardOptions
         {
-            app.UseHangfireDashboard("/hangfire", new DashboardOptions
-            {
-                Authorization = new[] { new HangfireAuthorizationFilter() },
-                DashboardTitle = "FocusDeck Background Jobs"
-            });
-            RecurringJob.AddOrUpdate<BurnoutCheckJob>(
-                "burnout-check-job",
-                job => job.ExecuteAsync(CancellationToken.None),
-                "0 */2 * * *");
+            Authorization = new[] { new HangfireAuthorizationFilter() },
+            DashboardTitle = "FocusDeck Background Jobs"
+        });
 
-            RecurringJob.AddOrUpdate<VectorizePendingSnapshotsJob>(
-                "vectorize-pending-snapshots",
-                job => job.ExecuteAsync(CancellationToken.None),
-                "*/1 * * * *"); // Run every minute
+        RecurringJob.AddOrUpdate<BurnoutCheckJob>(
+            "burnout-check-job",
+            job => job.ExecuteAsync(CancellationToken.None),
+            "0 */2 * * *");
 
-            // Note: Use the new service-based PatternRecognitionJob, not the old job namespace if it existed.
-            // The file created was in FocusDeck.Server.Services.Jarvis namespace.
-            RecurringJob.AddOrUpdate<FocusDeck.Server.Services.Jarvis.PatternRecognitionJob>(
-                "pattern-recognition-job",
-                job => job.ExecuteAsync(CancellationToken.None),
-                "0 * * * *"); // Run every hour
+        RecurringJob.AddOrUpdate<VectorizePendingSnapshotsJob>(
+            "vectorize-pending-snapshots",
+            job => job.ExecuteAsync(CancellationToken.None),
+            "*/1 * * * *"); // Run every minute
 
-            RecurringJob.AddOrUpdate<CalendarWarmSyncJob>(
-                "calendar-warm-sync",
-                job => job.ExecuteAsync(CancellationToken.None),
-                "*/30 * * * *"); // Run every 30 minutes
+        RecurringJob.AddOrUpdate<FocusDeck.Server.Services.Jarvis.PatternRecognitionJob>(
+            "pattern-recognition-job",
+            job => job.ExecuteAsync(CancellationToken.None),
+            "0 * * * *"); // Run every hour
 
-            RecurringJob.AddOrUpdate<SummarizeCapturedContentJob>(
-                "summarize-captured-content",
-                job => job.ExecuteAsync(CancellationToken.None),
-                "*/15 * * * *"); // Run every 15 minutes
-        }
+        RecurringJob.AddOrUpdate<CalendarWarmSyncJob>(
+            "calendar-warm-sync",
+            job => job.ExecuteAsync(CancellationToken.None),
+            "*/30 * * * *"); // Run every 30 minutes
+
+        RecurringJob.AddOrUpdate<SummarizeCapturedContentJob>(
+            "summarize-captured-content",
+            job => job.ExecuteAsync(CancellationToken.None),
+            "*/15 * * * *"); // Run every 15 minutes
 
         app.UseEndpoints(endpoints =>
         {
