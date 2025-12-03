@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { useDecks, Deck } from '../hooks/useDecks'; // Ensure these are exported from useDecks.ts
+import { useDecks } from '../hooks/useDecks';
+import type { Deck } from '../hooks/useDecks';
 
 export const FlashcardsApp: React.FC = () => {
   const { decks, isLoading, createDeck } = useDecks();
