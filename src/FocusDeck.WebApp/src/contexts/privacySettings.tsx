@@ -18,6 +18,12 @@ export function PrivacySettingsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
+    // Only fetch if authenticated (hacky check but prevents loop on login page)
+    if (window.location.pathname.includes('/login') || window.location.pathname.includes('/register')) {
+        setLoading(false);
+        return;
+    }
+
     setLoading(true)
     try {
       const response = await apiFetch('/v1/privacy/consent')
@@ -36,7 +42,7 @@ export function PrivacySettingsProvider({ children }: { children: ReactNode }) {
       )) {
         return
       }
-      console.error('Unable to refresh privacy settings', error)
+      console.warn('Unable to refresh privacy settings (likely offline or unauthenticated)', error)
     } finally {
       setLoading(false)
     }
@@ -90,4 +96,3 @@ export function PrivacySettingsProvider({ children }: { children: ReactNode }) {
     </PrivacySettingsContext.Provider>
   )
 }
-
