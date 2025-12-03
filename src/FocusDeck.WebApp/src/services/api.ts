@@ -1,6 +1,7 @@
 
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { getAuthToken, refreshAuthToken, storeTokens, logout } from '../lib/utils';
+import axios from 'axios';
+import type { AxiosInstance, AxiosRequestConfig } from 'axios';
+import { getAuthToken, refreshAuthToken, logout } from '../lib/utils';
 import type { Note, TodoItem } from '../types';
 
 // Create Axios instance
