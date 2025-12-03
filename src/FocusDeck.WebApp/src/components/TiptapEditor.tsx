@@ -4,13 +4,15 @@ import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Bold, Italic, Underline as UnderlineIcon, Strikethrough, List, ListOrdered, Quote } from 'lucide-react';
+import { useEffect } from 'react';
 
 interface TiptapEditorProps {
   content: string;
   onChange: (content: string) => void;
+  editable?: boolean;
 }
 
-export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
+export function TiptapEditor({ content, onChange, editable = true }: TiptapEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -20,6 +22,7 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
       }),
     ],
     content,
+    editable: editable,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
@@ -30,6 +33,21 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
     },
   });
 
+  useEffect(() => {
+    if (editor && content !== editor.getHTML()) {
+        // Only update if content is significantly different to avoid cursor jumps
+        // For simplicity in this demo, we might rely on the key prop in parent to force remount
+        // But if we want to support external updates without remounting:
+        // editor.commands.setContent(content);
+    }
+  }, [content, editor]);
+
+  useEffect(() => {
+    if (editor) {
+        editor.setEditable(editable);
+    }
+  }, [editable, editor]);
+
   if (!editor) {
     return null;
   }
@@ -37,6 +55,7 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
+      {editable && (
       <div className="flex items-center gap-1 p-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 sticky top-0 z-10">
         <button
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -91,6 +110,7 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
             <Quote size={16} />
         </button>
       </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-4">
          <EditorContent editor={editor} />

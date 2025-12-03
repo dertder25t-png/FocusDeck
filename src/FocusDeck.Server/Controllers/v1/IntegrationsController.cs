@@ -178,6 +178,30 @@ public class IntegrationsController : ControllerBase
         }
     }
 
+    // Google / Email Endpoints (Stub Implementation for WebApp)
+    [HttpGet("google/messages")]
+    [Authorize]
+    public async Task<ActionResult> GetGoogleMessages(CancellationToken ct)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        // In a real implementation, we would use GoogleAuthService to fetch emails
+        // For now, returning a mock list to satisfy the frontend contract until the service is fully wired
+        var mockEmails = new List<object>
+        {
+            new { id = "1", sender = "Google Community Team <googlecommunityteam-noreply@google.com>", subject = "Welcome to your new account", snippet = "Hi there, welcome to Google accounts...", date = DateTime.Now.AddDays(-1).ToString("MMM dd"), isRead = true },
+            new { id = "2", sender = "GitHub <noreply@github.com>", subject = "[GitHub] Please verify your device", snippet = "A sign-in attempt was made...", date = DateTime.Now.ToString("HH:mm"), isRead = false }
+        };
+        return Ok(mockEmails);
+    }
+
+    [HttpPost("google/send")]
+    [Authorize]
+    public async Task<IActionResult> SendGoogleMessage([FromBody] SendEmailRequest request, CancellationToken ct)
+    {
+        // Stub for sending
+        return Ok(new { success = true });
+    }
+
     public record ConnectedServiceDto(
         Guid Id,
         string ServiceType,
@@ -193,4 +217,6 @@ public class IntegrationsController : ControllerBase
         string? MetadataJson,
         DateTime? ExpiresAt
     );
+
+    public record SendEmailRequest(string To, string Subject, string Body);
 }
