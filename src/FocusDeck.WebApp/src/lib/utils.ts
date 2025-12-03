@@ -56,7 +56,7 @@ function isSecureOrigin(): boolean {
 
 function setCookie(name: string, value: string, expires?: Date | null) {
   if (!isBrowser()) return
-  let cookie = `${name}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`
+  let cookie = `${name}=${encodeURIComponent(value)}; Path=/; SameSite=Strict`
   if (expires) {
     cookie += `; Expires=${expires.toUTCString()}`
   }
@@ -68,7 +68,7 @@ function setCookie(name: string, value: string, expires?: Date | null) {
 
 function deleteCookie(name: string) {
   if (!isBrowser()) return
-  document.cookie = `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`
+  document.cookie = `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict`
 }
 
 function getCookie(name: string): string | null {
@@ -157,7 +157,8 @@ export async function refreshAuthToken(): Promise<string | null> {
         });
 
         if (!refreshRes.ok) {
-            throw new Error('Refresh failed');
+            const errorData = await refreshRes.json().catch(() => ({}));
+            throw new Error(`Refresh failed: ${refreshRes.status} - ${errorData.message || 'Unknown error'}`);
         }
 
         const data: RefreshResponse = await refreshRes.json();
@@ -300,7 +301,7 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
   }
 
   // Always include credentials so auth cookies (if any) are sent with requests
-  let response = await fetch(url, { ...options, headers, credentials: 'include' });
+  const response = await fetch(url, { ...options, headers, credentials: 'include' });
 
   // If we get a 401 on a protected endpoint, try to refresh
   if (response.status === 401 && isProtected) {

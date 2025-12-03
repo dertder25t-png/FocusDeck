@@ -77,6 +77,7 @@ export function SignalRProvider({ children }: { children: ReactNode }) {
           id,
           title,
           message,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           severity: (severity as any) || 'info'
         }])
 
@@ -92,6 +93,7 @@ export function SignalRProvider({ children }: { children: ReactNode }) {
         try {
           await connection.start()
           console.log('SignalR Connected')
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
           console.error('SignalR Connection Error: ', err)
           // If the error suggests authentication failure (401), try to refresh and retry once
@@ -130,6 +132,7 @@ export function SignalRProvider({ children }: { children: ReactNode }) {
       {/* Render Notifications */}
       <ToastPrimitives.Provider>
         {notifications.map(n => (
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           <Toast key={n.id} open={true} onOpenChange={() => removeNotification(n.id)} variant={n.severity === 'info' ? 'default' : n.severity as any}>
             <div className="grid gap-1">
               <ToastTitle>{n.title}</ToastTitle>

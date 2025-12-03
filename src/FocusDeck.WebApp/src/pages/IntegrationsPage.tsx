@@ -202,6 +202,7 @@ export function IntegrationsPage() {
               <select
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary"
                 value={aiProvider}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 onChange={(e) => setAiProvider(e.target.value as any)}
               >
                 <option value="none">None (Mock responses)</option>

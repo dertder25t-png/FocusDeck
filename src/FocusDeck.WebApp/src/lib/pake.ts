@@ -4,6 +4,7 @@ import { getAuthToken } from './utils'
 type Argon2Globals = typeof globalThis & {
   argon2WasmPath?: string
   loadArgon2WasmBinary?: () => Promise<ArrayBuffer> | ArrayBuffer
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   loadArgon2WasmModule?: () => Promise<any>
 }
 
