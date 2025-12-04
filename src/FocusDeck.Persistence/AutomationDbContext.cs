@@ -171,6 +171,11 @@ public class AutomationDbContext : DbContext
             ApplyLegacyDatabaseCompatibilityConverters(modelBuilder);
         }
         ApplyTenantQueryFilters(modelBuilder);
+
+        // Performance Indexes
+        modelBuilder.Entity<Note>().HasIndex(n => n.TenantId);
+        modelBuilder.Entity<ActivitySignal>().HasIndex(a => a.CapturedAtUtc);
+        modelBuilder.Entity<JarvisWorkflowRun>().HasIndex(j => j.Status);
     }
 
     public override int SaveChanges()
