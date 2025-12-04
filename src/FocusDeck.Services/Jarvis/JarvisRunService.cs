@@ -66,6 +66,8 @@ namespace FocusDeck.Services.Jarvis
             }
 
             // Set step properties
+            // NOTE: In high-concurrency scenarios, consider using database-level sequence generation
+            // or optimistic concurrency control. Current implementation uses timestamp as secondary sort key.
             step.Id = Guid.NewGuid();
             step.RunId = runId;
             step.Order = run.Steps.Count + 1;
@@ -74,7 +76,8 @@ namespace FocusDeck.Services.Jarvis
             run.Steps.Add(step);
             await _repo.UpdateAsync(run, ct);
 
-            _logger.LogDebug("Appended step {StepOrder} to Jarvis run {RunId}", step.Order, runId);
+            _logger.LogDebug("Appended step {StepOrder} (CreatedAt={CreatedAt}) to Jarvis run {RunId}", 
+                step.Order, step.CreatedAt, runId);
         }
 
         public async Task CompleteRunAsync(Guid runId, JarvisRunStatus finalStatus, CancellationToken ct)

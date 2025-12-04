@@ -118,8 +118,10 @@ public class NotesV1Controller : ControllerBase
 
         var query = _db.Notes.AsNoTracking();
 
-        // NOTE: Search on encrypted content won't work. Tags are not encrypted.
-        // Filter by lecture if specified (using the note's tags)
+        // SECURITY NOTE: Content is encrypted at rest. Database-level search on encrypted
+        // content is not possible without implementing encrypted search (e.g., searchable encryption
+        // or a separate search index with encrypted tokens). Current implementation only supports
+        // filtering by Tags which are stored in plaintext for searchability.
         if (!string.IsNullOrEmpty(lectureId))
         {
             query = query.Where(n => n.Tags.Contains(lectureId));
