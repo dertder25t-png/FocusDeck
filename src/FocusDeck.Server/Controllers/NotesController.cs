@@ -182,21 +182,14 @@ namespace FocusDeck.Server.Controllers
         [HttpPost]
         public async Task<ActionResult<Note>> CreateNote([FromBody] CreateNoteRequest? request)
         {
-            // Enforce strict tenancy via ICurrentTenant if available
+            // Enforce strict tenancy
             if (!_currentTenant.HasTenant || !_currentTenant.TenantId.HasValue)
             {
-                _logger.LogWarning("CreateNote: Missing tenant context. Falling back to user claims if needed, but should be scoped.");
-                // Depending on middleware, HasTenant might be false if not authenticated, but [Authorize] is not strictly on class.
-                // Assuming tenant is resolved. If not, it might be global user. But Note needs TenantId.
-                // If _currentTenant is not set, check if we can resolve from user.
+                _logger.LogWarning("CreateNote blocked: Missing tenant context");
+                return Unauthorized();
             }
 
-            var tenantId = _currentTenant.TenantId ?? Guid.Empty; // Should handle Guid.Empty case or fail.
-            if (tenantId == Guid.Empty)
-            {
-                // Try to get from user claims if ICurrentTenant failed
-                 // This is a fallback, ideally middleware handles it.
-            }
+            var tenantId = _currentTenant.TenantId.Value;
 
             // Resolve context (Auto-Tag)
             // Ported logic from NotesV1Controller.StartNote
