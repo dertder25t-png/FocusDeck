@@ -5,19 +5,8 @@ import { Badge } from '../components/Badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/Dialog';
 import { EmptyState } from '../components/States';
 import { NoteEditor, type AcademicSource } from '../components/NoteEditor';
-
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  tags: string[];
-  createdDate: string;
-  lastModified?: string;
-  coveragePercent?: number;
-  type: 'quick' | 'paper';
-  sources: AcademicSource[];
-  citationStyle: string;
-}
+import { noteService } from '../services/api';
+import type { Note } from '../types';
 
 interface Suggestion {
   id: string;
@@ -49,11 +38,8 @@ export function NotesPage() {
 
   const loadNotes = async () => {
     try {
-      const response = await fetch('/v1/notes/list');
-      if (response.ok) {
-        const data = await response.json();
-        setNotes(data.notes || []);
-      }
+      const data = await noteService.getNotes();
+      setNotes(data || []);
     } catch (error) {
       console.error('Failed to load notes:', error);
     }
@@ -65,17 +51,14 @@ export function NotesPage() {
     setEditMode(false);
     
     // Initialize editor state
-    setEditorMode(note.type || 'quick');
+    setEditorMode(note.type === 1 ? 'paper' : 'quick');
     setSources(note.sources || []);
     setCitationStyle(note.citationStyle || 'APA');
 
     // Load suggestions for this note
     try {
-      const response = await fetch(`/v1/notes/${note.id}/suggestions`);
-      if (response.ok) {
-        const data = await response.json();
-        setSuggestions(data.suggestions || []);
-      }
+      const data = await noteService.getSuggestions(note.id);
+      setSuggestions(data.suggestions || []);
     } catch (error) {
       console.error('Failed to load suggestions:', error);
       setSuggestions([]);
@@ -86,32 +69,26 @@ export function NotesPage() {
     if (!selectedNote) return;
 
     try {
-        const payload = {
+        const payload: Partial<Note> = {
             content: editedContent,
-            type: editorMode,
+            type: editorMode === 'paper' ? 1 : 0,
             sources: sources,
             citationStyle: citationStyle
         };
 
-        const response = await fetch(`/v1/notes/${selectedNote.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        await noteService.updateNote(selectedNote.id, payload);
 
-        if (response.ok) {
-            // Update local state
-            setSelectedNote({
-                ...selectedNote,
-                content: editedContent,
-                type: editorMode,
-                sources: sources,
-                citationStyle: citationStyle,
-                lastModified: new Date().toISOString()
-            });
-            // Refresh list to show updated timestamp
-            loadNotes();
-        }
+        // Update local state
+        setSelectedNote({
+            ...selectedNote,
+            content: editedContent,
+            type: editorMode === 'paper' ? 1 : 0,
+            sources: sources,
+            citationStyle: citationStyle,
+            lastModified: new Date().toISOString()
+        });
+        // Refresh list to show updated timestamp
+        loadNotes();
     } catch (error) {
         console.error('Failed to save note:', error);
     }
@@ -122,16 +99,11 @@ export function NotesPage() {
     
     setIsVerifying(true);
     try {
-      const response = await fetch(`/v1/notes/${selectedNote.id}/verify`, {
-        method: 'POST'
-      });
-      if (response.ok) {
+      const response = await noteService.verifyNote(selectedNote.id);
+      if (response) {
         // Reload suggestions after verification
-        const suggestionsResponse = await fetch(`/v1/notes/${selectedNote.id}/suggestions`);
-        if (suggestionsResponse.ok) {
-          const data = await suggestionsResponse.json();
-          setSuggestions(data.suggestions || []);
-        }
+        const data = await noteService.getSuggestions(selectedNote.id);
+        setSuggestions(data.suggestions || []);
       }
     } catch (error) {
       console.error('Failed to verify note:', error);
@@ -142,20 +114,15 @@ export function NotesPage() {
 
   const handleAcceptSuggestion = async (suggestionId: string) => {
     try {
-      const response = await fetch(`/v1/notes/suggestions/${suggestionId}/accept`, {
-        method: 'POST'
-      });
-      if (response.ok) {
-        const data = await response.json();
-        // Update the note content
-        if (selectedNote) {
-          setSelectedNote({ ...selectedNote, content: data.updatedContent });
-          setEditedContent(data.updatedContent);
-        }
-        // Remove the accepted suggestion from the list
-        setSuggestions(suggestions.filter(s => s.id !== suggestionId));
-        setSelectedSuggestion(null);
+      const data = await noteService.acceptSuggestion(suggestionId);
+      // Update the note content
+      if (selectedNote) {
+        setSelectedNote({ ...selectedNote, content: data.updatedContent });
+        setEditedContent(data.updatedContent);
       }
+      // Remove the accepted suggestion from the list
+      setSuggestions(suggestions.filter(s => s.id !== suggestionId));
+      setSelectedSuggestion(null);
     } catch (error) {
       console.error('Failed to accept suggestion:', error);
     }
