@@ -48,18 +48,38 @@ public class NotificationsHub : Hub<INotificationClient>
 
     /// <summary>
     /// Join a user-specific group for targeted notifications
+    /// SECURITY: Validates that the requesting user can only join their own group
     /// </summary>
     public async Task JoinUserGroup(string userId)
     {
+        // SECURITY: Validate user can only join their own group
+        var authenticatedUserId = Context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(authenticatedUserId) || authenticatedUserId != userId)
+        {
+            _logger.LogWarning("Client {ConnectionId} attempted to join unauthorized user group: {UserId} (authenticated as {AuthUserId})", 
+                Context.ConnectionId, userId, authenticatedUserId ?? "anonymous");
+            throw new HubException("Cannot join another user's group");
+        }
+
         await Groups.AddToGroupAsync(Context.ConnectionId, $"user:{userId}");
         _logger.LogInformation("Client {ConnectionId} joined user group: {UserId}", Context.ConnectionId, userId);
     }
 
     /// <summary>
     /// Leave a user-specific group
+    /// SECURITY: Validates that the requesting user can only leave their own group
     /// </summary>
     public async Task LeaveUserGroup(string userId)
     {
+        // SECURITY: Validate user can only leave their own group
+        var authenticatedUserId = Context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(authenticatedUserId) || authenticatedUserId != userId)
+        {
+            _logger.LogWarning("Client {ConnectionId} attempted to leave unauthorized user group: {UserId} (authenticated as {AuthUserId})", 
+                Context.ConnectionId, userId, authenticatedUserId ?? "anonymous");
+            throw new HubException("Cannot leave another user's group");
+        }
+
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"user:{userId}");
         _logger.LogInformation("Client {ConnectionId} left user group: {UserId}", Context.ConnectionId, userId);
     }

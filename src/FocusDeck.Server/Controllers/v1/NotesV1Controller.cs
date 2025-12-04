@@ -1,6 +1,7 @@
 using FocusDeck.Persistence;
 using FocusDeck.Domain.Entities;
 using FocusDeck.Server.Services.Calendar;
+using FocusDeck.Services.Abstractions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,19 +19,22 @@ public class NotesV1Controller : ControllerBase
     private readonly CalendarResolver _calendarResolver;
     private readonly FocusDeck.Server.Services.Jarvis.ISuggestionService _jarvisService;
     private readonly FocusDeck.SharedKernel.Tenancy.ICurrentTenant _currentTenant;
+    private readonly IEncryptionService _encryptionService;
 
     public NotesV1Controller(
         AutomationDbContext db,
         ILogger<NotesV1Controller> logger,
         CalendarResolver calendarResolver,
         FocusDeck.Server.Services.Jarvis.ISuggestionService jarvisService,
-        FocusDeck.SharedKernel.Tenancy.ICurrentTenant currentTenant)
+        FocusDeck.SharedKernel.Tenancy.ICurrentTenant currentTenant,
+        IEncryptionService encryptionService)
     {
         _db = db;
         _logger = logger;
         _calendarResolver = calendarResolver;
         _jarvisService = jarvisService;
         _currentTenant = currentTenant;
+        _encryptionService = encryptionService;
     }
 
     // POST: v1/notes/start
@@ -86,10 +90,17 @@ public class NotesV1Controller : ControllerBase
             note.Tags.Add(course.Code);
         }
 
+        // Store plaintext title for response before encrypting
+        var plaintextTitle = note.Title;
+
+        // SECURITY: Encrypt sensitive content before storage
+        note.Title = _encryptionService.Encrypt(note.Title);
+        note.Content = _encryptionService.Encrypt(note.Content);
+
         _db.Notes.Add(note);
         await _db.SaveChangesAsync();
 
-        return Ok(new { noteId = note.Id, title = note.Title, context = new { eventId = evt?.Id, courseId = course?.Id } });
+        return Ok(new { noteId = note.Id, title = plaintextTitle, context = new { eventId = evt?.Id, courseId = course?.Id } });
     }
 
     // GET: v1/notes/list
@@ -107,10 +118,11 @@ public class NotesV1Controller : ControllerBase
 
         var query = _db.Notes.AsNoTracking();
 
-        // Filter by lecture if specified (using the note's tags or title)
+        // NOTE: Search on encrypted content won't work. Tags are not encrypted.
+        // Filter by lecture if specified (using the note's tags)
         if (!string.IsNullOrEmpty(lectureId))
         {
-            query = query.Where(n => n.Tags.Contains(lectureId) || n.Content.Contains(lectureId));
+            query = query.Where(n => n.Tags.Contains(lectureId));
         }
 
         var total = await query.CountAsync();
@@ -120,6 +132,13 @@ public class NotesV1Controller : ControllerBase
             .Skip((page - 1) * perPage)
             .Take(perPage)
             .ToListAsync();
+
+        // SECURITY: Decrypt content before returning to client and calculating coverage
+        foreach (var note in notes)
+        {
+            note.Title = _encryptionService.Decrypt(note.Title);
+            note.Content = _encryptionService.Decrypt(note.Content);
+        }
 
         // Calculate coverage for each note (stub - would compare against lecture transcript)
         var notesWithCoverage = notes.Select(n => new
@@ -162,6 +181,27 @@ public class NotesV1Controller : ControllerBase
             return NotFound(new { code = "NOTE_NOT_FOUND", message = "Note not found" });
         }
 
+        // SECURITY: Decrypt note content before AI analysis
+        // Create a copy to avoid modifying tracked entity
+        var decryptedNote = new Note
+        {
+            Id = note.Id,
+            Title = _encryptionService.Decrypt(note.Title),
+            Content = _encryptionService.Decrypt(note.Content),
+            Type = note.Type,
+            Tags = note.Tags,
+            Color = note.Color,
+            IsPinned = note.IsPinned,
+            CreatedDate = note.CreatedDate,
+            LastModified = note.LastModified,
+            Bookmarks = note.Bookmarks,
+            Sources = note.Sources,
+            CitationStyle = note.CitationStyle,
+            CourseId = note.CourseId,
+            EventId = note.EventId,
+            TenantId = note.TenantId
+        };
+
         // Hook up Jarvis AI for real analysis
         var existingSuggestions = await _db.NoteSuggestions
             .Where(ns => ns.NoteId == id)
@@ -170,7 +210,7 @@ public class NotesV1Controller : ControllerBase
         // Generate new suggestions if less than 5 exist to avoid spamming
         if (existingSuggestions.Count < 5)
         {
-            var newSuggestions = await _jarvisService.AnalyzeNoteAsync(note);
+            var newSuggestions = await _jarvisService.AnalyzeNoteAsync(decryptedNote);
             if (newSuggestions.Any())
             {
                 await _db.NoteSuggestions.AddRangeAsync(newSuggestions);
@@ -256,14 +296,20 @@ public class NotesV1Controller : ControllerBase
         suggestion.AcceptedAt = DateTime.UtcNow;
         suggestion.AcceptedBy = userId;
 
+        // SECURITY: Decrypt content, modify, then re-encrypt
+        var decryptedContent = _encryptionService.Decrypt(note.Content);
+
         // Append to note content under "AI Additions" section
         var aiAdditionsSection = "\n\n## AI Additions\n\n";
-        if (!note.Content.Contains("## AI Additions"))
+        if (!decryptedContent.Contains("## AI Additions"))
         {
-            note.Content += aiAdditionsSection;
+            decryptedContent += aiAdditionsSection;
         }
 
-        note.Content += $"\n### {suggestion.Type}\n\n{suggestion.ContentMarkdown}\n\n*Source: {suggestion.Source}*\n";
+        decryptedContent += $"\n### {suggestion.Type}\n\n{suggestion.ContentMarkdown}\n\n*Source: {suggestion.Source}*\n";
+        
+        // Re-encrypt before saving
+        note.Content = _encryptionService.Encrypt(decryptedContent);
         note.LastModified = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
@@ -275,7 +321,7 @@ public class NotesV1Controller : ControllerBase
         {
             message = "Suggestion accepted and added to note",
             noteId = note.Id,
-            updatedContent = note.Content
+            updatedContent = decryptedContent
         });
     }
 
@@ -294,6 +340,10 @@ public class NotesV1Controller : ControllerBase
         {
             return NotFound(new { code = "NOTE_NOT_FOUND", message = "Note not found" });
         }
+
+        // SECURITY: Decrypt content for coverage calculation
+        note.Title = _encryptionService.Decrypt(note.Title);
+        note.Content = _encryptionService.Decrypt(note.Content);
 
         var coverage = CalculateCoverage(note);
 
@@ -321,7 +371,11 @@ public class NotesV1Controller : ControllerBase
             return NotFound(new { code = "NOTE_NOT_FOUND", message = "Note not found" });
         }
 
-        if (request.Content != null) note.Content = request.Content;
+        // SECURITY: Encrypt content before storage
+        if (request.Content != null) 
+        {
+            note.Content = _encryptionService.Encrypt(request.Content);
+        }
         if (request.Type.HasValue) note.Type = request.Type.Value;
         if (request.CitationStyle != null) note.CitationStyle = request.CitationStyle;
 
