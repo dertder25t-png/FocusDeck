@@ -199,7 +199,6 @@ namespace FocusDeck.Server.Controllers
             }
 
             // Resolve context (Auto-Tag)
-            // Ported logic from NotesV1Controller.StartNote
             var (evt, course) = await _calendarResolver.ResolveCurrentContextAsync(tenantId);
 
             var note = new Note
