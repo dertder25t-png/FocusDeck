@@ -23,6 +23,7 @@ export function DevicesPage() {
       if (!res.ok) throw new Error('Failed to load devices')
       const data = await res.json()
       setDevices(data)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       setError(e?.message || 'Failed to load devices')
     } finally {
@@ -38,7 +39,7 @@ export function DevicesPage() {
       const res = await apiFetch(`/v1/auth/devices/${id}/revoke`, { method: 'POST' })
       if (!res.ok) throw new Error('Failed to revoke device')
       await load()
-    } catch (e) {
+    } catch {
       alert('Error revoking device')
     }
   }
@@ -49,7 +50,7 @@ export function DevicesPage() {
       const res = await apiFetch('/v1/auth/devices/revoke-all', { method: 'POST' })
       if (!res.ok) throw new Error('Failed to revoke all devices')
       await load()
-    } catch (e) {
+    } catch {
       alert('Error revoking all devices')
     }
   }

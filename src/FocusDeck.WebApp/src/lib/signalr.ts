@@ -32,7 +32,7 @@ export async function createNotificationsConnection(): Promise<signalR.HubConnec
   try {
     const user = localStorage.getItem('focusdeck_user') || 'test-user'
     await connection.invoke('JoinUserGroup', user)
-  } catch (e) {
+  } catch {
     // Fall back to dev helper
     await connection.invoke('JoinTestUser')
   }

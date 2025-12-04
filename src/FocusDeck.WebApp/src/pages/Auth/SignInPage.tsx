@@ -13,6 +13,7 @@ export const SignInPage: React.FC = () => {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const from = (location.state as any)?.from?.pathname || '/'
 
     function mapError(raw: string): string {
@@ -42,6 +43,7 @@ export const SignInPage: React.FC = () => {
             console.log('[SignIn] Tokens stored, reloading page');
             // Force a full page reload to ensure all state is fresh
             window.location.href = from
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
             const msg = mapError(err?.message)
             setError(msg)

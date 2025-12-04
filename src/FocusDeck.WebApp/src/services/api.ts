@@ -1,6 +1,6 @@
 
 import { apiFetch } from '../lib/utils'; // Safe: Handles silent refresh
-import type { Note, TodoItem } from '../types';
+import type { Note, TodoItem, AcademicSource } from '../types';
 
 export const noteService = {
   getNotes: async (search?: string, tag?: string, pinned?: boolean, type?: string) => {
@@ -68,6 +68,46 @@ export const noteService = {
   getStats: async () => {
     const response = await apiFetch('/api/notes/stats');
     if (!response.ok) throw new Error('Failed to fetch stats');
+    return response.json();
+  },
+
+  verifyNote: async (id: string) => {
+    const response = await apiFetch(`/api/notes/${id}/verify`, {
+        method: 'POST'
+    });
+    if (!response.ok) {
+        const msg = await response.text().catch(() => 'Failed to verify note');
+        throw new Error(msg || 'Failed to verify note');
+    }
+    return response.json();
+  },
+
+  getSuggestions: async (id: string) => {
+    const response = await apiFetch(`/api/notes/${id}/suggestions`);
+    if (!response.ok) {
+        const msg = await response.text().catch(() => 'Failed to fetch suggestions');
+        throw new Error(msg || 'Failed to fetch suggestions');
+    }
+    return response.json();
+  },
+
+  acceptSuggestion: async (id: string) => {
+    const response = await apiFetch(`/api/notes/suggestions/${id}/accept`, {
+        method: 'POST'
+    });
+    if (!response.ok) {
+        const msg = await response.text().catch(() => 'Failed to accept suggestion');
+        throw new Error(msg || 'Failed to accept suggestion');
+    }
+    return response.json();
+  },
+
+  getCoverage: async (id: string) => {
+    const response = await apiFetch(`/api/notes/${id}/coverage`);
+    if (!response.ok) {
+        const msg = await response.text().catch(() => 'Failed to get coverage');
+        throw new Error(msg || 'Failed to get coverage');
+    }
     return response.json();
   }
 };

@@ -28,6 +28,7 @@ public class TenantMembershipService : ITenantMembershipService
     public async Task<Guid> EnsureTenantAsync(string userId, string? email, string? displayName, CancellationToken cancellationToken = default)
     {
         var membership = await _db.UserTenants
+            .IgnoreQueryFilters()
             .Include(ut => ut.User)
             .FirstOrDefaultAsync(ut => ut.UserId == userId, cancellationToken);
 
