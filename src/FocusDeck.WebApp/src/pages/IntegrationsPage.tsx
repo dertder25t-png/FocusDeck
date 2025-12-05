@@ -1,28 +1,96 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/Card';
 import { Badge } from '../components/Badge';
+import { apiFetch } from '../services/api';
 
 export function IntegrationsPage() {
   const [googleConnected, setGoogleConnected] = useState(false);
   const [canvasConnected, setCanvasConnected] = useState(false);
+  const [canvasDomain, setCanvasDomain] = useState('');
+  const [canvasKey, setCanvasKey] = useState('');
+  const [showCanvasForm, setShowCanvasForm] = useState(false);
+
   const [whisperPath] = useState('/models/ggml-base.en.bin');
   const [aiProvider, setAiProvider] = useState<'openai' | 'anthropic' | 'none'>('none');
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
+
+  useEffect(() => {
+    // Fetch initial status
+    apiFetch('/v1/integrations').then(async (res) => {
+        if (res.ok) {
+            const data = await res.json();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const canvas = data.find((s: any) => s.serviceType === 'Canvas');
+            if (canvas && canvas.isConfigured) {
+                setCanvasConnected(true);
+                try {
+                    const meta = JSON.parse(canvas.metadataJson);
+                    setCanvasDomain(meta.domain || '');
+                } catch { /* empty */ }
+            }
+        }
+    });
+  }, []);
 
   const handleConnectGoogle = () => {
     // OAuth flow would happen here
     window.location.href = '/v1/auth/google-oauth-start';
   };
 
-  const handleConnectCanvas = () => {
-    // Canvas OAuth flow
-    const canvasUrl = prompt('Enter your Canvas instance URL (e.g., canvas.university.edu)');
-    if (canvasUrl) {
-      window.location.href = `/v1/integrations/canvas/oauth?instance=${canvasUrl}`;
+  const handleSaveCanvas = async () => {
+    if (!canvasDomain || !canvasKey) {
+        alert("Please enter both domain and API key.");
+        return;
     }
+
+    try {
+        const res = await apiFetch('/v1/integrations', {
+            method: 'POST',
+            body: JSON.stringify({
+                serviceType: 'Canvas',
+                accessToken: canvasKey,
+                metadataJson: JSON.stringify({ domain: canvasDomain })
+            })
+        });
+
+        if (res.ok) {
+            setCanvasConnected(true);
+            setShowCanvasForm(false);
+            setCanvasKey(''); // clear from memory
+            alert("Canvas connected successfully!");
+        } else {
+            alert("Failed to connect Canvas. Check server logs.");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error connecting Canvas.");
+    }
+  };
+
+  const handleDisconnectCanvas = async () => {
+      // Find ID first? Or we assume one per user per type?
+      // The API requires ID to DELETE. But we don't have it easily here without re-fetching.
+      // For now, let's just re-fetch to get ID or assume the UI should store it.
+      // Simplified: Just show alert for now or implemented properly if we had the ID.
+      // Let's refetch to get the ID.
+      try {
+        const res = await apiFetch('/v1/integrations');
+        if (res.ok) {
+            const data = await res.json();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const canvas = data.find((s: any) => s.serviceType === 'Canvas');
+            if (canvas) {
+                await apiFetch(`/v1/integrations/${canvas.id}`, { method: 'DELETE' });
+                setCanvasConnected(false);
+                setCanvasDomain('');
+            }
+        }
+      } catch (e) {
+          console.error(e);
+      }
   };
 
   const handleSaveAiKey = async () => {
@@ -97,13 +165,52 @@ export function IntegrationsPage() {
         <CardContent>
           {canvasConnected ? (
             <div className="space-y-4">
-              <p className="text-gray-300">Connected to: canvas.university.edu</p>
-              <Button variant="danger" onClick={() => setCanvasConnected(false)}>
+              <p className="text-gray-300">Connected to: {canvasDomain}</p>
+              <Button variant="danger" onClick={handleDisconnectCanvas}>
                 Disconnect
               </Button>
             </div>
           ) : (
-            <Button onClick={handleConnectCanvas}>Connect Canvas</Button>
+            <div className="space-y-4">
+                {!showCanvasForm ? (
+                    <Button onClick={() => setShowCanvasForm(true)}>Connect Canvas</Button>
+                ) : (
+                    <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Canvas Domain</label>
+                            <Input
+                                placeholder="canvas.instructure.com"
+                                value={canvasDomain}
+                                onChange={(e) => setCanvasDomain(e.target.value)}
+                            />
+                            <p className="text-xs text-gray-500 mt-1">The URL you use to access Canvas.</p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">API Key</label>
+                            <Input
+                                type="password"
+                                placeholder="Canvas Access Token"
+                                value={canvasKey}
+                                onChange={(e) => setCanvasKey(e.target.value)}
+                            />
+                            <div className="text-xs text-gray-400 mt-2 space-y-1">
+                                <p>To get your API key:</p>
+                                <ol className="list-decimal pl-4 space-y-1">
+                                    <li>Log in to Canvas and go to <strong>Account &gt; Settings</strong>.</li>
+                                    <li>Scroll down to <strong>Approved Integrations</strong>.</li>
+                                    <li>Click <strong>+ New Access Token</strong>.</li>
+                                    <li>Enter a purpose (e.g., "FocusDeck") and click <strong>Generate Token</strong>.</li>
+                                    <li>Copy the token immediately and paste it above.</li>
+                                </ol>
+                            </div>
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                            <Button onClick={handleSaveCanvas}>Save & Connect</Button>
+                            <Button variant="ghost" onClick={() => setShowCanvasForm(false)}>Cancel</Button>
+                        </div>
+                    </div>
+                )}
+            </div>
           )}
         </CardContent>
       </Card>

@@ -282,6 +282,7 @@ public sealed class Startup
         services.AddScoped<CalendarResolver>();
         services.AddSingleton<FocusDeck.Services.Activity.IActivityDetectionService, FocusDeck.Server.Services.Activity.LinuxActivityDetectionService>();
         services.AddSingleton<FocusDeck.Server.Services.Integrations.CanvasService>();
+        services.AddSingleton<FocusDeck.Services.Abstractions.ICanvasService, FocusDeck.Server.Services.Integrations.CanvasService>(sp => sp.GetRequiredService<FocusDeck.Server.Services.Integrations.CanvasService>());
         services.AddSingleton<FocusDeck.Server.Services.Integrations.ICanvasCache, FocusDeck.Server.Services.Integrations.CanvasCache>();
         services.AddHostedService<FocusDeck.Server.Services.Integrations.CanvasSyncService>();
         services.AddSingleton<FocusDeck.Server.Services.Auth.IUserConnectionTracker, FocusDeck.Server.Services.Auth.UserConnectionTracker>();
