@@ -5,6 +5,7 @@ using FocusDeck.Contracts.DTOs;
 using FocusDeck.Server.Hubs;
 using FocusDeck.Server.Services.Context;
 using FocusDeck.Domain.Entities.Context;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,7 @@ namespace FocusDeck.Server.Controllers.v1;
 [ApiVersion("1.0")]
 [Route("v{version:apiVersion}/focus")]
 [ApiController]
+[Authorize]
 public class FocusController : ControllerBase
 {
     private readonly AutomationDbContext _db;
@@ -44,7 +46,7 @@ public class FocusController : ControllerBase
     }
 
     /// <summary>
-    /// Get current user ID from claims with fallback for testing (development only)
+    /// Get current user ID from claims
     /// </summary>
     private string GetUserId()
     {
@@ -52,10 +54,7 @@ public class FocusController : ControllerBase
 
         if (string.IsNullOrEmpty(userId))
         {
-            // TODO: Remove this fallback in production - should require proper authentication
-            // This is only for development/testing purposes
-            _logger.LogWarning("No authenticated user found. Using test user (development only).");
-            return "test-user";
+            throw new UnauthorizedAccessException("User is not authenticated");
         }
 
         return userId;
