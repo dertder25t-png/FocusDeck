@@ -309,6 +309,8 @@ public sealed class Startup
         services.AddScoped<IContextSnapshotSource, GoogleCalendarSource>();
         services.AddScoped<IContextSnapshotSource, CanvasAssignmentsSource>();
         services.AddScoped<IContextSnapshotSource, SpotifySource>();
+        services.AddSingleton<FocusDeck.Server.Services.Integrations.SpotifyService>();
+        services.AddSingleton<FocusDeck.Services.Abstractions.ISpotifyService, FocusDeck.Server.Services.Integrations.SpotifyService>(sp => sp.GetRequiredService<FocusDeck.Server.Services.Integrations.SpotifyService>());
         services.AddScoped<IContextSnapshotSource, DeviceActivitySource>();
         services.AddScoped<IContextSnapshotSource, SuggestiveContextSource>();
 

@@ -7,10 +7,15 @@ import { apiFetch } from '../services/api';
 
 export function IntegrationsPage() {
   const [googleConnected, setGoogleConnected] = useState(false);
+
   const [canvasConnected, setCanvasConnected] = useState(false);
   const [canvasDomain, setCanvasDomain] = useState('');
   const [canvasKey, setCanvasKey] = useState('');
   const [showCanvasForm, setShowCanvasForm] = useState(false);
+
+  const [spotifyConnected, setSpotifyConnected] = useState(false);
+  const [spotifyKey, setSpotifyKey] = useState('');
+  const [showSpotifyForm, setShowSpotifyForm] = useState(false);
 
   const [whisperPath] = useState('/models/ggml-base.en.bin');
   const [aiProvider, setAiProvider] = useState<'openai' | 'anthropic' | 'none'>('none');
@@ -30,6 +35,12 @@ export function IntegrationsPage() {
                     const meta = JSON.parse(canvas.metadataJson);
                     setCanvasDomain(meta.domain || '');
                 } catch { /* empty */ }
+            }
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const spotify = data.find((s: any) => s.serviceType === 'Spotify');
+            if (spotify && spotify.isConfigured) {
+                setSpotifyConnected(true);
             }
         }
     });
@@ -59,7 +70,7 @@ export function IntegrationsPage() {
         if (res.ok) {
             setCanvasConnected(true);
             setShowCanvasForm(false);
-            setCanvasKey(''); // clear from memory
+            setCanvasKey('');
             alert("Canvas connected successfully!");
         } else {
             alert("Failed to connect Canvas. Check server logs.");
@@ -70,12 +81,36 @@ export function IntegrationsPage() {
     }
   };
 
+  const handleSaveSpotify = async () => {
+      if (!spotifyKey) {
+          alert("Please enter your Spotify Access Token.");
+          return;
+      }
+
+      try {
+          const res = await apiFetch('/v1/integrations', {
+              method: 'POST',
+              body: JSON.stringify({
+                  serviceType: 'Spotify',
+                  accessToken: spotifyKey
+              })
+          });
+
+          if (res.ok) {
+              setSpotifyConnected(true);
+              setShowSpotifyForm(false);
+              setSpotifyKey('');
+              alert("Spotify connected successfully!");
+          } else {
+              alert("Failed to connect Spotify.");
+          }
+      } catch (e) {
+          console.error(e);
+          alert("Error connecting Spotify.");
+      }
+  };
+
   const handleDisconnectCanvas = async () => {
-      // Find ID first? Or we assume one per user per type?
-      // The API requires ID to DELETE. But we don't have it easily here without re-fetching.
-      // For now, let's just re-fetch to get ID or assume the UI should store it.
-      // Simplified: Just show alert for now or implemented properly if we had the ID.
-      // Let's refetch to get the ID.
       try {
         const res = await apiFetch('/v1/integrations');
         if (res.ok) {
@@ -86,6 +121,23 @@ export function IntegrationsPage() {
                 await apiFetch(`/v1/integrations/${canvas.id}`, { method: 'DELETE' });
                 setCanvasConnected(false);
                 setCanvasDomain('');
+            }
+        }
+      } catch (e) {
+          console.error(e);
+      }
+  };
+
+  const handleDisconnectSpotify = async () => {
+      try {
+        const res = await apiFetch('/v1/integrations');
+        if (res.ok) {
+            const data = await res.json();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const spotify = data.find((s: any) => s.serviceType === 'Spotify');
+            if (spotify) {
+                await apiFetch(`/v1/integrations/${spotify.id}`, { method: 'DELETE' });
+                setSpotifyConnected(false);
             }
         }
       } catch (e) {
@@ -223,9 +275,44 @@ export function IntegrationsPage() {
               <CardTitle>Spotify</CardTitle>
               <CardDescription>Control music playback</CardDescription>
             </div>
-            <Button variant="outline" onClick={() => alert('Spotify OAuth not yet implemented')}>Connect Spotify</Button>
+            {spotifyConnected && <Badge variant="success">Connected</Badge>}
           </div>
         </CardHeader>
+        <CardContent>
+            {spotifyConnected ? (
+                <div className="space-y-4">
+                    <p className="text-gray-300">Spotify connected</p>
+                    <Button variant="danger" onClick={handleDisconnectSpotify}>
+                        Disconnect
+                    </Button>
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {!showSpotifyForm ? (
+                        <Button onClick={() => setShowSpotifyForm(true)}>Connect Spotify</Button>
+                    ) : (
+                        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Spotify Access Token</label>
+                                <Input
+                                    type="password"
+                                    placeholder="Spotify Access Token"
+                                    value={spotifyKey}
+                                    onChange={(e) => setSpotifyKey(e.target.value)}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Enter a valid Spotify Access Token (Note: Tokens expire after 1 hour).
+                                </p>
+                            </div>
+                            <div className="flex gap-2 pt-2">
+                                <Button onClick={handleSaveSpotify}>Save & Connect</Button>
+                                <Button variant="ghost" onClick={() => setShowSpotifyForm(false)}>Cancel</Button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </CardContent>
       </Card>
 
       {/* Home Assistant Integration */}
