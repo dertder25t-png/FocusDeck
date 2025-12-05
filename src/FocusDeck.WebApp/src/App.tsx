@@ -2,6 +2,7 @@ import { ToastViewport } from './components/Toast';
 import { ToastProvider } from './contexts/ToastContext';
 import { SignalRProvider } from './contexts/signalR';
 import { PrivacyDataProvider } from './contexts/PrivacyDataProvider';
+import { FocusProvider } from './contexts/FocusContext';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { DesktopLayout } from './components/OS/DesktopLayout';
 import { AppShell } from './components/AppShell';
@@ -18,9 +19,10 @@ function App() {
     <ToastProvider>
       <SignalRProvider>
         <PrivacyDataProvider>
-          <BrowserRouter>
-            <WindowManagerProvider>
-               <Routes>
+          <FocusProvider>
+            <BrowserRouter>
+              <WindowManagerProvider>
+                <Routes>
                    <Route path="/login" element={<SignInPage />} />
                    <Route path="/register" element={<RegisterPage />} />
                    
@@ -28,10 +30,11 @@ function App() {
                    <Route element={<ProtectedRoute />}>
                        <Route path="/*" element={isMobile ? <AppShell /> : <DesktopLayout />} />
                    </Route>
-               </Routes>
-              <ToastViewport />
-            </WindowManagerProvider>
-          </BrowserRouter>
+                </Routes>
+                <ToastViewport />
+              </WindowManagerProvider>
+            </BrowserRouter>
+          </FocusProvider>
         </PrivacyDataProvider>
       </SignalRProvider>
     </ToastProvider>

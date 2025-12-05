@@ -1,34 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useDashboard } from '../../../hooks/useDashboard';
+import { useFocus } from '../../../contexts/FocusContext';
 
 // --- Types ---
 
 // --- Widgets ---
 
 export const FocusTimerWidget: React.FC = () => {
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
-  const [isActive, setIsActive] = useState(false);
-  const totalTime = 25 * 60;
+  const { isActive, isPaused, timeLeft, totalTime, startSession, pauseSession, resumeSession, stopSession, formatTime } = useFocus();
 
-  useEffect(() => {
-    let interval: any = null;
-    if (isActive && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft(timeLeft - 1);
-      }, 1000);
-    } else if (timeLeft === 0) {
-      setIsActive(false);
-    }
-    return () => clearInterval(interval);
-  }, [isActive, timeLeft]);
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  const handleToggle = () => {
+      if (!isActive) {
+          startSession(25, "Quick Focus");
+      } else if (isPaused) {
+          resumeSession();
+      } else {
+          pauseSession();
+      }
   };
 
-  const progress = ((totalTime - timeLeft) / totalTime) * 100;
+  const progress = totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 0;
   const radius = 60;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
@@ -62,10 +53,10 @@ export const FocusTimerWidget: React.FC = () => {
       </div>
 
       <div className="flex gap-4 mt-4">
-        <button onClick={() => setIsActive(!isActive)} className="w-10 h-10 rounded-full bg-white text-ink flex items-center justify-center hover:bg-gray-200 transition-colors shadow-lg">
-          <i className={`fa-solid ${isActive ? 'fa-pause' : 'fa-play'}`}></i>
+        <button onClick={handleToggle} className="w-10 h-10 rounded-full bg-white text-ink flex items-center justify-center hover:bg-gray-200 transition-colors shadow-lg">
+          <i className={`fa-solid ${isActive && !isPaused ? 'fa-pause' : 'fa-play'}`}></i>
         </button>
-        <button onClick={() => { setIsActive(false); setTimeLeft(25 * 60); }} className="w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition-colors">
+        <button onClick={stopSession} className="w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition-colors">
           <i className="fa-solid fa-rotate-right"></i>
         </button>
       </div>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './Dialog';
 import { Button } from './Button';
 import { Input } from './Input';
+import { useFocus } from '../contexts/FocusContext';
 
 interface FocusSessionModalProps {
   open: boolean;
@@ -11,10 +12,10 @@ interface FocusSessionModalProps {
 export function FocusSessionModal({ open, onOpenChange }: FocusSessionModalProps) {
   const [duration, setDuration] = useState(25);
   const [task, setTask] = useState('');
+  const { startSession } = useFocus();
 
   const handleStart = () => {
-    console.log(`Starting focus session for ${duration} minutes on "${task}"`);
-    // Ideally call a context/hook to start timer
+    startSession(duration, task);
     onOpenChange(false);
   };
 

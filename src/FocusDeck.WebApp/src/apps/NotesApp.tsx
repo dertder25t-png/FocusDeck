@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useToast } from '../hooks/useToast';
 import { useNotes, useNote, useCreateNote, useUpdateNote } from '../hooks/useNotes';
 import type { Note } from '../types';
 import { TiptapEditor } from '../components/TiptapEditor';
@@ -29,12 +31,20 @@ const groupNotesByTag = (notes: Note[]) => {
 };
 
 export const NotesApp: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const { toast } = useToast();
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [showCitations, setShowCitations] = useState(false);
   // We'll use local state for immediate feedback while typing,
   // but sync with React Query mutations debounced.
   const [localTitle, setLocalTitle] = useState('');
   const [localContent, setLocalContent] = useState('');
+
+  useEffect(() => {
+      if (searchParams.get('action') === 'verify') {
+          toast({ title: 'Verification Mode', description: 'Select a note to verify its contents with AI.' });
+      }
+  }, [searchParams, toast]);
 
   const { data: notesRaw, isLoading, error } = useNotes();
   const notes: Note[] = Array.isArray(notesRaw) ? notesRaw : [];
