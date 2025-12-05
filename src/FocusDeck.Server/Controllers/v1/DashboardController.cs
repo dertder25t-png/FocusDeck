@@ -30,22 +30,22 @@ public class DashboardController : ControllerBase
 
         var tenantId = _currentTenant.TenantId;
 
-        // Parallel execution for stats to ensure speed
-        var lecturesTask = _db.Lectures
+        // Sequential execution to avoid DbContext concurrency issues
+        var lecturesCount = await _db.Lectures
             .Where(l => l.CreatedBy == userId)
             .CountAsync();
 
-        var focusSessionsTask = _db.FocusSessions
+        var focusSessions = await _db.FocusSessions
             .Where(s => s.UserId == userId && s.EndTime != null)
             .Select(s => new { s.StartTime, s.EndTime })
             .ToListAsync();
 
         // Explicitly filter by tenant for safety, though global filters might apply
-        var notesTask = _db.Notes.Where(n => n.TenantId == tenantId).CountAsync();
+        var notesCount = await _db.Notes.Where(n => n.TenantId == tenantId).CountAsync();
 
-        var projectsTask = _db.Projects.Where(p => p.TenantId == tenantId).CountAsync();
+        var projectsCount = await _db.Projects.Where(p => p.TenantId == tenantId).CountAsync();
 
-        var tasksTask = _db.TodoItems
+        var tasks = await _db.TodoItems
             .Where(t => t.TenantId == tenantId && !t.IsCompleted)
             .OrderBy(t => t.DueDate)
             .Take(5)
@@ -58,7 +58,7 @@ public class DashboardController : ControllerBase
             })
             .ToListAsync();
 
-        var eventsTask = _db.EventCache
+        var events = await _db.EventCache
             .Where(e => e.TenantId == tenantId && e.StartTime >= DateTime.UtcNow && e.StartTime <= DateTime.UtcNow.AddDays(7))
             .OrderBy(e => e.StartTime)
             .Take(5)
@@ -71,10 +71,7 @@ public class DashboardController : ControllerBase
             })
             .ToListAsync();
 
-        // Wait for stats queries
-        await Task.WhenAll(lecturesTask, focusSessionsTask, notesTask, projectsTask, tasksTask, eventsTask);
-
-        var totalFocusMinutes = focusSessionsTask.Result
+        var totalFocusMinutes = focusSessions
             .Sum(s => (s.EndTime!.Value - s.StartTime).TotalMinutes);
 
         // Fetch recent activity
@@ -131,14 +128,14 @@ public class DashboardController : ControllerBase
         {
             Stats = new DashboardStatsDto
             {
-                Lectures = lecturesTask.Result,
+                Lectures = lecturesCount,
                 FocusTime = totalFocusMinutes,
-                Notes = notesTask.Result,
-                Projects = projectsTask.Result
+                Notes = notesCount,
+                Projects = projectsCount
             },
             Activity = allActivity,
-            Tasks = tasksTask.Result,
-            Events = eventsTask.Result
+            Tasks = tasks,
+            Events = events
         });
     }
 
