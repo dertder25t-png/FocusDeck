@@ -13,6 +13,14 @@ export interface DashboardEvent {
   color?: string;
 }
 
+export interface DashboardActivity {
+  id: string;
+  type: string;
+  title: string;
+  timestamp: string;
+  details: string;
+}
+
 export interface DashboardSummary {
   stats: {
     lectures: number;
@@ -22,7 +30,7 @@ export interface DashboardSummary {
   };
   tasks: DashboardTask[];
   events: DashboardEvent[];
-  // activity: any[]; // Placeholder if needed later
+  activity: DashboardActivity[];
 }
 
 export function useDashboard() {

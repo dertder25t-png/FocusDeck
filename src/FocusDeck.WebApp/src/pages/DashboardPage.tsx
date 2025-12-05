@@ -7,6 +7,7 @@ import { useDashboard } from '../hooks/useDashboard';
 export function DashboardPage() {
   const { data: dashboard, isLoading } = useDashboard();
   const stats = dashboard?.stats || { lectures: 0, focusTime: 0, notes: 0, projects: 0 };
+  const activity = dashboard?.activity || [];
 
   return (
     <div className="space-y-6">
@@ -17,7 +18,7 @@ export function DashboardPage() {
         <StatCardWidget label="Notes Verified" value={isLoading ? '-' : stats.notes.toString()} />
         <StatCardWidget label="Projects" value={isLoading ? '-' : stats.projects.toString()} />
       </div>
-      <RecentActivityWidget />
+      <RecentActivityWidget activity={isLoading ? [] : activity} />
       <QuickActionsWidget />
     </div>
   );

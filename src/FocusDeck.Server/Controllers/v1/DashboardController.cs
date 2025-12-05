@@ -8,7 +8,7 @@ using System.Security.Claims;
 namespace FocusDeck.Server.Controllers.v1;
 
 [ApiController]
-[Route("api/v1/dashboard")]
+[Route("v1/dashboard")]
 [Authorize]
 public class DashboardController : ControllerBase
 {
