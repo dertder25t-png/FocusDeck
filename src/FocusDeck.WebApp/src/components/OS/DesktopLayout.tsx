@@ -5,6 +5,7 @@ import { Window } from './Window';
 import { Taskbar } from './Taskbar';
 import { StartMenu } from './StartMenu';
 import { PlacementModal } from './PlacementModal';
+import { SpotifyChip } from './Chips/SpotifyChip';
 
 // App Components
 import { DashboardApp } from '../../apps/DashboardApp';
@@ -127,9 +128,7 @@ export const DesktopLayout: React.FC = () => {
                         <div className="smart-chip hidden md:flex items-center gap-2 px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold cursor-pointer border border-red-200">
                             <i className="fa-solid fa-stopwatch animate-pulse"></i> 24:59
                         </div>
-                        <div className="smart-chip hidden md:flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold cursor-pointer border border-green-200">
-                            <i className="fa-brands fa-spotify"></i> Lo-Fi Beats
-                        </div>
+                        <SpotifyChip />
                     </>
                 }>
                     <DashboardApp />
