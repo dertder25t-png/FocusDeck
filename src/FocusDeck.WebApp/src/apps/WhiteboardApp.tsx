@@ -61,7 +61,7 @@ export const WhiteboardApp: React.FC = () => {
     if (!isDrawing.current) return;
     const stage = e.target.getStage();
     const point = stage.getPointerPosition();
-    let lastLine = lines[lines.length - 1];
+    const lastLine = lines[lines.length - 1];
 
     if (tool === 'pen' || tool === 'eraser') {
       // Add point

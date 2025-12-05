@@ -12,11 +12,23 @@ export function QuickActionsWidget() {
   const isMobile = useIsMobile();
 
   const handleNewLecture = () => {
-    if (isMobile) {
-        navigate('/lectures/new');
-    } else {
-        // Desktop fallback: Open Jarvis
-        launchApp('win-jarvis');
+    navigate('/lectures/new');
+    if (!isMobile) {
+        // Fallback or explicit open for desktop environment
+        // Assuming 'win-lectures' or using 'win-jarvis' if lectures are part of it,
+        // but strictly navigating is the primary request.
+        // There is no explicit 'win-lectures' in DesktopLayout, so we rely on the route
+        // or perhaps 'win-notes' if that's where lectures live.
+        // However, the user asked to "Navigate to /lectures/new".
+        // The previous code opened 'win-jarvis'.
+        // If we want to be safe, we can try to open a relevant window if it exists.
+        // For now, let's just navigate, as that updates the URL and DesktopLayout might not react
+        // unless mapped. But the user was specific.
+
+        // Actually, looking at DesktopLayout, there is no 'win-lectures'.
+        // Lectures might be a sub-feature or a modal.
+        // Let's stick to just navigate, or if we must launch an app,
+        // maybe 'win-dashboard' is the safest fallback if it's a page.
     }
   };
 
