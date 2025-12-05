@@ -54,9 +54,14 @@ namespace FocusDeck.Server.Services.Integrations
                     }
 
                     var albumName = "Unknown Album";
+                    string? imageUrl = null;
                     if (item.TryGetProperty("album", out var album))
                     {
                         albumName = album.TryGetProperty("name", out var aln) ? aln.GetString() ?? "Unknown" : "Unknown";
+                        if (album.TryGetProperty("images", out var images) && images.GetArrayLength() > 0)
+                        {
+                            imageUrl = images[0].TryGetProperty("url", out var img) ? img.GetString() : null;
+                        }
                     }
 
                     return new SpotifyPlaybackState
@@ -67,7 +72,8 @@ namespace FocusDeck.Server.Services.Integrations
                         IsPlaying = isPlaying,
                         ProgressMs = progressMs,
                         DurationMs = durationMs,
-                        Uri = uri
+                        Uri = uri,
+                        ImageUrl = imageUrl
                     };
                 }
             }
@@ -143,6 +149,58 @@ namespace FocusDeck.Server.Services.Integrations
             }
 
             return false;
+        }
+
+        public async Task<List<SpotifyPlaylist>> GetPlaylists(string accessToken)
+        {
+            try
+            {
+                var url = "https://api.spotify.com/v1/me/playlists?limit=20";
+
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {accessToken}");
+
+                var response = await _httpClient.GetAsync(url);
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    var doc = JsonDocument.Parse(json).RootElement;
+
+                    var list = new List<SpotifyPlaylist>();
+                    if (doc.TryGetProperty("items", out var items))
+                    {
+                        foreach (var item in items.EnumerateArray())
+                        {
+                            var id = item.TryGetProperty("id", out var i) ? i.GetString() : null;
+                            var name = item.TryGetProperty("name", out var n) ? n.GetString() : "Untitled";
+                            var uri = item.TryGetProperty("uri", out var u) ? u.GetString() : null;
+                            string? imgUrl = null;
+
+                            if (item.TryGetProperty("images", out var images) && images.ValueKind == JsonValueKind.Array && images.GetArrayLength() > 0)
+                            {
+                                imgUrl = images[0].TryGetProperty("url", out var iu) ? iu.GetString() : null;
+                            }
+
+                            if (id != null)
+                            {
+                                list.Add(new SpotifyPlaylist
+                                {
+                                    Id = id,
+                                    Name = name ?? "Untitled",
+                                    Uri = uri,
+                                    ImageUrl = imgUrl
+                                });
+                            }
+                        }
+                    }
+                    return list;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting Spotify playlists");
+            }
+            return new List<SpotifyPlaylist>();
         }
 
         private async Task<bool> ControlPlayback(string accessToken, string url, string method)

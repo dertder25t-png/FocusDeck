@@ -6,6 +6,8 @@ public interface ISpotifyService
     Task<bool> Play(string accessToken);
     Task<bool> Pause(string accessToken);
     Task<bool> SetVolume(string accessToken, int volumePercent);
+    Task<List<SpotifyPlaylist>> GetPlaylists(string accessToken);
+    Task<bool> PlayPlaylist(string accessToken, string playlistId);
 }
 
 public class SpotifyPlaybackState
@@ -17,4 +19,13 @@ public class SpotifyPlaybackState
     public long ProgressMs { get; set; }
     public long DurationMs { get; set; }
     public string Uri { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; }
+}
+
+public class SpotifyPlaylist
+{
+    public string Id { get; set; } = null!;
+    public string Name { get; set; } = null!;
+    public string? ImageUrl { get; set; }
+    public string? Uri { get; set; }
 }

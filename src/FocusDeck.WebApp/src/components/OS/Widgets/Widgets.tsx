@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDashboard } from '../../../hooks/useDashboard';
 import { useFocus } from '../../../contexts/FocusContext';
+import { apiFetch } from '../../../services/api';
 
 // --- Types ---
 
@@ -74,9 +75,6 @@ export const TaskListWidget: React.FC = () => {
     done: t.isCompleted
   }));
 
-  // Fallback if no tasks (or loading), but better to show nothing or skeleton
-  // For now, let's just show the tasks. If empty, it's empty.
-
   return (
     <div className="flex flex-col h-full bg-surface p-4">
       <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">My Day</h3>
@@ -133,37 +131,168 @@ export const WeatherWidget: React.FC = () => {
   );
 };
 
+interface SpotifyState {
+    track: string;
+    artist: string;
+    album: string;
+    isPlaying: boolean;
+    progressMs: number;
+    durationMs: number;
+    uri: string;
+    imageUrl?: string;
+}
+
+interface SpotifyPlaylist {
+    id: string;
+    name: string;
+    imageUrl?: string;
+    uri?: string;
+}
+
 export const SpotifyWidget: React.FC = () => {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [playerState, setPlayerState] = useState<SpotifyState | null>(null);
+  const [playlists, setPlaylists] = useState<SpotifyPlaylist[]>([]);
+  const [showPlaylists, setShowPlaylists] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const fetchState = async () => {
+      try {
+          const res = await apiFetch('/v1/integrations/spotify/player');
+          if (res.ok) {
+              const data = await res.json();
+              setPlayerState(data);
+          } else {
+              setPlayerState(null);
+          }
+      } catch {
+          setPlayerState(null);
+      }
+  };
+
+  const togglePlayback = async () => {
+      if (!playerState) return;
+      const action = playerState.isPlaying ? 'pause' : 'play';
+      await apiFetch(`/v1/integrations/spotify/${action}`, { method: 'POST' });
+      setTimeout(fetchState, 500); // refresh after delay
+  };
+
+  const loadPlaylists = async () => {
+      setLoading(true);
+      try {
+          const res = await apiFetch('/v1/integrations/spotify/playlists');
+          if (res.ok) {
+              const data = await res.json();
+              setPlaylists(data);
+          }
+      } catch (e) {
+          console.error(e);
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  const playPlaylist = async (id: string) => {
+      await apiFetch(`/v1/integrations/spotify/playlists/${id}/play`, { method: 'POST' });
+      setShowPlaylists(false);
+      setTimeout(fetchState, 1000);
+  };
+
+  useEffect(() => {
+      fetchState();
+      const interval = setInterval(fetchState, 5000); // Poll every 5s
+      return () => clearInterval(interval);
+  }, []);
+
+  const progress = playerState && playerState.durationMs > 0
+      ? (playerState.progressMs / playerState.durationMs) * 100
+      : 0;
+
+  if (showPlaylists) {
+      return (
+          <div className="flex flex-col h-full bg-gray-900 text-white p-4 relative overflow-hidden">
+              <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-bold text-sm">Select Playlist</h3>
+                  <button onClick={() => setShowPlaylists(false)} className="text-gray-400 hover:text-white">
+                      <i className="fa-solid fa-xmark"></i>
+                  </button>
+              </div>
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                  {loading && <div className="text-xs text-gray-500 text-center py-4">Loading playlists...</div>}
+                  {playlists.map(p => (
+                      <button
+                          key={p.id}
+                          onClick={() => playPlaylist(p.id)}
+                          className="w-full flex items-center gap-3 p-2 hover:bg-white/10 rounded-md transition-colors text-left group"
+                      >
+                          <div className="w-10 h-10 bg-gray-800 rounded overflow-hidden shrink-0">
+                              {p.imageUrl ? (
+                                  <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                              ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-gray-600">
+                                      <i className="fa-solid fa-music"></i>
+                                  </div>
+                              )}
+                          </div>
+                          <span className="text-sm font-medium truncate flex-1">{p.name}</span>
+                          <i className="fa-solid fa-play opacity-0 group-hover:opacity-100 text-green-500"></i>
+                      </button>
+                  ))}
+              </div>
+          </div>
+      );
+  }
 
   return (
     <div className="flex items-center h-full bg-gradient-to-br from-gray-900 to-black text-white p-0 overflow-hidden relative group">
       <div className="relative h-full w-24 shrink-0">
-         <img src="https://picsum.photos/200" alt="Album Art" className="w-full h-full object-cover opacity-80 group-hover:opacity-60 transition-opacity" />
+         {playerState?.imageUrl ? (
+             <img src={playerState.imageUrl} alt="Album Art" className="w-full h-full object-cover opacity-80 group-hover:opacity-60 transition-opacity" />
+         ) : (
+             <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                 <i className="fa-brands fa-spotify text-4xl text-gray-600"></i>
+             </div>
+         )}
          <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></div>
       </div>
 
-      <div className="flex-1 p-4 z-10 flex flex-col justify-center">
-        <div className="flex items-center gap-2 mb-1">
-             <i className="fa-brands fa-spotify text-green-500 text-lg"></i>
-             <span className="text-xs text-green-500 font-bold uppercase tracking-wide">Now Playing</span>
+      <div className="flex-1 p-4 z-10 flex flex-col justify-center min-w-0">
+        <div className="flex items-center justify-between mb-1">
+             <div className="flex items-center gap-2">
+                 <i className="fa-brands fa-spotify text-green-500 text-lg"></i>
+                 <span className="text-xs text-green-500 font-bold uppercase tracking-wide">
+                     {playerState ? 'Now Playing' : 'Spotify'}
+                 </span>
+             </div>
+             <button
+                onClick={() => { setShowPlaylists(true); loadPlaylists(); }}
+                className="text-xs bg-white/10 hover:bg-white/20 px-2 py-1 rounded transition-colors"
+                title="Open Library"
+             >
+                 <i className="fa-solid fa-list-ul"></i>
+             </button>
         </div>
-        <div className="font-bold text-lg truncate leading-tight">Lo-Fi Beats to Study To</div>
-        <div className="text-xs text-gray-400 truncate mb-3">Lofi Girl • 2024 Mix</div>
+
+        <div className="font-bold text-lg truncate leading-tight">
+            {playerState ? playerState.track : 'Not Connected / Idle'}
+        </div>
+        <div className="text-xs text-gray-400 truncate mb-3">
+            {playerState ? `${playerState.artist} • ${playerState.album}` : 'Connect in Settings'}
+        </div>
 
         {/* Progress Bar */}
         <div className="w-full h-1 bg-gray-700 rounded-full mb-3 overflow-hidden">
-            <div className="h-full bg-white w-1/3 rounded-full"></div>
+            <div className="h-full bg-white rounded-full transition-all duration-1000 ease-linear" style={{ width: `${progress}%` }}></div>
         </div>
 
         {/* Controls */}
         <div className="flex items-center gap-6 text-xl">
           <button className="text-gray-400 hover:text-white transition-colors"><i className="fa-solid fa-backward-step"></i></button>
           <button
-            onClick={() => setIsPlaying(!isPlaying)}
-            className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 transition-transform"
+            onClick={togglePlayback}
+            disabled={!playerState}
+            className={`w-8 h-8 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 transition-transform ${!playerState ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'} text-xs`}></i>
+            <i className={`fa-solid ${playerState?.isPlaying ? 'fa-pause' : 'fa-play'} text-xs`}></i>
           </button>
           <button className="text-gray-400 hover:text-white transition-colors"><i className="fa-solid fa-forward-step"></i></button>
         </div>
