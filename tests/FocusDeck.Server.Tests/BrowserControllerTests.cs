@@ -5,6 +5,10 @@ using FocusDeck.Server.Controllers.v1;
 using Microsoft.EntityFrameworkCore;
 using FocusDeck.Persistence;
 using FocusDeck.Server.Services.Browser;
+using FocusDeck.Server.Services.Jarvis;
+using FocusDeck.Server.Services.TextGeneration;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using Xunit;
 
 namespace FocusDeck.Server.Tests.Controllers
@@ -20,7 +24,8 @@ namespace FocusDeck.Server.Tests.Controllers
 
             using (var context = new AutomationDbContext(options))
             {
-                var sortingService = new FocusDeck.Server.Services.Jarvis.ProjectSortingService(context, new Microsoft.Extensions.Logging.Abstractions.NullLogger<FocusDeck.Server.Services.Jarvis.ProjectSortingService>());
+                var textGenMock = new Mock<ITextGen>();
+                var sortingService = new ProjectSortingService(context, textGenMock.Object, NullLogger<ProjectSortingService>.Instance);
                 var service = new BrowserContextService(context, sortingService);
                 var controller = new BrowserController(service, new StubCurrentTenant());
                 Assert.NotNull(controller);

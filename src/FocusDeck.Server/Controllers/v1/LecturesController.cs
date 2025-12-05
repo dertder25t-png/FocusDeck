@@ -304,15 +304,15 @@ public class LecturesController : ControllerBase
 
     private static NoteDto MapNoteToDto(Note note)
     {
-        return new NoteDto(
-            Id: note.Id,
-            Title: note.Title,
-            Content: note.Content,
-            Type: note.Type.ToString(),
-            Tags: note.Tags,
-            CreatedDate: note.CreatedDate,
-            LastModified: note.LastModified
-        );
+        return new NoteDto
+        {
+            Id = note.Id,
+            Title = note.Title,
+            Content = note.Content,
+            Tags = note.Tags,
+            CreatedDate = note.CreatedDate,
+            LastModified = note.LastModified
+        };
     }
 
     private static int EstimateWavDuration(long fileSize)

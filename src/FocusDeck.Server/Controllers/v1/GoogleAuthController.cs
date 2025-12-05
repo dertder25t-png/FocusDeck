@@ -105,7 +105,7 @@ namespace FocusDeck.Server.Controllers.v1
 
             if (state == "sync")
             {
-                _logger.LogInformation("Received sync confirmation for channel {ChannelId}", channelId);
+                _logger.LogInformation("Received sync confirmation for channel {ChannelId}", channelId.ToString());
                 return Ok();
             }
 
@@ -114,9 +114,9 @@ namespace FocusDeck.Server.Controllers.v1
                 return Ok();
             }
 
-            if (!Guid.TryParse(channelId, out var sourceId))
+            if (!Guid.TryParse(channelId.ToString(), out var sourceId))
             {
-                _logger.LogWarning("Received webhook with invalid Channel ID format: {ChannelId}", channelId);
+                _logger.LogWarning("Received webhook with invalid Channel ID format: {ChannelId}", channelId.ToString());
                 return Ok();
             }
 
