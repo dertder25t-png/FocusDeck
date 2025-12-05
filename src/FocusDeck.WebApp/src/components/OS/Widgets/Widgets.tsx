@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useDashboard } from '../../../hooks/useDashboard';
 
 // --- Types ---
 
@@ -74,18 +75,24 @@ export const FocusTimerWidget: React.FC = () => {
 };
 
 export const TaskListWidget: React.FC = () => {
-  const [tasks, setTasks] = useState([
-    { id: 1, text: 'Review PR #102', done: false },
-    { id: 2, text: 'Email Client', done: true },
-    { id: 3, text: 'Update Docs', done: false },
-  ]);
+  const { data } = useDashboard();
+  // Map API data to widget format
+  const tasks = (data?.tasks || []).map(t => ({
+    id: t.id,
+    text: t.title,
+    done: t.isCompleted
+  }));
+
+  // Fallback if no tasks (or loading), but better to show nothing or skeleton
+  // For now, let's just show the tasks. If empty, it's empty.
 
   return (
     <div className="flex flex-col h-full bg-surface p-4">
       <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">My Day</h3>
       <div className="flex-1 overflow-y-auto space-y-2">
+        {tasks.length === 0 && <div className="text-xs text-gray-400 italic">No tasks for today</div>}
         {tasks.map(task => (
-          <div key={task.id} className="flex items-center gap-2 group cursor-pointer" onClick={() => setTasks(tasks.map(t => t.id === task.id ? { ...t, done: !t.done } : t))}>
+          <div key={task.id} className="flex items-center gap-2 group cursor-pointer">
             <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${task.done ? 'bg-accent-green border-accent-green text-white' : 'border-gray-300 dark:border-gray-600'}`}>
               {task.done && <i className="fa-solid fa-check text-[10px]"></i>}
             </div>
@@ -98,16 +105,21 @@ export const TaskListWidget: React.FC = () => {
 };
 
 export const CalendarWidget: React.FC = () => {
+  const { data } = useDashboard();
+
+  const events = (data?.events || []).map(e => ({
+    time: new Date(e.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    title: e.title,
+    color: e.color || 'bg-blue-500'
+  }));
+
   return (
     <div className="flex flex-col h-full bg-surface p-4">
       <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">Schedule</h3>
       <div className="space-y-4 relative">
         <div className="absolute left-[5px] top-2 bottom-2 w-0.5 bg-gray-200 dark:bg-gray-700"></div>
-        {[
-          { time: '10:00', title: 'Team Standup', color: 'bg-blue-500' },
-          { time: '13:00', title: 'Design Review', color: 'bg-purple-500' },
-          { time: '15:30', title: 'Focus Time', color: 'bg-green-500' }
-        ].map((event, i) => (
+        {events.length === 0 && <div className="text-xs text-gray-400 italic pl-4">No events scheduled</div>}
+        {events.map((event, i) => (
           <div key={i} className="relative pl-4">
             <div className={`absolute left-0 top-1.5 w-3 h-3 rounded-full border-2 border-surface ${event.color}`}></div>
             <div className="text-xs font-mono text-gray-400">{event.time}</div>

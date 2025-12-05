@@ -147,3 +147,11 @@ export const taskService = {
     if (!response.ok) throw new Error('Failed to delete task');
   },
 };
+
+export const dashboard = {
+  getSummary: async () => {
+    const response = await apiFetch('/api/v1/dashboard/summary');
+    if (!response.ok) throw new Error('Failed to fetch dashboard summary');
+    return response.json();
+  }
+};

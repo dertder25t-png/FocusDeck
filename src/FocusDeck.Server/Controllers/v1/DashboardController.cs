@@ -2,20 +2,23 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using FocusDeck.Persistence;
+using FocusDeck.SharedKernel.Tenancy;
 using System.Security.Claims;
 
 namespace FocusDeck.Server.Controllers.v1;
 
 [ApiController]
-[Route("v1/dashboard")]
+[Route("api/v1/dashboard")]
 [Authorize]
 public class DashboardController : ControllerBase
 {
     private readonly AutomationDbContext _db;
+    private readonly ICurrentTenant _currentTenant;
 
-    public DashboardController(AutomationDbContext db)
+    public DashboardController(AutomationDbContext db, ICurrentTenant currentTenant)
     {
         _db = db;
+        _currentTenant = currentTenant;
     }
 
     [HttpGet("summary")]
@@ -24,6 +27,8 @@ public class DashboardController : ControllerBase
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
             return Unauthorized();
+
+        var tenantId = _currentTenant.TenantId;
 
         // Parallel execution for stats to ensure speed
         var lecturesTask = _db.Lectures
@@ -35,12 +40,39 @@ public class DashboardController : ControllerBase
             .Select(s => new { s.StartTime, s.EndTime })
             .ToListAsync();
 
-        var notesTask = _db.Notes.CountAsync(); // Tenant filtered automatically
+        // Explicitly filter by tenant for safety, though global filters might apply
+        var notesTask = _db.Notes.Where(n => n.TenantId == tenantId).CountAsync();
 
-        var projectsTask = _db.Projects.CountAsync(); // Tenant filtered automatically
+        var projectsTask = _db.Projects.Where(p => p.TenantId == tenantId).CountAsync();
+
+        var tasksTask = _db.TodoItems
+            .Where(t => t.TenantId == tenantId && !t.IsCompleted)
+            .OrderBy(t => t.DueDate)
+            .Take(5)
+            .Select(t => new DashboardTaskDto
+            {
+                Id = t.Id,
+                Title = t.Title,
+                IsCompleted = t.IsCompleted,
+                DueDate = t.DueDate
+            })
+            .ToListAsync();
+
+        var eventsTask = _db.EventCache
+            .Where(e => e.TenantId == tenantId && e.StartTime >= DateTime.UtcNow && e.StartTime <= DateTime.UtcNow.AddDays(7))
+            .OrderBy(e => e.StartTime)
+            .Take(5)
+            .Select(e => new DashboardEventDto
+            {
+                Id = e.Id.ToString(),
+                Title = e.Title,
+                StartTime = e.StartTime,
+                IsAllDay = e.IsAllDay
+            })
+            .ToListAsync();
 
         // Wait for stats queries
-        await Task.WhenAll(lecturesTask, focusSessionsTask, notesTask, projectsTask);
+        await Task.WhenAll(lecturesTask, focusSessionsTask, notesTask, projectsTask, tasksTask, eventsTask);
 
         var totalFocusMinutes = focusSessionsTask.Result
             .Sum(s => (s.EndTime!.Value - s.StartTime).TotalMinutes);
@@ -104,7 +136,9 @@ public class DashboardController : ControllerBase
                 Notes = notesTask.Result,
                 Projects = projectsTask.Result
             },
-            Activity = allActivity
+            Activity = allActivity,
+            Tasks = tasksTask.Result,
+            Events = eventsTask.Result
         });
     }
 
@@ -112,6 +146,8 @@ public class DashboardController : ControllerBase
     {
         public DashboardStatsDto Stats { get; set; } = new();
         public List<DashboardActivityDto> Activity { get; set; } = new();
+        public List<DashboardTaskDto> Tasks { get; set; } = new();
+        public List<DashboardEventDto> Events { get; set; } = new();
     }
 
     public class DashboardStatsDto
@@ -120,6 +156,22 @@ public class DashboardController : ControllerBase
         public double FocusTime { get; set; }
         public int Notes { get; set; }
         public int Projects { get; set; }
+    }
+
+    public class DashboardTaskDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public bool IsCompleted { get; set; }
+        public DateTime? DueDate { get; set; }
+    }
+
+    public class DashboardEventDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public DateTime StartTime { get; set; }
+        public bool IsAllDay { get; set; }
     }
 
     public class DashboardActivityDto
