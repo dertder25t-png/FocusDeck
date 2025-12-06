@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text.Json;
 using FocusDeck.Services.Abstractions;
 
@@ -41,9 +42,9 @@ namespace FocusDeck.Server.Services.Integrations
                             : (e.TryGetProperty("id", out var eid) ? eid.ToString() : Guid.NewGuid().ToString());
                         var name = e.TryGetProperty("title", out var t) ? t.GetString() ?? "Untitled" : "Untitled";
                         DateTime? dueAt = null;
-                        if (e.TryGetProperty("due_at", out var due) && due.ValueKind == JsonValueKind.String)
+                        if (e.TryGetProperty("due_at", out var due) && due.ValueKind == JsonValueKind.String && DateTime.TryParse(due.GetString(), out var dt))
                         {
-                            if (DateTime.TryParse(due.GetString(), out var dt)) dueAt = dt.ToUniversalTime();
+                            dueAt = dt.ToUniversalTime();
                         }
                         string courseId = e.TryGetProperty("context_code", out var cc) ? cc.GetString() ?? string.Empty : string.Empty;
                         string courseName = e.TryGetProperty("context_name", out var cn) ? cn.GetString() ?? string.Empty : string.Empty;
@@ -88,37 +89,34 @@ namespace FocusDeck.Server.Services.Integrations
                     var items = JsonDocument.Parse(json).RootElement;
                     var list = new List<CanvasGrade>();
 
-                    foreach (var s in items.EnumerateArray())
+                    foreach (var s in items.EnumerateArray().Where(s => s.TryGetProperty("grade", out var g) && g.ValueKind != JsonValueKind.Null))
                     {
-                        if (s.TryGetProperty("grade", out var g) && g.ValueKind != JsonValueKind.Null)
+                        var grade = s.GetProperty("grade").ToString();
+                        var score = s.TryGetProperty("score", out var sc) && sc.ValueKind == JsonValueKind.Number ? sc.GetDouble() : (double?)null;
+                        var gradedAt = s.TryGetProperty("graded_at", out var ga) && ga.ValueKind == JsonValueKind.String
+                            && DateTime.TryParse(ga.GetString(), out var dt) ? dt.ToUniversalTime() : (DateTime?)null;
+
+                        var assignmentName = "Untitled Assignment";
+                        var assignmentId = "unknown";
+
+                        if (s.TryGetProperty("assignment", out var a))
                         {
-                            var grade = g.ToString();
-                            var score = s.TryGetProperty("score", out var sc) && sc.ValueKind == JsonValueKind.Number ? sc.GetDouble() : (double?)null;
-                            var gradedAt = s.TryGetProperty("graded_at", out var ga) && ga.ValueKind == JsonValueKind.String
-                                && DateTime.TryParse(ga.GetString(), out var dt) ? dt.ToUniversalTime() : (DateTime?)null;
-
-                            var assignmentName = "Untitled Assignment";
-                            var assignmentId = "unknown";
-
-                            if (s.TryGetProperty("assignment", out var a))
-                            {
-                                assignmentName = a.TryGetProperty("name", out var an) ? an.GetString() ?? "Untitled" : "Untitled";
-                                assignmentId = a.TryGetProperty("id", out var aid) ? aid.ToString() : "unknown";
-                            }
-                            else if (s.TryGetProperty("assignment_id", out var aid2))
-                            {
-                                assignmentId = aid2.ToString();
-                            }
-
-                            list.Add(new CanvasGrade
-                            {
-                                AssignmentId = assignmentId,
-                                AssignmentName = assignmentName,
-                                Grade = grade,
-                                Score = score,
-                                GradedAt = gradedAt
-                            });
+                            assignmentName = a.TryGetProperty("name", out var an) ? an.GetString() ?? "Untitled" : "Untitled";
+                            assignmentId = a.TryGetProperty("id", out var aid) ? aid.ToString() : "unknown";
                         }
+                        else if (s.TryGetProperty("assignment_id", out var aid2))
+                        {
+                            assignmentId = aid2.ToString();
+                        }
+
+                        list.Add(new CanvasGrade
+                        {
+                            AssignmentId = assignmentId,
+                            AssignmentName = assignmentName,
+                            Grade = grade,
+                            Score = score,
+                            GradedAt = gradedAt
+                        });
                     }
 
                     _logger.LogInformation("Fetched {Count} Canvas grades for course {CourseId}", list.Count, courseId);
@@ -154,12 +152,9 @@ namespace FocusDeck.Server.Services.Integrations
                 {
                     var coursesJson = await coursesResponse.Content.ReadAsStringAsync();
                     var courses = JsonDocument.Parse(coursesJson).RootElement;
-                    foreach (var c in courses.EnumerateArray())
+                    foreach (var c in courses.EnumerateArray().Where(c => c.TryGetProperty("id", out _)))
                     {
-                        if (c.TryGetProperty("id", out var cid))
-                        {
-                            contextCodes.Add($"course_{cid}");
-                        }
+                        contextCodes.Add($"course_{c.GetProperty("id")}");
                     }
                 }
 

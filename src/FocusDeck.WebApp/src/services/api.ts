@@ -2,6 +2,9 @@
 import { apiFetch } from '../lib/utils'; // Safe: Handles silent refresh
 import type { Note, TodoItem, AcademicSource } from '../types';
 
+// Re-export apiFetch so consumers can import from this module
+export { apiFetch };
+
 export const noteService = {
   getNotes: async (search?: string, tag?: string, pinned?: boolean, type?: string) => {
     const params = new URLSearchParams();
