@@ -231,7 +231,15 @@ namespace FocusDeck.Server.Services
                 {
                     _logger.LogError(ex, "Error in automation engine loop.");
                 }
-                await Task.Delay(_checkInterval, stoppingToken);
+
+                try
+                {
+                    await Task.Delay(_checkInterval, stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break; // Graceful shutdown
+                }
             }
 
             _logger.LogInformation("Automation Engine stopped");

@@ -78,8 +78,18 @@ public sealed class JwtSigningKeyProvider : IJwtSigningKeyProvider
         var keys = new List<SecurityKey>();
         var versions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        var primaryKey = RunWithTimeout(() => _keyStore.GetPrimaryKeyAsync(), KeyFetchTimeout);
-        AddKey(primaryKey, keys, versions);
+        try
+        {
+            var primaryKey = RunWithTimeout(() => _keyStore.GetPrimaryKeyAsync(), KeyFetchTimeout);
+            if (!string.IsNullOrWhiteSpace(primaryKey))
+            {
+                AddKey(primaryKey, keys, versions);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load primary JWT key");
+        }
 
         try
         {

@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react'
 import { usePrivacySettings } from '../hooks/usePrivacySettings'
 import { usePrivacyActions } from '../hooks/usePrivacyActions'
 import type { PrivacySetting } from '../types/privacy'
+import { apiFetch } from '../services/api'
 
 interface SystemInfo {
   version: string;
@@ -26,11 +27,11 @@ interface SystemInfo {
 }
 
 const WALLPAPERS = [
-    '/assets/wallpapers/1.jpg',
-    '/assets/wallpapers/2.jpg',
-    '/assets/wallpapers/3.jpg',
-    '/assets/wallpapers/4.jpg',
-    '/assets/wallpapers/5.jpg'
+  '/assets/wallpapers/1.jpg',
+  '/assets/wallpapers/2.jpg',
+  '/assets/wallpapers/3.jpg',
+  '/assets/wallpapers/4.jpg',
+  '/assets/wallpapers/5.jpg'
 ];
 
 export function SettingsPage() {
@@ -50,39 +51,39 @@ export function SettingsPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   useEffect(() => {
-      // Load settings from local storage if available
-      const savedTheme = localStorage.getItem('focusdeck-theme') as 'light' | 'dark';
-      if (savedTheme) setTheme(savedTheme);
+    // Load settings from local storage if available
+    const savedTheme = localStorage.getItem('focusdeck-theme') as 'light' | 'dark';
+    if (savedTheme) setTheme(savedTheme);
 
-      if (savedTheme === 'dark') {
-          document.documentElement.classList.add('dark');
-      } else {
-          document.documentElement.classList.remove('dark');
-      }
+    if (savedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
 
-      const savedWallpaper = localStorage.getItem('focusdeck-wallpaper');
-      if (savedWallpaper) setActiveWallpaper(savedWallpaper);
+    const savedWallpaper = localStorage.getItem('focusdeck-wallpaper');
+    if (savedWallpaper) setActiveWallpaper(savedWallpaper);
   }, []);
 
   const handleThemeChange = (newTheme: 'light' | 'dark') => {
-      setTheme(newTheme);
-      localStorage.setItem('focusdeck-theme', newTheme);
-      if (newTheme === 'dark') {
-          document.documentElement.classList.add('dark');
-      } else {
-          document.documentElement.classList.remove('dark');
-      }
+    setTheme(newTheme);
+    localStorage.setItem('focusdeck-theme', newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   };
 
   const handleWallpaperChange = (url: string) => {
-      setActiveWallpaper(url);
-      localStorage.setItem('focusdeck-wallpaper', url);
-      window.dispatchEvent(new Event('focusdeck-wallpaper-changed'));
+    setActiveWallpaper(url);
+    localStorage.setItem('focusdeck-wallpaper', url);
+    window.dispatchEvent(new Event('focusdeck-wallpaper-changed'));
   };
 
   useEffect(() => {
     if (activeTab === 'integrations') {
-      fetch('/v1/system/config/gemini')
+      apiFetch('/v1/system/config/gemini')
         .then(res => res.json())
         .then(data => setGeminiKeySaved(data.hasKey))
         .catch(err => console.error('Failed to check Gemini key status:', err))
@@ -94,9 +95,8 @@ export function SettingsPage() {
 
     setIsSavingKey(true)
     try {
-      const res = await fetch('/v1/system/config/gemini', {
+      const res = await apiFetch('/v1/system/config/gemini', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey: geminiKey })
       })
 
@@ -132,7 +132,7 @@ export function SettingsPage() {
 
   useEffect(() => {
     // Fetch system info for system tab
-    fetch('/v1/system/info')
+    apiFetch('/v1/system/info')
       .then(res => res.json())
       .then(data => setSystemInfo(data))
       .catch(err => console.error('Failed to fetch system info:', err))
@@ -163,11 +163,10 @@ export function SettingsPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-gray-400 hover:text-gray-300'
-              }`}
+              className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === tab.id
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-400 hover:text-gray-300'
+                }`}
             >
               {tab.label}
             </button>
@@ -207,24 +206,24 @@ export function SettingsPage() {
                   <div className="font-medium">Banner Alerts</div>
                   <div className="text-sm text-gray-400">Show popup notifications</div>
                 </div>
-                 <button
-                    onClick={() => setNotificationsEnabled(!notificationsEnabled)}
-                    className={`w-12 h-6 rounded-full p-1 transition-colors ${notificationsEnabled ? 'bg-blue-600' : 'bg-gray-600'}`}
-                 >
-                     <div className={`w-4 h-4 bg-white rounded-full transition-transform ${notificationsEnabled ? 'translate-x-6' : ''}`}></div>
-                 </button>
+                <button
+                  onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+                  className={`w-12 h-6 rounded-full p-1 transition-colors ${notificationsEnabled ? 'bg-blue-600' : 'bg-gray-600'}`}
+                >
+                  <div className={`w-4 h-4 bg-white rounded-full transition-transform ${notificationsEnabled ? 'translate-x-6' : ''}`}></div>
+                </button>
               </div>
               <div className="flex items-center justify-between p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                 <div>
                   <div className="font-medium">Sound Effects</div>
                   <div className="text-sm text-gray-400">Play sounds for notifications</div>
                 </div>
-                 <button
-                    onClick={() => setSoundEnabled(!soundEnabled)}
-                    className={`w-12 h-6 rounded-full p-1 transition-colors ${soundEnabled ? 'bg-blue-600' : 'bg-gray-600'}`}
-                 >
-                     <div className={`w-4 h-4 bg-white rounded-full transition-transform ${soundEnabled ? 'translate-x-6' : ''}`}></div>
-                 </button>
+                <button
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  className={`w-12 h-6 rounded-full p-1 transition-colors ${soundEnabled ? 'bg-blue-600' : 'bg-gray-600'}`}
+                >
+                  <div className={`w-4 h-4 bg-white rounded-full transition-transform ${soundEnabled ? 'translate-x-6' : ''}`}></div>
+                </button>
               </div>
             </CardContent>
           </Card>
@@ -234,50 +233,50 @@ export function SettingsPage() {
       {/* Appearance Tab */}
       {activeTab === 'appearance' && (
         <div className="space-y-6">
-             <Card>
-                <CardHeader>
-                  <CardTitle>Theme</CardTitle>
-                  <CardDescription>Select your interface theme</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div
-                            onClick={() => handleThemeChange('light')}
-                            className={`p-4 border-2 rounded-xl cursor-pointer hover:border-blue-400 transition-all ${theme === 'light' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-transparent bg-gray-100 dark:bg-gray-800'}`}
-                        >
-                            <div className="h-24 bg-white rounded-lg shadow-sm mb-2 border border-gray-200"></div>
-                            <div className="text-center font-bold">Light</div>
-                        </div>
-                         <div
-                            onClick={() => handleThemeChange('dark')}
-                            className={`p-4 border-2 rounded-xl cursor-pointer hover:border-blue-400 transition-all ${theme === 'dark' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-transparent bg-gray-100 dark:bg-gray-800'}`}
-                        >
-                            <div className="h-24 bg-gray-900 rounded-lg shadow-sm mb-2 border border-gray-700"></div>
-                            <div className="text-center font-bold">Dark</div>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Theme</CardTitle>
+              <CardDescription>Select your interface theme</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div
+                  onClick={() => handleThemeChange('light')}
+                  className={`p-4 border-2 rounded-xl cursor-pointer hover:border-blue-400 transition-all ${theme === 'light' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-transparent bg-gray-100 dark:bg-gray-800'}`}
+                >
+                  <div className="h-24 bg-white rounded-lg shadow-sm mb-2 border border-gray-200"></div>
+                  <div className="text-center font-bold">Light</div>
+                </div>
+                <div
+                  onClick={() => handleThemeChange('dark')}
+                  className={`p-4 border-2 rounded-xl cursor-pointer hover:border-blue-400 transition-all ${theme === 'dark' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'border-transparent bg-gray-100 dark:bg-gray-800'}`}
+                >
+                  <div className="h-24 bg-gray-900 rounded-lg shadow-sm mb-2 border border-gray-700"></div>
+                  <div className="text-center font-bold">Dark</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-            <Card>
-                <CardHeader>
-                  <CardTitle>Wallpaper</CardTitle>
-                  <CardDescription>Choose your desktop background</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                         {WALLPAPERS.map((wp, i) => (
-                             <div
-                                key={i}
-                                onClick={() => handleWallpaperChange(wp)}
-                                className={`aspect-video rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${activeWallpaper === wp ? 'border-blue-500 scale-105' : 'border-transparent hover:border-gray-400'}`}
-                             >
-                                 <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(https://picsum.photos/seed/${i + 10}/300/200)` }}></div>
-                             </div>
-                         ))}
-                    </div>
-                </CardContent>
-            </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Wallpaper</CardTitle>
+              <CardDescription>Choose your desktop background</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {WALLPAPERS.map((wp, i) => (
+                  <div
+                    key={i}
+                    onClick={() => handleWallpaperChange(wp)}
+                    className={`aspect-video rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${activeWallpaper === wp ? 'border-blue-500 scale-105' : 'border-transparent hover:border-gray-400'}`}
+                  >
+                    <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(https://picsum.photos/seed/${i + 10}/300/200)` }}></div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -405,9 +404,9 @@ export function SettingsPage() {
             <CardContent className="space-y-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">Whisper Model Path</label>
-                <Input 
-                  value="/models/whisper-large-v3" 
-                  disabled 
+                <Input
+                  value="/models/whisper-large-v3"
+                  disabled
                   className="bg-gray-900 text-gray-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">Managed by platform (read-only)</p>
@@ -490,8 +489,8 @@ export function SettingsPage() {
                             {pendingPrivacy.includes(setting.contextType)
                               ? 'Updating…'
                               : setting.isEnabled
-                              ? 'Enabled'
-                              : 'Enable'}
+                                ? 'Enabled'
+                                : 'Enable'}
                           </Button>
                         </div>
                       </div>
@@ -538,7 +537,7 @@ export function SettingsPage() {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="pt-4 border-t border-gray-800">
                     <h3 className="font-medium mb-3">Job Queue Status</h3>
                     <div className="grid grid-cols-4 gap-4">

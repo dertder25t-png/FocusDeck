@@ -21,6 +21,24 @@ export interface DashboardActivity {
   details: string;
 }
 
+export interface DashboardHabit {
+  id: string;
+  title: string;
+  icon: string;
+  isCompleted: boolean;
+}
+
+export interface DashboardCourseProgress {
+  code: string;
+  progressPercent: number;
+}
+
+export interface DashboardRecentFile {
+  title: string;
+  type: string;
+  timestamp: string;
+}
+
 export interface DashboardSummary {
   stats: {
     lectures: number;
@@ -31,6 +49,9 @@ export interface DashboardSummary {
   tasks: DashboardTask[];
   events: DashboardEvent[];
   activity: DashboardActivity[];
+  habits: DashboardHabit[];
+  courseProgress: DashboardCourseProgress[];
+  recentFiles: DashboardRecentFile[];
 }
 
 export function useDashboard() {

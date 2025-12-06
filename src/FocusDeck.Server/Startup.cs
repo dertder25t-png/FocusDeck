@@ -463,6 +463,29 @@ public sealed class Startup
         services.AddSingleton<TokenValidationParameters>(sp =>
         {
             var provider = sp.GetRequiredService<IJwtSigningKeyProvider>();
+            var settings = sp.GetRequiredService<IOptions<JwtSettings>>().Value;
+            var logger = sp.GetRequiredService<ILogger<Startup>>();
+            
+            // Pre-load keys at startup to ensure they're always available
+            var preloadedKeys = provider.GetValidationKeys().ToList();
+            logger.LogInformation("Startup: Pre-loaded {KeyCount} JWT signing keys into TokenValidationParameters", preloadedKeys.Count);
+            
+            // Fallback: if no keys from provider, construct from settings directly
+            if (preloadedKeys.Count == 0)
+            {
+                logger.LogWarning("Startup: No keys from provider, loading from settings directly");
+                if (!string.IsNullOrWhiteSpace(settings.PrimaryKey))
+                {
+                    preloadedKeys.Add(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.PrimaryKey)));
+                    logger.LogInformation("Startup: Added primary key from settings");
+                }
+                if (!string.IsNullOrWhiteSpace(settings.SecondaryKey))
+                {
+                    preloadedKeys.Add(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.SecondaryKey)));
+                    logger.LogInformation("Startup: Added secondary key from settings");
+                }
+            }
+            
             return new TokenValidationParameters
             {
                 ValidateIssuer = true,
@@ -471,12 +494,19 @@ public sealed class Startup
                 ValidAudiences = jwtSettings.GetValidAudiences(),
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
-                // NOTE: IssuerSigningKeys will be set dynamically by JwtBearerOptionsConfigurator via IssuerSigningKeyResolver
-                // Do NOT call provider.GetValidationKeys() here as it may not have been properly initialized yet
+                // Pre-populate with loaded keys
+                IssuerSigningKeys = preloadedKeys,
+                // Also keep the dynamic resolver for refreshing keys
                 IssuerSigningKeyResolver = (token, securityToken, kid, parameters) =>
                 {
-                    // This will be overridden by JwtBearerOptionsConfigurator
-                    return provider.GetValidationKeys();
+                    // First try the pre-loaded keys
+                    var keys = provider.GetValidationKeys().ToList();
+                    if (keys.Count == 0 && preloadedKeys.Count > 0)
+                    {
+                        // Fallback to preloaded keys
+                        return preloadedKeys;
+                    }
+                    return keys;
                 },
                 ClockSkew = TimeSpan.FromMinutes(2)
             };
@@ -484,7 +514,29 @@ public sealed class Startup
 
         services.AddSingleton<IConfigureNamedOptions<JwtBearerOptions>, JwtBearerOptionsConfigurator>();
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer();
+            .AddJwtBearer(options =>
+            {
+                // DIRECTLY configure signing keys - don't rely on external resolvers
+                var signingKey = jwtSettings.PrimaryKey;
+                if (string.IsNullOrWhiteSpace(signingKey))
+                {
+                    throw new InvalidOperationException("JWT PrimaryKey/SigningKey is not configured. Check appsettings.json or environment variables.");
+                }
+                
+                var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey));
+                
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuers = jwtSettings.GetValidIssuers(),
+                    ValidateAudience = true,
+                    ValidAudiences = jwtSettings.GetValidAudiences(),
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = securityKey, // Direct key, no resolver
+                    ClockSkew = TimeSpan.FromMinutes(2)
+                };
+            });
 
         services.AddAuthorization();
         services.AddScoped<ITokenService, TokenService>();

@@ -40,6 +40,23 @@ public sealed class JwtBearerOptionsConfigurator : IConfigureNamedOptions<JwtBea
 
         // Create new TokenValidationParameters with dynamic key resolution
         var parameters = _tokenValidationParameters;
+        
+        // Pre-load keys from provider to ensure they're always available
+        var preloadedKeys = _keyProvider.GetValidationKeys().ToList();
+        _logger.LogInformation("JwtBearerOptionsConfigurator: Pre-loaded {KeyCount} signing keys", preloadedKeys.Count);
+        
+        // Fallback: if no keys from provider, try settings directly
+        if (preloadedKeys.Count == 0)
+        {
+            _logger.LogWarning("JwtBearerOptionsConfigurator: No keys from provider, trying settings fallback");
+            var primaryKey = _jwtSettings.Value.PrimaryKey;
+            if (!string.IsNullOrWhiteSpace(primaryKey))
+            {
+                preloadedKeys.Add(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(primaryKey)));
+                _logger.LogInformation("JwtBearerOptionsConfigurator: Added primary key from settings");
+            }
+        }
+        
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = parameters.ValidateIssuer,
@@ -48,14 +65,13 @@ public sealed class JwtBearerOptionsConfigurator : IConfigureNamedOptions<JwtBea
             ValidAudiences = parameters.ValidAudiences,
             ValidateLifetime = parameters.ValidateLifetime,
             ValidateIssuerSigningKey = parameters.ValidateIssuerSigningKey,
-            // Provide an empty collection - the resolver will be called for actual key lookup
-            IssuerSigningKeys = new List<SecurityKey>(),
-            // Dynamically fetch keys at validation time - this ensures keys are always fresh
+            // Pre-populate with keys - this ensures keys are always available
+            IssuerSigningKeys = preloadedKeys,
+            // Also keep the dynamic resolver for refreshing keys
             IssuerSigningKeyResolver = (token, securityToken, kid, validationParameters) =>
             {
                 // First try the provider's cached keys
                 var keys = _keyProvider.GetValidationKeys().ToList();
-                _logger.LogDebug("JwtBearer validation: Resolved {KeyCount} signing keys from provider", keys.Count);
                 
                 // If provider returns no keys, construct from settings as fallback
                 if (keys.Count == 0)

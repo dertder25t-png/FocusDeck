@@ -7,11 +7,13 @@ using FocusDeck.SharedKernel.Tenancy;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 
 namespace FocusDeck.Server.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("v1/notes")]
+    [Authorize]
     public class NotesController : ControllerBase
     {
         private readonly AutomationDbContext _db;

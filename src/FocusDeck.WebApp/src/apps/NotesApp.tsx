@@ -19,7 +19,7 @@ const groupNotesByTag = (notes: Note[]) => {
         // Prevent duplicates if multiple tags, just add to first for simplicity in this tree view
         // Or we can list it under multiple tags. Let's list under all tags.
         if (!groups[tag].some(n => n.id === note.id)) {
-            groups[tag].push(note);
+          groups[tag].push(note);
         }
       });
     } else {
@@ -32,7 +32,7 @@ const groupNotesByTag = (notes: Note[]) => {
 
 export const NotesApp: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const { toast } = useToast();
+  const { addToast } = useToast();
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [showCitations, setShowCitations] = useState(false);
   // We'll use local state for immediate feedback while typing,
@@ -41,10 +41,10 @@ export const NotesApp: React.FC = () => {
   const [localContent, setLocalContent] = useState('');
 
   useEffect(() => {
-      if (searchParams.get('action') === 'verify') {
-          toast({ title: 'Verification Mode', description: 'Select a note to verify its contents with AI.' });
-      }
-  }, [searchParams, toast]);
+    if (searchParams.get('action') === 'verify') {
+      addToast({ title: 'Verification Mode', description: 'Select a note to verify its contents with AI.', variant: 'default' });
+    }
+  }, [searchParams, addToast]);
 
   const { data: notesRaw, isLoading, error } = useNotes();
   const notes: Note[] = Array.isArray(notesRaw) ? notesRaw : [];
@@ -74,7 +74,7 @@ export const NotesApp: React.FC = () => {
       };
       const result = await createNoteMutation.mutateAsync(newNote);
       if (result && result.id) {
-          setActiveNoteId(result.id);
+        setActiveNoteId(result.id);
       }
     } catch (error) {
       console.error('Failed to create note:', error);
@@ -85,11 +85,11 @@ export const NotesApp: React.FC = () => {
   const handleCreateFolder = () => {
     const folderName = prompt("Enter folder name:");
     if (folderName) {
-        // Just create a placeholder note or handle folder creation logic.
-        // Since we map folders to tags, we can't create an empty folder without a note.
-        // Let's create a welcome note in that folder.
-        handleCreateNote(folderName);
-        setExpandedFolders(prev => ({ ...prev, [folderName]: true }));
+      // Just create a placeholder note or handle folder creation logic.
+      // Since we map folders to tags, we can't create an empty folder without a note.
+      // Let's create a welcome note in that folder.
+      handleCreateNote(folderName);
+      setExpandedFolders(prev => ({ ...prev, [folderName]: true }));
     }
   };
 
@@ -99,13 +99,13 @@ export const NotesApp: React.FC = () => {
 
     // Only update if changed
     if (activeNote && (localTitle !== activeNote.title || localContent !== activeNote.content)) {
-        const timeoutId = setTimeout(() => {
-            updateNoteMutation.mutate({
-                id: activeNoteId,
-                note: { title: localTitle, content: localContent }
-            });
-        }, 1000); // 1s debounce
-        return () => clearTimeout(timeoutId);
+      const timeoutId = setTimeout(() => {
+        updateNoteMutation.mutate({
+          id: activeNoteId,
+          note: { title: localTitle, content: localContent }
+        });
+      }, 1000); // 1s debounce
+      return () => clearTimeout(timeoutId);
     }
   }, [localTitle, localContent, activeNoteId]);
 
@@ -114,12 +114,12 @@ export const NotesApp: React.FC = () => {
   };
 
   const getSaveStatus = () => {
-      if (updateNoteMutation.isPending) return "Saving...";
-      if (updateNoteMutation.isError) return "Error saving";
-      if (activeNote?.lastModified) {
-          return `Saved ${formatDistanceToNow(new Date(activeNote.lastModified), { addSuffix: true })}`;
-      }
-      return "Saved";
+    if (updateNoteMutation.isPending) return "Saving...";
+    if (updateNoteMutation.isError) return "Error saving";
+    if (activeNote?.lastModified) {
+      return `Saved ${formatDistanceToNow(new Date(activeNote.lastModified), { addSuffix: true })}`;
+    }
+    return "Saved";
   };
 
   if (isLoading) return <div className="p-4">Loading notes...</div>;
@@ -132,122 +132,122 @@ export const NotesApp: React.FC = () => {
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <h2 className="font-bold text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Folders</h2>
           <div className="flex gap-1">
-             <button 
-               onClick={(e) => {
-                 e.preventDefault();
-                 e.stopPropagation();
-                 handleCreateFolder();
-               }} 
-               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 hover:bg-gray-200 dark:hover:bg-gray-800 rounded" 
-               title="New Folder"
-             >
-               <Folder size={14} />
-             </button>
-             <button 
-               onClick={(e) => {
-                 e.preventDefault();
-                 e.stopPropagation();
-                 void handleCreateNote();
-               }} 
-               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 hover:bg-gray-200 dark:hover:bg-gray-800 rounded" 
-               title="New Note"
-             >
-               <Plus size={14} />
-             </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleCreateFolder();
+              }}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 hover:bg-gray-200 dark:hover:bg-gray-800 rounded"
+              title="New Folder"
+            >
+              <Folder size={14} />
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void handleCreateNote();
+              }}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 hover:bg-gray-200 dark:hover:bg-gray-800 rounded"
+              title="New Note"
+            >
+              <Plus size={14} />
+            </button>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-2">
-            {/* Folders (Tags) */}
-            {sortedFolders.map(folder => (
-                <div key={folder}>
+          {/* Folders (Tags) */}
+          {sortedFolders.map(folder => (
+            <div key={folder}>
+              <div
+                className="flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
+                onClick={() => toggleFolder(folder)}
+              >
+                <i className={`fa-solid fa-chevron-right text-[10px] w-4 transition-transform ${expandedFolders[folder] ? 'rotate-90' : ''}`}></i>
+                <span className="truncate text-sm font-medium">{folder}</span>
+                <span className="ml-auto text-xs text-gray-400">{groups[folder].length}</span>
+              </div>
+              {expandedFolders[folder] && (
+                <div className="ml-4 border-l border-gray-200 dark:border-gray-800 pl-1">
+                  {groups[folder].map(note => (
                     <div
-                        className="flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
-                        onClick={() => toggleFolder(folder)}
+                      key={note.id}
+                      className={`flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer transition-colors ${activeNoteId === note.id ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-medium' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}`}
+                      onClick={() => setActiveNoteId(note.id)}
                     >
-                        <i className={`fa-solid fa-chevron-right text-[10px] w-4 transition-transform ${expandedFolders[folder] ? 'rotate-90' : ''}`}></i>
-                        <span className="truncate text-sm font-medium">{folder}</span>
-                        <span className="ml-auto text-xs text-gray-400">{groups[folder].length}</span>
+                      <span className="truncate text-sm">{note.title || 'Untitled'}</span>
                     </div>
-                    {expandedFolders[folder] && (
-                        <div className="ml-4 border-l border-gray-200 dark:border-gray-800 pl-1">
-                            {groups[folder].map(note => (
-                                <div
-                                    key={note.id}
-                                    className={`flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer transition-colors ${activeNoteId === note.id ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-medium' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}`}
-                                    onClick={() => setActiveNoteId(note.id)}
-                                >
-                                    <span className="truncate text-sm">{note.title || 'Untitled'}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                  ))}
                 </div>
-            ))}
+              )}
+            </div>
+          ))}
 
-            {/* Uncategorized Notes */}
-             {uncategorized.length > 0 && (
-                <div className="mt-2">
-                    <div className="px-2 py-1 text-xs uppercase text-gray-400 font-bold tracking-wider">Uncategorized</div>
-                    {uncategorized.map(note => (
-                        <div
-                            key={note.id}
-                            className={`flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer transition-colors ${activeNoteId === note.id ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-medium' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}`}
-                            onClick={() => setActiveNoteId(note.id)}
-                        >
-                             <span className="truncate text-sm">{note.title || 'Untitled'}</span>
-                        </div>
-                    ))}
+          {/* Uncategorized Notes */}
+          {uncategorized.length > 0 && (
+            <div className="mt-2">
+              <div className="px-2 py-1 text-xs uppercase text-gray-400 font-bold tracking-wider">Uncategorized</div>
+              {uncategorized.map(note => (
+                <div
+                  key={note.id}
+                  className={`flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer transition-colors ${activeNoteId === note.id ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-medium' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}`}
+                  onClick={() => setActiveNoteId(note.id)}
+                >
+                  <span className="truncate text-sm">{note.title || 'Untitled'}</span>
                 </div>
-             )}
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Main Editor Area */}
       <div className="flex-1 flex flex-col relative h-full">
         {activeNoteId ? (
-            <>
-                {/* Toolbar */}
-                <div className="h-12 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 bg-white dark:bg-gray-900 shrink-0">
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <span className="text-xs flex items-center gap-1">
-                        {updateNoteMutation.isPending ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-check"></i>}
-                        {getSaveStatus()}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowCitations(!showCitations)}
-                      className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${showCitations ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-600 dark:text-gray-400'}`}
-                      title="Citations"
-                    >
-                      <i className="fa-solid fa-quote-right"></i>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Editor Content */}
-                <div className="flex-1 flex flex-col overflow-hidden">
-                    <input
-                        className="text-3xl font-bold p-8 pb-4 outline-none bg-transparent text-gray-900 dark:text-white border-none w-full"
-                        value={localTitle}
-                        onChange={(e) => setLocalTitle(e.target.value)}
-                        placeholder="Note Title"
-                    />
-                    <div className="flex-1 overflow-hidden relative">
-                         {/* We pass a key to force remount when switching notes, otherwise content might not update correctly in some editors */}
-                         <TiptapEditor
-                             key={activeNoteId}
-                             content={localContent}
-                             onChange={setLocalContent}
-                         />
-                    </div>
-                </div>
-            </>
-        ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-400 flex-col gap-4">
-                <i className="fa-regular fa-note-sticky text-4xl"></i>
-                <p>Select a note or create a new one</p>
+          <>
+            {/* Toolbar */}
+            <div className="h-12 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 bg-white dark:bg-gray-900 shrink-0">
+              <div className="flex items-center gap-2 text-gray-400">
+                <span className="text-xs flex items-center gap-1">
+                  {updateNoteMutation.isPending ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-check"></i>}
+                  {getSaveStatus()}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowCitations(!showCitations)}
+                  className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${showCitations ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-600 dark:text-gray-400'}`}
+                  title="Citations"
+                >
+                  <i className="fa-solid fa-quote-right"></i>
+                </button>
+              </div>
             </div>
+
+            {/* Editor Content */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <input
+                className="text-3xl font-bold p-8 pb-4 outline-none bg-transparent text-gray-900 dark:text-white border-none w-full"
+                value={localTitle}
+                onChange={(e) => setLocalTitle(e.target.value)}
+                placeholder="Note Title"
+              />
+              <div className="flex-1 overflow-hidden relative">
+                {/* We pass a key to force remount when switching notes, otherwise content might not update correctly in some editors */}
+                <TiptapEditor
+                  key={activeNoteId}
+                  content={localContent}
+                  onChange={setLocalContent}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-gray-400 flex-col gap-4">
+            <i className="fa-regular fa-note-sticky text-4xl"></i>
+            <p>Select a note or create a new one</p>
+          </div>
         )}
       </div>
 
@@ -259,7 +259,7 @@ export const NotesApp: React.FC = () => {
             <button onClick={() => setShowCitations(false)} className="text-gray-400 hover:text-gray-600"><i className="fa-solid fa-xmark"></i></button>
           </div>
           <div className="p-4 flex-1 overflow-y-auto">
-             <div className="text-sm text-gray-500 italic">Citation management coming soon...</div>
+            <div className="text-sm text-gray-500 italic">Citation management coming soon...</div>
           </div>
         </div>
       )}

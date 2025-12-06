@@ -15,6 +15,7 @@ export interface Note {
   courseId?: string;
   eventId?: string;
   tenantId: string;
+  coveragePercent?: number;
 }
 
 export interface NoteBookmark {
@@ -27,48 +28,49 @@ export interface NoteBookmark {
 }
 
 export interface AcademicSource {
-    id: string;
-    noteId: string;
-    title: string;
-    authors: string[];
-    year: number;
-    url?: string;
-    citationKey: string;
+  id: string;
+  noteId?: string;
+  title: string;
+  authors: string[];
+  year: number;
+  url?: string;
+  citationKey?: string;
+  publisher?: string;
 }
 
 export interface TodoItem {
-    id: string;
-    title: string;
-    description: string;
-    priority: number;
-    isCompleted: boolean;
-    dueDate?: string;
-    completedDate?: string;
-    source: string;
-    canvasAssignmentId?: string;
-    canvasCourseId?: string;
-    tags: string[];
-    estimatedMinutes: number;
-    actualMinutes: number;
-    showReminder: boolean;
-    repeat: string;
+  id: string;
+  title: string;
+  description: string;
+  priority: number;
+  isCompleted: boolean;
+  dueDate?: string;
+  completedDate?: string;
+  source: string;
+  canvasAssignmentId?: string;
+  canvasCourseId?: string;
+  tags: string[];
+  estimatedMinutes: number;
+  actualMinutes: number;
+  showReminder: boolean;
+  repeat: string;
 }
 
 export interface CreateNoteDto {
-    title: string;
-    content: string;
-    type: number;
-    tags?: string[];
-    color?: string;
-    isPinned?: boolean;
+  title: string;
+  content: string;
+  type: number;
+  tags?: string[];
+  color?: string;
+  isPinned?: boolean;
 }
 
 export interface UpdateNoteDto {
-    id: string;
-    title: string;
-    content: string;
-    type: number;
-    tags?: string[];
-    color?: string;
-    isPinned?: boolean;
+  id: string;
+  title: string;
+  content: string;
+  type: number;
+  tags?: string[];
+  color?: string;
+  isPinned?: boolean;
 }

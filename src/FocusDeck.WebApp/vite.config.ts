@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [react()],
   base: '/',
   build: {
+    target: 'esnext',
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
@@ -46,6 +47,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       'react-qr-reader': 'react-qr-reader/dist/cjs/index.js',
+      fs: path.resolve(__dirname, './src/mocks/empty.js'),
     },
   },
   optimizeDeps: {

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
+import { apiFetch } from '../services/api';
 
 interface SystemInfo {
   version: string;
@@ -35,7 +36,7 @@ export function SystemOpsPage() {
 
   const loadSystemInfo = async () => {
     try {
-      const res = await fetch('/v1/system/info');
+      const res = await apiFetch('/v1/system/info');
       if (res.ok) {
         const data = await res.json();
         setSystemInfo(data);

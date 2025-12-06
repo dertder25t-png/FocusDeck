@@ -8,6 +8,8 @@ namespace FocusDeck.Domain.Entities
         public Guid Id { get; set; }
         public string? Name { get; set; }
         public List<string>? Cards { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; }
         public Guid TenantId { get; set; }
     }
 }

@@ -30,41 +30,37 @@ export function SignalRProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false
-    ;(async () => {
-      try {
-        // Initial check to see if we have a token or can get one
-        // We use catch to return null so we don't crash init
-        const token = await getOrRefreshAuthToken().catch(() => null)
+      ; (async () => {
+        try {
+          // Initial check to see if we have a token or can get one
+          // We use catch to return null so we don't crash init
+          const token = await getOrRefreshAuthToken().catch(() => null)
 
-        if (!token && !cancelled) {
-             console.warn('SignalR init skipped (no auth token)')
-             // We could optionally redirect to login here, but the ProtectedRoute should handle that.
-             // For now, we just don't connect SignalR.
-             return
-        }
+          if (!token && !cancelled) {
+            console.warn('SignalR init skipped (no auth token)')
+            // We could optionally redirect to login here, but the ProtectedRoute should handle that.
+            // For now, we just don't connect SignalR.
+            return
+          }
 
-        if (cancelled) return
+          if (cancelled) return
 
-        const newConnection = new HubConnectionBuilder()
-          .withUrl('/hubs/notifications', {
-            accessTokenFactory: async () => {
-              try {
-                // Always try to get a fresh valid token for the connection
-                return await getOrRefreshAuthToken() || ''
-              } catch {
-                return ''
+          const newConnection = new HubConnectionBuilder()
+            .withUrl('/hubs/notifications', {
+              accessTokenFactory: async () => {
+                const token = await getOrRefreshAuthToken();
+                return token || '';
               }
-            }
-          })
-          .withAutomaticReconnect()
-          .configureLogging(LogLevel.Information)
-          .build()
+            })
+            .withAutomaticReconnect()
+            .configureLogging(LogLevel.Information)
+            .build()
 
-        if (!cancelled) setConnection(newConnection)
-      } catch (err) {
-        console.warn('SignalR init failed', err)
-      }
-    })()
+          if (!cancelled) setConnection(newConnection)
+        } catch (err) {
+          console.warn('SignalR init failed', err)
+        }
+      })()
     return () => { cancelled = true }
   }, [])
 
@@ -98,16 +94,19 @@ export function SignalRProvider({ children }: { children: ReactNode }) {
           console.error('SignalR Connection Error: ', err)
           // If the error suggests authentication failure (401), try to refresh and retry once
           if (err.toString().includes('401') || (err.statusCode === 401)) {
-             console.log('SignalR 401 detected, attempting auth refresh...')
-             const newToken = await refreshAuthToken()
-             if (newToken) {
-                 try {
-                     await connection.start()
-                     console.log('SignalR Reconnected after auth refresh')
-                 } catch (retryErr) {
-                     console.error('SignalR Retry failed:', retryErr)
-                 }
-             }
+            console.log('SignalR 401 detected, attempting auth refresh...')
+
+            // Trigger a refresh. If one is already in progress (via apiFetch), this will wait for it.
+            const newToken = await refreshAuthToken();
+
+            if (newToken) {
+              try {
+                await connection.start()
+                console.log('SignalR Reconnected after auth refresh')
+              } catch (retryErr) {
+                console.error('SignalR Retry failed:', retryErr)
+              }
+            }
           }
         }
       }

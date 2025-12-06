@@ -4,7 +4,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../co
 import { Badge } from '../components/Badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/Dialog';
 import { EmptyState } from '../components/States';
-import { NoteEditor, type AcademicSource } from '../components/NoteEditor';
+import { NoteEditor } from '../components/NoteEditor';
+import type { AcademicSource } from '../types';
 import { noteService } from '../services/api';
 import type { Note } from '../types';
 
@@ -49,7 +50,7 @@ export function NotesPage() {
     setSelectedNote(note);
     setEditedContent(note.content);
     setEditMode(false);
-    
+
     // Initialize editor state
     setEditorMode(note.type === 1 ? 'paper' : 'quick');
     setSources(note.sources || []);
@@ -69,34 +70,34 @@ export function NotesPage() {
     if (!selectedNote) return;
 
     try {
-        const payload: Partial<Note> = {
-            content: editedContent,
-            type: editorMode === 'paper' ? 1 : 0,
-            sources: sources,
-            citationStyle: citationStyle
-        };
+      const payload: Partial<Note> = {
+        content: editedContent,
+        type: editorMode === 'paper' ? 1 : 0,
+        sources: sources,
+        citationStyle: citationStyle
+      };
 
-        await noteService.updateNote(selectedNote.id, payload);
+      await noteService.updateNote(selectedNote.id, payload);
 
-        // Update local state
-        setSelectedNote({
-            ...selectedNote,
-            content: editedContent,
-            type: editorMode === 'paper' ? 1 : 0,
-            sources: sources,
-            citationStyle: citationStyle,
-            lastModified: new Date().toISOString()
-        });
-        // Refresh list to show updated timestamp
-        loadNotes();
+      // Update local state
+      setSelectedNote({
+        ...selectedNote,
+        content: editedContent,
+        type: editorMode === 'paper' ? 1 : 0,
+        sources: sources,
+        citationStyle: citationStyle,
+        lastModified: new Date().toISOString()
+      });
+      // Refresh list to show updated timestamp
+      loadNotes();
     } catch (error) {
-        console.error('Failed to save note:', error);
+      console.error('Failed to save note:', error);
     }
   };
 
   const handleVerifyNote = async () => {
     if (!selectedNote) return;
-    
+
     setIsVerifying(true);
     try {
       const response = await noteService.verifyNote(selectedNote.id);
@@ -229,13 +230,13 @@ export function NotesPage() {
                   <h3 className="font-semibold">Content</h3>
                   <div className="flex gap-2">
                     {editMode && (
-                        <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={handleSaveNote}
-                        >
-                            Save
-                        </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleSaveNote}
+                      >
+                        Save
+                      </Button>
                     )}
                     <Button
                       size="sm"
@@ -258,15 +259,15 @@ export function NotesPage() {
                 {editMode ? (
                   <div className="h-96 border border-gray-800 rounded-lg overflow-hidden">
                     <NoteEditor
-                        content={editedContent}
-                        onChange={setEditedContent}
-                        mode={editorMode}
-                        onModeChange={setEditorMode}
-                        sources={sources}
-                        onAddSource={(s) => setSources([...sources, s])}
-                        onRemoveSource={(id) => setSources(sources.filter(s => s.id !== id))}
-                        citationStyle={citationStyle}
-                        onCitationStyleChange={setCitationStyle}
+                      content={editedContent}
+                      onChange={setEditedContent}
+                      mode={editorMode}
+                      onModeChange={setEditorMode}
+                      sources={sources}
+                      onAddSource={(s) => setSources([...sources, s])}
+                      onRemoveSource={(id) => setSources(sources.filter(s => s.id !== id))}
+                      citationStyle={citationStyle}
+                      onCitationStyleChange={setCitationStyle}
                     />
                   </div>
                 ) : (

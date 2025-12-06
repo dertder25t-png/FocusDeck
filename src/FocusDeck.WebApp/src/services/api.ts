@@ -1,6 +1,6 @@
 
 import { apiFetch } from '../lib/utils'; // Safe: Handles silent refresh
-import type { Note, TodoItem, AcademicSource } from '../types';
+import type { Note, TodoItem } from '../types';
 
 // Re-export apiFetch so consumers can import from this module
 export { apiFetch };
@@ -13,7 +13,7 @@ export const noteService = {
     if (pinned !== undefined) params.append('pinned', String(pinned));
     if (type) params.append('type', type);
 
-    const response = await apiFetch(`/api/notes?${params.toString()}`);
+    const response = await apiFetch(`/v1/notes?${params.toString()}`);
     if (!response.ok) {
       const msg = await response.text().catch(() => 'Failed to fetch notes');
       throw new Error(msg || 'Failed to fetch notes');
@@ -23,7 +23,7 @@ export const noteService = {
   },
 
   getNote: async (id: string) => {
-    const response = await apiFetch(`/api/notes/${id}`);
+    const response = await apiFetch(`/v1/notes/${id}`);
     if (!response.ok) {
       const msg = await response.text().catch(() => 'Failed to fetch note');
       throw new Error(msg || 'Failed to fetch note');
@@ -33,7 +33,7 @@ export const noteService = {
   },
 
   createNote: async (note: Partial<Note>) => {
-    const response = await apiFetch('/api/notes', {
+    const response = await apiFetch('/v1/notes', {
       method: 'POST',
       body: JSON.stringify(note),
     });
@@ -46,7 +46,7 @@ export const noteService = {
   },
 
   updateNote: async (id: string, note: Partial<Note>) => {
-    const response = await apiFetch(`/api/notes/${id}`, {
+    const response = await apiFetch(`/v1/notes/${id}`, {
       method: 'PUT',
       body: JSON.stringify(note),
     });
@@ -59,7 +59,7 @@ export const noteService = {
   },
 
   deleteNote: async (id: string) => {
-    const response = await apiFetch(`/api/notes/${id}`, {
+    const response = await apiFetch(`/v1/notes/${id}`, {
       method: 'DELETE',
     });
     if (!response.ok) {
@@ -69,47 +69,47 @@ export const noteService = {
   },
 
   getStats: async () => {
-    const response = await apiFetch('/api/notes/stats');
+    const response = await apiFetch('/v1/notes/stats');
     if (!response.ok) throw new Error('Failed to fetch stats');
     return response.json();
   },
 
   verifyNote: async (id: string) => {
-    const response = await apiFetch(`/api/notes/${id}/verify`, {
-        method: 'POST'
+    const response = await apiFetch(`/v1/notes/${id}/verify`, {
+      method: 'POST'
     });
     if (!response.ok) {
-        const msg = await response.text().catch(() => 'Failed to verify note');
-        throw new Error(msg || 'Failed to verify note');
+      const msg = await response.text().catch(() => 'Failed to verify note');
+      throw new Error(msg || 'Failed to verify note');
     }
     return response.json();
   },
 
   getSuggestions: async (id: string) => {
-    const response = await apiFetch(`/api/notes/${id}/suggestions`);
+    const response = await apiFetch(`/v1/notes/${id}/suggestions`);
     if (!response.ok) {
-        const msg = await response.text().catch(() => 'Failed to fetch suggestions');
-        throw new Error(msg || 'Failed to fetch suggestions');
+      const msg = await response.text().catch(() => 'Failed to fetch suggestions');
+      throw new Error(msg || 'Failed to fetch suggestions');
     }
     return response.json();
   },
 
   acceptSuggestion: async (id: string) => {
-    const response = await apiFetch(`/api/notes/suggestions/${id}/accept`, {
-        method: 'POST'
+    const response = await apiFetch(`/v1/notes/suggestions/${id}/accept`, {
+      method: 'POST'
     });
     if (!response.ok) {
-        const msg = await response.text().catch(() => 'Failed to accept suggestion');
-        throw new Error(msg || 'Failed to accept suggestion');
+      const msg = await response.text().catch(() => 'Failed to accept suggestion');
+      throw new Error(msg || 'Failed to accept suggestion');
     }
     return response.json();
   },
 
   getCoverage: async (id: string) => {
-    const response = await apiFetch(`/api/notes/${id}/coverage`);
+    const response = await apiFetch(`/v1/notes/${id}/coverage`);
     if (!response.ok) {
-        const msg = await response.text().catch(() => 'Failed to get coverage');
-        throw new Error(msg || 'Failed to get coverage');
+      const msg = await response.text().catch(() => 'Failed to get coverage');
+      throw new Error(msg || 'Failed to get coverage');
     }
     return response.json();
   }
@@ -164,13 +164,13 @@ export const taskService = {
     const params = new URLSearchParams();
     if (completed !== undefined) params.append('completed', String(completed));
 
-    const response = await apiFetch(`/api/tasks?${params.toString()}`);
+    const response = await apiFetch(`/v1/tasks?${params.toString()}`);
     if (!response.ok) throw new Error('Failed to fetch tasks');
     return response.json();
   },
 
   createTask: async (task: Partial<TodoItem>) => {
-    const response = await apiFetch('/api/tasks', {
+    const response = await apiFetch('/v1/tasks', {
       method: 'POST',
       body: JSON.stringify(task),
     });
@@ -179,7 +179,7 @@ export const taskService = {
   },
 
   updateTask: async (id: string, task: Partial<TodoItem>) => {
-    const response = await apiFetch(`/api/tasks/${id}`, {
+    const response = await apiFetch(`/v1/tasks/${id}`, {
       method: 'PUT',
       body: JSON.stringify(task),
     });
@@ -188,7 +188,7 @@ export const taskService = {
   },
 
   deleteTask: async (id: string) => {
-    const response = await apiFetch(`/api/tasks/${id}`, {
+    const response = await apiFetch(`/v1/tasks/${id}`, {
       method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete task');
@@ -200,5 +200,11 @@ export const dashboard = {
     const response = await apiFetch('/v1/dashboard/summary');
     if (!response.ok) throw new Error('Failed to fetch dashboard summary');
     return response.json();
+  },
+  toggleHabit: async (id: string) => {
+    const response = await apiFetch(`/v1/dashboard/habits/${id}/toggle`, {
+      method: 'POST'
+    });
+    if (!response.ok) throw new Error('Failed to toggle habit');
   }
 };

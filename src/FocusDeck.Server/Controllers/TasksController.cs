@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace FocusDeck.Server.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("v1/tasks")]
     [Authorize]
     public class TasksController : ControllerBase
     {

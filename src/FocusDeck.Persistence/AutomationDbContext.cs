@@ -61,6 +61,10 @@ public class AutomationDbContext : DbContext
     public DbSet<ReviewPlan> ReviewPlans { get; set; }
     public DbSet<ReviewSession> ReviewSessions { get; set; }
 
+    // Habits
+    public DbSet<Habit> Habits { get; set; }
+    public DbSet<HabitCompletion> HabitCompletions { get; set; }
+
     // Sync tables
     public DbSet<DeviceRegistration> DeviceRegistrations { get; set; }
     public DbSet<SyncTransaction> SyncTransactions { get; set; }

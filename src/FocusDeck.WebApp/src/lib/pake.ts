@@ -1,4 +1,4 @@
-import argon2WasmUrl from 'argon2-browser/dist/argon2.wasm?url'
+const argon2WasmUrl = '/argon2.wasm'
 import { getAuthToken } from './utils'
 
 type Argon2Globals = typeof globalThis & {
@@ -116,13 +116,13 @@ function sha256Fallback(data: Uint8Array): Uint8Array {
   // Pre-processing
   const msgLen = data.length
   const bitLen = msgLen * 8
-  
+
   // Padding
   const paddedLen = Math.ceil((msgLen + 9) / 64) * 64
   const padded = new Uint8Array(paddedLen)
   padded.set(data)
   padded[msgLen] = 0x80
-  
+
   // Append length as 64-bit big-endian
   const view = new DataView(padded.buffer)
   view.setUint32(paddedLen - 4, bitLen >>> 0, false)
@@ -139,7 +139,7 @@ function sha256Fallback(data: Uint8Array): Uint8Array {
     for (let i = 0; i < 16; i++) {
       w[i] = view.getUint32(chunk + i * 4, false)
     }
-    
+
     // Extend the sixteen 32-bit words into sixty-four 32-bit words
     for (let i = 16; i < 64; i++) {
       w[i] = (gamma1(w[i - 2]) + w[i - 7] + gamma0(w[i - 15]) + w[i - 16]) >>> 0
@@ -246,14 +246,14 @@ function pad(value: bigint, length: number): Uint8Array {
 
 async function sha256(data: Uint8Array): Promise<Uint8Array> {
   ensureWebCrypto()
-  
+
   // Use native crypto.subtle if available (HTTPS or localhost)
   if (crypto.subtle) {
     const bufferSlice = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer
     const digest = await crypto.subtle.digest('SHA-256', bufferSlice)
     return new Uint8Array(digest)
   }
-  
+
   // Fallback to JavaScript implementation for HTTP contexts
   return sha256Fallback(data)
 }

@@ -7,14 +7,6 @@ import { analytics } from '../services/api'
 
 type TimeRange = 7 | 14 | 30
 
-interface OverviewData {
-  focusMinutes: number
-  distractionsPerHour: number
-  currentStreak: number
-  lecturesProcessed: number
-  avgCoverage: number
-  suggestionsAccepted: number
-}
 
 interface ChartDataPoint {
   date: string
@@ -39,7 +31,7 @@ export function AnalyticsPage() {
   const exportData = async (format: 'json' | 'csv') => {
     try {
       const data = await analytics.exportData(format, range, selectedCourse);
-      
+
       if (format === 'json') {
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
         downloadBlob(blob, `analytics_${Date.now()}.json`)
@@ -114,11 +106,10 @@ export function AnalyticsPage() {
               <button
                 key={days}
                 onClick={() => setRange(days as TimeRange)}
-                className={`px-3 py-1 text-sm rounded-lg transition-colors ${
-                  range === days
+                className={`px-3 py-1 text-sm rounded-lg transition-colors ${range === days
                     ? 'bg-primary text-white'
                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
+                  }`}
               >
                 {days} days
               </button>

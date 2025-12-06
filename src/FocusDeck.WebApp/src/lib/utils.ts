@@ -127,52 +127,63 @@ function persistRefreshToken(token?: string) {
 
 // Shared refresh logic
 export async function refreshAuthToken(): Promise<string | null> {
-    if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-            failedQueue.push({ resolve, reject });
-        });
+  if (isRefreshing) {
+    return new Promise((resolve, reject) => {
+      failedQueue.push({ resolve, reject });
+    });
+  }
+
+  const refreshToken = localStorage.getItem('focusdeck_refresh_token');
+  const accessToken = localStorage.getItem('focusdeck_access_token');
+
+  if (!refreshToken) {
+    return null;
+  }
+
+  isRefreshing = true;
+
+  try {
+    const refreshRes = await fetch('/v1/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accessToken: accessToken || '',
+        refreshToken,
+        clientId: navigator.userAgent,
+        deviceName: navigator.userAgent,
+        devicePlatform: 'web'
+      }),
+      credentials: 'include'
+    });
+
+    if (!refreshRes.ok) {
+      const errorData = await refreshRes.json().catch(() => ({}));
+      throw new Error(`Refresh failed: ${refreshRes.status} - ${errorData.message || 'Unknown error'}`);
     }
 
-    const refreshToken = localStorage.getItem('focusdeck_refresh_token');
-    const accessToken = localStorage.getItem('focusdeck_access_token');
+    const data: RefreshResponse = await refreshRes.json();
+    storeTokens(data.accessToken, data.refreshToken);
 
-    if (!refreshToken) {
-        return null;
-    }
+    isRefreshing = false;
+    processQueue(null, data.accessToken);
 
-    isRefreshing = true;
-
+    return data.accessToken;
+  } catch (err) {
+    // Critical: Clear tokens on refresh failure to prevent infinite loops logic
+    // where getAuthToken returns a stale (but unexpired) token that server rejects.
+    cachedToken = null;
     try {
-        const refreshRes = await fetch('/v1/auth/refresh', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                accessToken: accessToken || '',
-                refreshToken,
-                clientId: navigator.userAgent,
-                deviceName: navigator.userAgent,
-                devicePlatform: 'web'
-            }),
-            credentials: 'include'
-        });
+      localStorage.removeItem('focusdeck_access_token');
+      localStorage.removeItem('focusdeck_refresh_token');
+      localStorage.removeItem('focusdeck_user');
+    } catch { /* ignore */ }
+    deleteCookie(ACCESS_COOKIE_NAME);
+    deleteCookie(REFRESH_COOKIE_NAME);
 
-        if (!refreshRes.ok) {
-            const errorData = await refreshRes.json().catch(() => ({}));
-            throw new Error(`Refresh failed: ${refreshRes.status} - ${errorData.message || 'Unknown error'}`);
-        }
-
-        const data: RefreshResponse = await refreshRes.json();
-        storeTokens(data.accessToken, data.refreshToken);
-
-        isRefreshing = false;
-        processQueue(null, data.accessToken);
-
-        return data.accessToken;
-    } catch (err) {
-        processQueue(err, null);
-        isRefreshing = false;
-        return null;
-    }
+    processQueue(err, null);
+    isRefreshing = false;
+    return null;
+  }
 }
 
 export async function getAuthToken(): Promise<string> {
@@ -202,19 +213,19 @@ export async function getAuthToken(): Promise<string> {
 
   // 4. If we have a token, check expiry
   if (storedToken) {
-      const expiry = getTokenExpiryDate(storedToken)
-      // If expired or expiring in < 30 seconds, try refresh
-      if (expiry && (expiry.getTime() - Date.now()) < 30000) {
-          const refreshed = await refreshAuthToken()
-          if (refreshed) {
-              cachedToken = refreshed
-              return refreshed
-          }
-          // Refresh failed, fall through to throw
-      } else {
-          cachedToken = storedToken
-          return storedToken
+    const expiry = getTokenExpiryDate(storedToken)
+    // If expired or expiring in < 30 seconds, try refresh
+    if (expiry && (expiry.getTime() - Date.now()) < 30000) {
+      const refreshed = await refreshAuthToken()
+      if (refreshed) {
+        cachedToken = refreshed
+        return refreshed
       }
+      // Refresh failed, fall through to throw
+    } else {
+      cachedToken = storedToken
+      return storedToken
+    }
   }
 
   // No token found or refresh failed - throw error
@@ -223,11 +234,11 @@ export async function getAuthToken(): Promise<string> {
 
 // For SignalR usage: returns null instead of throwing if not authenticated
 export async function getOrRefreshAuthToken(): Promise<string | null> {
-    try {
-        return await getAuthToken();
-    } catch {
-        return null;
-    }
+  try {
+    return await getAuthToken();
+  } catch {
+    return null;
+  }
 }
 
 export async function logout() {
@@ -246,7 +257,7 @@ export async function logout() {
   }
   deleteCookie(ACCESS_COOKIE_NAME)
   deleteCookie(REFRESH_COOKIE_NAME)
-  
+
   // Only redirect if not already on login/register pages to prevent infinite loops
   if (isBrowser()) {
     const currentPath = window.location.pathname
@@ -286,9 +297,9 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
   // Try to get token, but proceed even if missing (getAuthToken throws, so catch it)
   let token: string | null = null;
   try {
-      token = await getAuthToken();
+    token = await getAuthToken();
   } catch {
-      // Proceed without token, might be a public endpoint or we want 401
+    // Proceed without token, might be a public endpoint or we want 401
   }
 
   const headers: HeadersInit = {
@@ -305,34 +316,41 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
 
   // If we get a 401 on a protected endpoint, try to refresh
   if (response.status === 401 && isProtected) {
-      // Check queue before initiating a new refresh request
-      if (isRefreshing) {
-          try {
-              const newToken = await new Promise<string | null>((resolve, reject) => {
-                  failedQueue.push({ resolve, reject });
-              });
-              if (newToken) {
-                   (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
-                   return fetch(url, { ...options, headers, credentials: 'include' });
-              }
-          } catch {
-              // fall through to logout
-          }
-      }
-
-      const newToken = await refreshAuthToken();
-
-      if (newToken) {
+    // Check queue before initiating a new refresh request
+    if (isRefreshing) {
+      try {
+        const newToken = await new Promise<string | null>((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        });
+        if (newToken) {
           (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
           return fetch(url, { ...options, headers, credentials: 'include' });
-      } else {
-           // Only logout if not already on auth pages to prevent infinite loops
-          const currentPath = window.location.pathname;
-          if (currentPath !== '/login' && currentPath !== '/register') {
-            await logout();
-          }
-          throw new Error('Session expired');
+        }
+      } catch (error) {
+        // If the queue rejected, it means the primary refresh failed.
+        // We must NOT try to refresh again to avoid infinite loops.
+        throw error;
       }
+    }
+
+    const newToken = await refreshAuthToken();
+
+    if (newToken) {
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
+      const retryRes = await fetch(url, { ...options, headers, credentials: 'include' });
+      if (retryRes.status === 401) {
+        // await logout();
+        throw new Error('Session expired (retry failed)');
+      }
+      return retryRes;
+    } else {
+      // Only logout if not already on auth pages to prevent infinite loops
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login' && currentPath !== '/register') {
+        await logout();
+      }
+      throw new Error('Session expired');
+    }
   }
 
   return response;

@@ -15,7 +15,7 @@ public sealed class JwtSettings
     public string PrimaryKey
     {
         get => _primaryKey;
-        init => _primaryKey = value ?? string.Empty;
+        set { if (!string.IsNullOrWhiteSpace(value)) _primaryKey = value; }
     }
 
     // Back-compat: map legacy keys from config
@@ -23,7 +23,7 @@ public sealed class JwtSettings
     public string LegacyKey
     {
         get => _primaryKey;
-        init => _primaryKey = value ?? string.Empty;
+        set { if (!string.IsNullOrWhiteSpace(value)) _primaryKey = value; }
     }
 
     // Back-compat: accept 'SigningKey' used in production appsettings
@@ -31,7 +31,7 @@ public sealed class JwtSettings
     public string SigningKey
     {
         get => _primaryKey;
-        init => _primaryKey = value ?? string.Empty;
+        set { if (!string.IsNullOrWhiteSpace(value)) _primaryKey = value; }
     }
 
     // Back-compat: accept 'FallbackSigningKey' mapping to SecondaryKey

@@ -2,15 +2,7 @@ import { useState } from 'react';
 import { Button } from './Button';
 import { Input } from './Input';
 import { Card, CardContent } from './Card';
-
-export interface AcademicSource {
-  id: string;
-  title: string;
-  author: string;
-  publisher: string;
-  year: number;
-  url: string;
-}
+import type { AcademicSource } from '../types';
 
 interface NoteEditorProps {
   content: string;
@@ -22,6 +14,14 @@ interface NoteEditorProps {
   onRemoveSource: (id: string) => void;
   citationStyle: string;
   onCitationStyleChange: (style: string) => void;
+}
+
+interface SourceFormData {
+  title: string;
+  author: string;
+  publisher: string;
+  year: number;
+  url: string;
 }
 
 export function NoteEditor({
@@ -36,17 +36,18 @@ export function NoteEditor({
   onCitationStyleChange
 }: NoteEditorProps) {
   const [showSourceDialog, setShowSourceDialog] = useState(false);
-  const [newSource, setNewSource] = useState<Partial<AcademicSource>>({});
+  const [newSource, setNewSource] = useState<Partial<SourceFormData>>({});
 
   const handleAddSource = () => {
     if (newSource.title && newSource.author) {
       onAddSource({
         id: Math.random().toString(36).substr(2, 9),
         title: newSource.title,
-        author: newSource.author,
+        authors: [newSource.author],
         publisher: newSource.publisher || '',
         year: newSource.year || new Date().getFullYear(),
-        url: newSource.url || ''
+        url: newSource.url || '',
+        citationKey: `${newSource.author.split(' ').pop()}${newSource.year || new Date().getFullYear()}`
       });
       setNewSource({});
       setShowSourceDialog(false);
@@ -56,9 +57,10 @@ export function NoteEditor({
   const insertCitation = (source: AcademicSource) => {
     // Determine citation format based on style (Client-side stub, real formatting should ideally use a shared logic or backend)
     // For now, simple stub
+    const author = source.authors?.[0] || 'Unknown';
     const citation = citationStyle === 'APA'
-      ? `(${source.author}, ${source.year})`
-      : `[${source.author}, ${source.title}]`;
+      ? `(${author}, ${source.year})`
+      : `[${author}, ${source.title}]`;
 
     onChange(content + ' ' + citation);
   };
@@ -71,35 +73,33 @@ export function NoteEditor({
           <div className="flex gap-2">
             <button
               onClick={() => onModeChange('quick')}
-              className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                mode === 'quick' ? 'bg-primary text-white' : 'text-gray-400 hover:text-white'
-              }`}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${mode === 'quick' ? 'bg-primary text-white' : 'text-gray-400 hover:text-white'
+                }`}
             >
               Speed Mode
             </button>
             <button
               onClick={() => onModeChange('paper')}
-              className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                mode === 'paper' ? 'bg-primary text-white' : 'text-gray-400 hover:text-white'
-              }`}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${mode === 'paper' ? 'bg-primary text-white' : 'text-gray-400 hover:text-white'
+                }`}
             >
               Paper Mode
             </button>
           </div>
 
           {mode === 'paper' && (
-             <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">Style:</span>
-                <select
-                  value={citationStyle}
-                  onChange={(e) => onCitationStyleChange(e.target.value)}
-                  className="bg-gray-800 border border-gray-700 rounded text-xs text-white p-1 focus:outline-none"
-                >
-                  <option value="APA">APA</option>
-                  <option value="MLA">MLA</option>
-                  <option value="Chicago">Chicago</option>
-                </select>
-             </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">Style:</span>
+              <select
+                value={citationStyle}
+                onChange={(e) => onCitationStyleChange(e.target.value)}
+                className="bg-gray-800 border border-gray-700 rounded text-xs text-white p-1 focus:outline-none"
+              >
+                <option value="APA">APA</option>
+                <option value="MLA">MLA</option>
+                <option value="Chicago">Chicago</option>
+              </select>
+            </div>
           )}
         </div>
 
@@ -121,10 +121,10 @@ export function NoteEditor({
               >
                 {/* This is a very basic editable div for the MVP. Use a real rich text editor for production. */}
                 <textarea
-                    className="w-full h-full bg-transparent border-none resize-none focus:outline-none"
-                    value={content}
-                    onChange={(e) => onChange(e.target.value)}
-                    placeholder="Start writing your paper..."
+                  className="w-full h-full bg-transparent border-none resize-none focus:outline-none"
+                  value={content}
+                  onChange={(e) => onChange(e.target.value)}
+                  placeholder="Start writing your paper..."
                 />
               </div>
             </div>
@@ -147,7 +147,7 @@ export function NoteEditor({
                   <div className="flex justify-between items-start">
                     <div>
                       <div className="font-medium text-sm text-white">{source.title}</div>
-                      <div className="text-xs text-gray-400">{source.author} ({source.year})</div>
+                      <div className="text-xs text-gray-400">{source.authors?.join(', ')} ({source.year})</div>
                     </div>
                     <button
                       onClick={() => onRemoveSource(source.id)}
@@ -182,28 +182,28 @@ export function NoteEditor({
               <Input
                 placeholder="Title"
                 value={newSource.title || ''}
-                onChange={e => setNewSource({...newSource, title: e.target.value})}
+                onChange={e => setNewSource({ ...newSource, title: e.target.value })}
               />
               <Input
                 placeholder="Author"
                 value={newSource.author || ''}
-                onChange={e => setNewSource({...newSource, author: e.target.value})}
+                onChange={e => setNewSource({ ...newSource, author: e.target.value })}
               />
               <Input
                 placeholder="Publisher"
                 value={newSource.publisher || ''}
-                onChange={e => setNewSource({...newSource, publisher: e.target.value})}
+                onChange={e => setNewSource({ ...newSource, publisher: e.target.value })}
               />
               <Input
                 placeholder="Year"
                 type="number"
                 value={newSource.year || ''}
-                onChange={e => setNewSource({...newSource, year: parseInt(e.target.value)})}
+                onChange={e => setNewSource({ ...newSource, year: parseInt(e.target.value) })}
               />
               <Input
                 placeholder="URL"
                 value={newSource.url || ''}
-                onChange={e => setNewSource({...newSource, url: e.target.value})}
+                onChange={e => setNewSource({ ...newSource, url: e.target.value })}
               />
             </div>
             <div className="mt-6 flex justify-end gap-2">
