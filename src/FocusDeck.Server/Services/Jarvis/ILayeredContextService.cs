@@ -11,6 +11,7 @@ public interface ILayeredContextService
     /// <summary>
     /// Builds a layered context for the user.
     /// </summary>
+    /// <param name="userId">The ID of the user to build context for.</param>
     /// <returns>A DTO containing the different layers of context.</returns>
-    Task<LayeredContextDto> BuildContextAsync();
+    Task<LayeredContextDto> BuildContextAsync(Guid userId);
 }

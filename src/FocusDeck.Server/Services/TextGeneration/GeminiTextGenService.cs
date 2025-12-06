@@ -100,6 +100,21 @@ public class GeminiTextGenService : ITextGen
         }
     }
 
+    public async Task<string> GenerateLectureSummaryAsync(string transcript, CancellationToken cancellationToken = default)
+    {
+        var prompt = $@"
+Analyze the following lecture transcript and create a structured summary.
+Extract:
+1. Key Terms: Define important concepts mentioned.
+2. Homework/Assignments: List any deadlines, tasks, or required reading.
+3. Summary: Provide a concise bulleted summary of the main topics.
+
+Transcript:
+{transcript}
+";
+        return await GenerateAsync(prompt, maxTokens: 1000, temperature: 0.5, cancellationToken: cancellationToken);
+    }
+
     private async Task<string?> GetApiKeyAsync(CancellationToken cancellationToken)
     {
         // Reuse the logic from GeminiEmbeddingService to fetch from DB

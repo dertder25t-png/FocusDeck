@@ -62,6 +62,18 @@
     <ProjectReference Include="..\FocusDeck.Services\FocusDeck.Services.csproj" />
   </ItemGroup>
 
+  <Target Name="DownloadWhisperModel" BeforeTargets="Build" Condition="'$(SkipWhisperModelDownload)' != 'true'">
+    <PropertyGroup>
+      <ModelUrl>https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin</ModelUrl>
+      <ModelDir>$(OutDir)</ModelDir>
+      <ModelPath>$(ModelDir)ggml-base.bin</ModelPath>
+    </PropertyGroup>
+    <MakeDir Directories="$(ModelDir)" />
+    <!-- Use ContinueOnError to allow builds without network access. Model can be downloaded manually if needed. -->
+    <Exec Command="curl -L -o &quot;$(ModelPath)&quot; &quot;$(ModelUrl)&quot;" Condition="!Exists('$(ModelPath)')" ContinueOnError="true" />
+    <Warning Text="Whisper model download may have failed. If transcription features are needed, download ggml-base.bin manually from $(ModelUrl)" Condition="!Exists('$(ModelPath)')" />
+  </Target>
+
   <Target Name="BuildSpa" BeforeTargets="Publish" Condition="'$(Configuration)' == 'Release'">
     <PropertyGroup>
       <SpaSourceDir>$(ProjectDir)../FocusDeck.WebApp/dist</SpaSourceDir>

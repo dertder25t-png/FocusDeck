@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using FocusDeck.Contracts.DTOs;
 using FocusDeck.Shared.SignalR.Notifications;
@@ -26,6 +27,7 @@ public class FocusSessionTests : IDisposable
     private readonly FocusController _controller;
     private readonly TestHubContext _hubContext;
     private readonly IContextEventBus _eventBus;
+    private const string TestUserId = "test-user";
 
     public FocusSessionTests()
     {
@@ -47,8 +49,13 @@ public class FocusSessionTests : IDisposable
             _hubContext,
             _eventBus);
 
-        // Set up a mock HttpContext with test user
+        // Set up a mock HttpContext with authenticated test user
         var httpContext = new DefaultHttpContext();
+        httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, TestUserId)
+        }, "TestAuth"));
+        
         _controller.ControllerContext = new ControllerContext
         {
             HttpContext = httpContext
@@ -57,7 +64,9 @@ public class FocusSessionTests : IDisposable
 
     private class TestContextEventBus : IContextEventBus
     {
-        public event Func<ContextSnapshot, Task> OnContextSnapshotCreated;
+#pragma warning disable CS0067 // Event is never used
+        public event Func<ContextSnapshot, Task>? OnContextSnapshotCreated;
+#pragma warning restore CS0067
 
         public Task PublishAsync(ContextSnapshot snapshot)
         {
@@ -182,7 +191,7 @@ public class FocusSessionTests : IDisposable
         // Arrange
         var session = new FocusSession
         {
-            UserId = "test-user",
+            UserId = TestUserId,
             StartTime = DateTime.UtcNow,
             Status = FocusSessionStatus.Active
         };
@@ -215,7 +224,7 @@ public class FocusSessionTests : IDisposable
         // Arrange
         var session = new FocusSession
         {
-            UserId = "test-user",
+            UserId = TestUserId,
             StartTime = DateTime.UtcNow,
             Status = FocusSessionStatus.Active,
             Policy = new FocusPolicy { Strict = true, AutoBreak = false }
@@ -250,7 +259,7 @@ public class FocusSessionTests : IDisposable
         // Arrange
         var session = new FocusSession
         {
-            UserId = "test-user",
+            UserId = TestUserId,
             StartTime = DateTime.UtcNow,
             Status = FocusSessionStatus.Active,
             Policy = new FocusPolicy { Strict = true, AutoBreak = false }
@@ -284,7 +293,7 @@ public class FocusSessionTests : IDisposable
         // Arrange
         var session = new FocusSession
         {
-            UserId = "test-user",
+            UserId = TestUserId,
             StartTime = DateTime.UtcNow,
             Status = FocusSessionStatus.Active,
             Policy = new FocusPolicy { Strict = false } // Not strict
@@ -318,7 +327,7 @@ public class FocusSessionTests : IDisposable
         // Arrange
         var session = new FocusSession
         {
-            UserId = "test-user",
+            UserId = TestUserId,
             StartTime = DateTime.UtcNow.AddMinutes(-5),
             Status = FocusSessionStatus.Active,
             Policy = new FocusPolicy { Strict = true, AutoBreak = true }
@@ -353,7 +362,7 @@ public class FocusSessionTests : IDisposable
         // Arrange
         var session = new FocusSession
         {
-            UserId = "test-user",
+            UserId = TestUserId,
             StartTime = DateTime.UtcNow.AddMinutes(-5),
             Status = FocusSessionStatus.Active,
             Policy = new FocusPolicy { Strict = true, AutoBreak = false } // AutoBreak disabled
@@ -388,7 +397,7 @@ public class FocusSessionTests : IDisposable
         // Arrange
         var session = new FocusSession
         {
-            UserId = "test-user",
+            UserId = TestUserId,
             StartTime = DateTime.UtcNow.AddMinutes(-30),
             Status = FocusSessionStatus.Active
         };
@@ -426,7 +435,7 @@ public class FocusSessionTests : IDisposable
         // Arrange
         var session = new FocusSession
         {
-            UserId = "test-user",
+            UserId = TestUserId,
             StartTime = DateTime.UtcNow,
             Status = FocusSessionStatus.Active
         };

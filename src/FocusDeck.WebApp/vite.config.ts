@@ -9,6 +9,24 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          jarvis: [
+            './src/apps/JarvisApp.tsx',
+            './src/pages/JarvisPage.tsx',
+            './src/components/Jarvis/JarvisSidebar.tsx'
+          ],
+          whiteboard: [
+            './src/apps/WhiteboardApp.tsx'
+          ],
+          dashboard: [
+            './src/apps/DashboardApp.tsx',
+            './src/pages/DashboardPage.tsx'
+          ]
+        }
+      }
+    }
   },
   server: {
     port: 5173,

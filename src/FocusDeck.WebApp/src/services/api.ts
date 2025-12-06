@@ -2,6 +2,9 @@
 import { apiFetch } from '../lib/utils'; // Safe: Handles silent refresh
 import type { Note, TodoItem, AcademicSource } from '../types';
 
+// Re-export apiFetch so consumers can import from this module
+export { apiFetch };
+
 export const noteService = {
   getNotes: async (search?: string, tag?: string, pinned?: boolean, type?: string) => {
     const params = new URLSearchParams();
@@ -112,6 +115,50 @@ export const noteService = {
   }
 };
 
+export const analytics = {
+  getOverview: async (days: number, courseId?: string | null) => {
+    const params = new URLSearchParams({ days: String(days) });
+    if (courseId) params.append('courseId', courseId);
+    const response = await apiFetch(`/v1/analytics/overview?${params.toString()}`);
+    if (!response.ok) throw new Error('Failed to fetch analytics overview');
+    return response.json();
+  },
+  getFocusMinutes: async (days: number, courseId?: string | null) => {
+    const params = new URLSearchParams({ days: String(days) });
+    if (courseId) params.append('courseId', courseId);
+    const response = await apiFetch(`/v1/analytics/focus-minutes?${params.toString()}`);
+    if (!response.ok) throw new Error('Failed to fetch focus minutes');
+    return response.json();
+  },
+  getLecturesTimeline: async (days: number, courseId?: string | null) => {
+    const params = new URLSearchParams({ days: String(days) });
+    if (courseId) params.append('courseId', courseId);
+    const response = await apiFetch(`/v1/analytics/lectures-timeline?${params.toString()}`);
+    if (!response.ok) throw new Error('Failed to fetch lectures timeline');
+    return response.json();
+  },
+  getSuggestionsAccepted: async (days: number, courseId?: string | null) => {
+    const params = new URLSearchParams({ days: String(days) });
+    if (courseId) params.append('courseId', courseId);
+    const response = await apiFetch(`/v1/analytics/suggestions-accepted?${params.toString()}`);
+    if (!response.ok) throw new Error('Failed to fetch suggestions accepted');
+    return response.json();
+  },
+  getCourses: async () => {
+    const response = await apiFetch('/v1/courses');
+    if (!response.ok) throw new Error('Failed to fetch courses');
+    return response.json();
+  },
+  exportData: async (format: 'json' | 'csv', days: number, courseId?: string | null) => {
+    const params = new URLSearchParams({ days: String(days) });
+    if (courseId) params.append('courseId', courseId);
+    const response = await apiFetch(`/v1/analytics/export/${format}?${params.toString()}`);
+    if (!response.ok) throw new Error('Failed to export data');
+    if (format === 'json') return response.json();
+    return response.blob();
+  }
+};
+
 export const taskService = {
   getTasks: async (completed?: boolean) => {
     const params = new URLSearchParams();
@@ -146,4 +193,12 @@ export const taskService = {
     });
     if (!response.ok) throw new Error('Failed to delete task');
   },
+};
+
+export const dashboard = {
+  getSummary: async () => {
+    const response = await apiFetch('/v1/dashboard/summary');
+    if (!response.ok) throw new Error('Failed to fetch dashboard summary');
+    return response.json();
+  }
 };

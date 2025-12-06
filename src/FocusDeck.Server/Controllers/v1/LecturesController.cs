@@ -4,6 +4,7 @@ using FocusDeck.Domain.Entities;
 using FocusDeck.Persistence;
 using FocusDeck.Server.Jobs;
 using FocusDeck.Server.Services.Storage;
+using FocusDeck.Server.Services.TextGeneration;
 using FocusDeck.SharedKernel;
 using Hangfire;
 using Microsoft.AspNetCore.Authorization;
@@ -24,6 +25,7 @@ public class LecturesController : ControllerBase
     private readonly IClock _clock;
     private readonly IBackgroundJobClient _backgroundJobClient;
     private readonly ILogger<LecturesController> _logger;
+    private readonly GeminiTextGenService _textGenService;
 
     public LecturesController(
         AutomationDbContext context,
@@ -31,7 +33,8 @@ public class LecturesController : ControllerBase
         IIdGenerator idGenerator,
         IClock clock,
         IBackgroundJobClient backgroundJobClient,
-        ILogger<LecturesController> logger)
+        ILogger<LecturesController> logger,
+        GeminiTextGenService textGenService)
     {
         _context = context;
         _assetStorage = assetStorage;
@@ -39,6 +42,7 @@ public class LecturesController : ControllerBase
         _clock = clock;
         _backgroundJobClient = backgroundJobClient;
         _logger = logger;
+        _textGenService = textGenService;
     }
 
     /// <summary>
@@ -232,6 +236,53 @@ public class LecturesController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Synthesize raw transcript into a structured note
+    /// </summary>
+    [HttpPost("synthesize")]
+    [ProducesResponseType(typeof(NoteDto), StatusCodes.Status201Created)]
+    public async Task<ActionResult<NoteDto>> SynthesizeTranscript([FromBody] SynthesizeLectureDto dto, CancellationToken ct)
+    {
+        // Generate summary
+        var summary = await _textGenService.GenerateLectureSummaryAsync(dto.Transcript, ct);
+
+        var note = new Note
+        {
+            Id = Guid.NewGuid().ToString(),
+            Title = $"Notes: {dto.Title}",
+            Content = summary,
+            Type = NoteType.QuickNote,
+            Tags = new List<string> { "Lecture", "AI-Generated" },
+            CreatedDate = _clock.UtcNow,
+            TenantId = GetTenantId(),
+            CourseId = dto.CourseId != null ? Guid.Parse(dto.CourseId) : null,
+            EventId = dto.EventId != null ? Guid.Parse(dto.EventId) : null
+        };
+
+        if (!string.IsNullOrEmpty(dto.LectureId))
+        {
+            var lecture = await _context.Lectures.FindAsync(dto.LectureId);
+            if (lecture != null)
+            {
+                lecture.GeneratedNoteId = note.Id;
+                lecture.SummaryText = summary;
+                lecture.TranscriptionText = dto.Transcript;
+                lecture.Status = LectureStatus.Completed;
+            }
+        }
+
+        _context.Notes.Add(note);
+        await _context.SaveChangesAsync(ct);
+
+        return CreatedAtAction("GetNote", "Notes", new { id = note.Id }, MapNoteToDto(note));
+    }
+
+    private Guid GetTenantId()
+    {
+        var claim = User.FindFirst("app_tenant_id");
+        return claim != null ? Guid.Parse(claim.Value) : Guid.Empty;
+    }
+
     private static LectureDto MapToDto(Lecture lecture)
     {
         return new LectureDto(
@@ -251,6 +302,19 @@ public class LecturesController : ControllerBase
         );
     }
 
+    private static NoteDto MapNoteToDto(Note note)
+    {
+        return new NoteDto
+        {
+            Id = note.Id,
+            Title = note.Title,
+            Content = note.Content,
+            Tags = note.Tags,
+            CreatedDate = note.CreatedDate,
+            LastModified = note.LastModified
+        };
+    }
+
     private static int EstimateWavDuration(long fileSize)
     {
         // For 44.1kHz mono 16-bit PCM WAV: 88200 bytes per second (44100 samples * 2 bytes)
@@ -260,3 +324,5 @@ public class LecturesController : ControllerBase
         return (int)(audioBytes / bytesPerSecond);
     }
 }
+
+public record SynthesizeLectureDto(string Transcript, string Title, string? LectureId, string? CourseId, string? EventId);

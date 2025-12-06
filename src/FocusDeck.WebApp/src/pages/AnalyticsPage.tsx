@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/Card'
 import { Button } from '../components/Button'
 import { Badge } from '../components/Badge'
+import { useAnalytics } from '../hooks/useAnalytics'
+import { analytics } from '../services/api'
 
 type TimeRange = 7 | 14 | 30
 
@@ -23,82 +25,26 @@ interface ChartDataPoint {
 
 export function AnalyticsPage() {
   const [range, setRange] = useState<TimeRange>(30)
-  const [overview, setOverview] = useState<OverviewData | null>(null)
-  const [focusData, setFocusData] = useState<ChartDataPoint[]>([])
-  const [lecturesData, setLecturesData] = useState<ChartDataPoint[]>([])
-  const [suggestionsData, setSuggestionsData] = useState<ChartDataPoint[]>([])
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null)
-  const [courses, setCourses] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadData()
-    loadCourses()
-  }, [range, selectedCourse])
-
-  const loadData = async () => {
-    try {
-      const courseParam = selectedCourse ? `&courseId=${selectedCourse}` : ''
-      
-      const [overviewRes, focusRes, lecturesRes, suggestionsRes] = await Promise.all([
-        fetch(`/v1/analytics/overview?days=${range}`),
-        fetch(`/v1/analytics/focus-minutes?days=${range}${courseParam}`),
-        fetch(`/v1/analytics/lectures-timeline?days=${range}${courseParam}`),
-        fetch(`/v1/analytics/suggestions-accepted?days=${range}${courseParam}`)
-      ])
-
-      if (overviewRes.ok) {
-        const data = await overviewRes.json()
-        setOverview(data)
-      }
-
-      if (focusRes.ok) {
-        const data = await focusRes.json()
-        setFocusData(data.series || [])
-      }
-
-      if (lecturesRes.ok) {
-        const data = await lecturesRes.json()
-        setLecturesData(data.series || [])
-      }
-
-      if (suggestionsRes.ok) {
-        const data = await suggestionsRes.json()
-        setSuggestionsData(data.series || [])
-      }
-    } catch (err) {
-      console.error('Failed to load analytics:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadCourses = async () => {
-    try {
-      const res = await fetch('/v1/courses')
-      if (res.ok) {
-        const data = await res.json()
-        setCourses(data)
-      }
-    } catch (err) {
-      console.error('Failed to load courses:', err)
-    }
-  }
+  const {
+    overview,
+    focus: focusData,
+    lectures: lecturesData,
+    suggestions: suggestionsData,
+    courses,
+    isLoading: loading
+  } = useAnalytics(range, selectedCourse);
 
   const exportData = async (format: 'json' | 'csv') => {
     try {
-      const courseParam = selectedCourse ? `&courseId=${selectedCourse}` : ''
-      const res = await fetch(`/v1/analytics/export/${format}?days=${range}${courseParam}`)
+      const data = await analytics.exportData(format, range, selectedCourse);
       
-      if (res.ok) {
-        if (format === 'json') {
-          const data = await res.json()
-          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-          downloadBlob(blob, `analytics_${Date.now()}.json`)
-        } else {
-          const blob = await res.blob()
-          downloadBlob(blob, `analytics_${Date.now()}.csv`)
-        }
+      if (format === 'json') {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+        downloadBlob(blob, `analytics_${Date.now()}.json`)
+      } else {
+        downloadBlob(data as Blob, `analytics_${Date.now()}.csv`)
       }
     } catch (err) {
       console.error('Failed to export:', err)
@@ -128,9 +74,9 @@ export function AnalyticsPage() {
     return 'danger'
   }
 
-  const maxFocus = Math.max(...focusData.map(d => d.minutes || 0), 1)
-  const maxLectures = Math.max(...lecturesData.map(d => d.count || 0), 1)
-  const maxSuggestions = Math.max(...suggestionsData.map(d => d.count || 0), 1)
+  const maxFocus = Math.max(...focusData.map((d: ChartDataPoint) => d.minutes || 0), 1)
+  const maxLectures = Math.max(...lecturesData.map((d: ChartDataPoint) => d.count || 0), 1)
+  const maxSuggestions = Math.max(...suggestionsData.map((d: ChartDataPoint) => d.count || 0), 1)
 
   if (loading) {
     return (
@@ -188,7 +134,7 @@ export function AnalyticsPage() {
             className="px-3 py-1 text-sm bg-gray-800 text-gray-300 rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="">All Courses</option>
-            {courses.map(course => (
+            {courses.map((course: any) => (
               <option key={course.id} value={course.id}>
                 {course.name}
               </option>
@@ -217,7 +163,7 @@ export function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold">
-              {overview?.distractionsPerHour.toFixed(1) || '0'}
+              {(overview?.distractionsPerHour || 0).toFixed(1)}
             </div>
             <p className="text-xs text-gray-500 mt-1">per hour</p>
           </CardContent>
@@ -293,7 +239,7 @@ export function AnalyticsPage() {
                   No focus session data
                 </div>
               ) : (
-                focusData.map((point, i) => (
+                focusData.map((point: ChartDataPoint, i: number) => (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1">
                     <div
                       className="w-full bg-primary rounded-t transition-all hover:bg-primary/80"
@@ -327,7 +273,7 @@ export function AnalyticsPage() {
                 <svg className="w-full h-full">
                   <polyline
                     points={lecturesData
-                      .map((point, i) => {
+                      .map((point: ChartDataPoint, i: number) => {
                         const x = (i / (lecturesData.length - 1)) * 100
                         const y = 100 - ((point.processed || 0) / maxLectures) * 80
                         return `${x},${y}`
@@ -338,7 +284,7 @@ export function AnalyticsPage() {
                     strokeWidth="2"
                     vectorEffect="non-scaling-stroke"
                   />
-                  {lecturesData.map((point, i) => {
+                  {lecturesData.map((point: ChartDataPoint, i: number) => {
                     const x = (i / (lecturesData.length - 1)) * 100
                     const y = 100 - ((point.processed || 0) / maxLectures) * 80
                     return (
@@ -371,7 +317,7 @@ export function AnalyticsPage() {
                   No suggestion data
                 </div>
               ) : (
-                suggestionsData.map((point, i) => (
+                suggestionsData.map((point: ChartDataPoint, i: number) => (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1">
                     <div
                       className="w-full bg-success rounded-t transition-all hover:bg-success/80"

@@ -1,33 +1,26 @@
 import React, { useState, useEffect } from 'react';
+import { useDashboard } from '../../../hooks/useDashboard';
+import { useFocus } from '../../../contexts/FocusContext';
+import { apiFetch } from '../../../services/api';
 
 // --- Types ---
 
 // --- Widgets ---
 
 export const FocusTimerWidget: React.FC = () => {
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
-  const [isActive, setIsActive] = useState(false);
-  const totalTime = 25 * 60;
+  const { isActive, isPaused, timeLeft, totalTime, startSession, pauseSession, resumeSession, stopSession, formatTime } = useFocus();
 
-  useEffect(() => {
-    let interval: any = null;
-    if (isActive && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft(timeLeft - 1);
-      }, 1000);
-    } else if (timeLeft === 0) {
-      setIsActive(false);
-    }
-    return () => clearInterval(interval);
-  }, [isActive, timeLeft]);
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  const handleToggle = () => {
+      if (!isActive) {
+          startSession(25, "Quick Focus");
+      } else if (isPaused) {
+          resumeSession();
+      } else {
+          pauseSession();
+      }
   };
 
-  const progress = ((totalTime - timeLeft) / totalTime) * 100;
+  const progress = totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 0;
   const radius = 60;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
@@ -61,10 +54,10 @@ export const FocusTimerWidget: React.FC = () => {
       </div>
 
       <div className="flex gap-4 mt-4">
-        <button onClick={() => setIsActive(!isActive)} className="w-10 h-10 rounded-full bg-white text-ink flex items-center justify-center hover:bg-gray-200 transition-colors shadow-lg">
-          <i className={`fa-solid ${isActive ? 'fa-pause' : 'fa-play'}`}></i>
+        <button onClick={handleToggle} className="w-10 h-10 rounded-full bg-white text-ink flex items-center justify-center hover:bg-gray-200 transition-colors shadow-lg">
+          <i className={`fa-solid ${isActive && !isPaused ? 'fa-pause' : 'fa-play'}`}></i>
         </button>
-        <button onClick={() => { setIsActive(false); setTimeLeft(25 * 60); }} className="w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition-colors">
+        <button onClick={stopSession} className="w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition-colors">
           <i className="fa-solid fa-rotate-right"></i>
         </button>
       </div>
@@ -74,18 +67,21 @@ export const FocusTimerWidget: React.FC = () => {
 };
 
 export const TaskListWidget: React.FC = () => {
-  const [tasks, setTasks] = useState([
-    { id: 1, text: 'Review PR #102', done: false },
-    { id: 2, text: 'Email Client', done: true },
-    { id: 3, text: 'Update Docs', done: false },
-  ]);
+  const { data } = useDashboard();
+  // Map API data to widget format
+  const tasks = (data?.tasks || []).map(t => ({
+    id: t.id,
+    text: t.title,
+    done: t.isCompleted
+  }));
 
   return (
     <div className="flex flex-col h-full bg-surface p-4">
       <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">My Day</h3>
       <div className="flex-1 overflow-y-auto space-y-2">
+        {tasks.length === 0 && <div className="text-xs text-gray-400 italic">No tasks for today</div>}
         {tasks.map(task => (
-          <div key={task.id} className="flex items-center gap-2 group cursor-pointer" onClick={() => setTasks(tasks.map(t => t.id === task.id ? { ...t, done: !t.done } : t))}>
+          <div key={task.id} className="flex items-center gap-2 group cursor-pointer">
             <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${task.done ? 'bg-accent-green border-accent-green text-white' : 'border-gray-300 dark:border-gray-600'}`}>
               {task.done && <i className="fa-solid fa-check text-[10px]"></i>}
             </div>
@@ -98,16 +94,21 @@ export const TaskListWidget: React.FC = () => {
 };
 
 export const CalendarWidget: React.FC = () => {
+  const { data } = useDashboard();
+
+  const events = (data?.events || []).map(e => ({
+    time: new Date(e.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    title: e.title,
+    color: e.color || 'bg-blue-500'
+  }));
+
   return (
     <div className="flex flex-col h-full bg-surface p-4">
       <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">Schedule</h3>
       <div className="space-y-4 relative">
         <div className="absolute left-[5px] top-2 bottom-2 w-0.5 bg-gray-200 dark:bg-gray-700"></div>
-        {[
-          { time: '10:00', title: 'Team Standup', color: 'bg-blue-500' },
-          { time: '13:00', title: 'Design Review', color: 'bg-purple-500' },
-          { time: '15:30', title: 'Focus Time', color: 'bg-green-500' }
-        ].map((event, i) => (
+        {events.length === 0 && <div className="text-xs text-gray-400 italic pl-4">No events scheduled</div>}
+        {events.map((event, i) => (
           <div key={i} className="relative pl-4">
             <div className={`absolute left-0 top-1.5 w-3 h-3 rounded-full border-2 border-surface ${event.color}`}></div>
             <div className="text-xs font-mono text-gray-400">{event.time}</div>
@@ -130,37 +131,168 @@ export const WeatherWidget: React.FC = () => {
   );
 };
 
+interface SpotifyState {
+    track: string;
+    artist: string;
+    album: string;
+    isPlaying: boolean;
+    progressMs: number;
+    durationMs: number;
+    uri: string;
+    imageUrl?: string;
+}
+
+interface SpotifyPlaylist {
+    id: string;
+    name: string;
+    imageUrl?: string;
+    uri?: string;
+}
+
 export const SpotifyWidget: React.FC = () => {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [playerState, setPlayerState] = useState<SpotifyState | null>(null);
+  const [playlists, setPlaylists] = useState<SpotifyPlaylist[]>([]);
+  const [showPlaylists, setShowPlaylists] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const fetchState = async () => {
+      try {
+          const res = await apiFetch('/v1/integrations/spotify/player');
+          if (res.ok) {
+              const data = await res.json();
+              setPlayerState(data);
+          } else {
+              setPlayerState(null);
+          }
+      } catch {
+          setPlayerState(null);
+      }
+  };
+
+  const togglePlayback = async () => {
+      if (!playerState) return;
+      const action = playerState.isPlaying ? 'pause' : 'play';
+      await apiFetch(`/v1/integrations/spotify/${action}`, { method: 'POST' });
+      setTimeout(fetchState, 500); // refresh after delay
+  };
+
+  const loadPlaylists = async () => {
+      setLoading(true);
+      try {
+          const res = await apiFetch('/v1/integrations/spotify/playlists');
+          if (res.ok) {
+              const data = await res.json();
+              setPlaylists(data);
+          }
+      } catch (e) {
+          console.error(e);
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  const playPlaylist = async (id: string) => {
+      await apiFetch(`/v1/integrations/spotify/playlists/${id}/play`, { method: 'POST' });
+      setShowPlaylists(false);
+      setTimeout(fetchState, 1000);
+  };
+
+  useEffect(() => {
+      fetchState();
+      const interval = setInterval(fetchState, 5000); // Poll every 5s
+      return () => clearInterval(interval);
+  }, []);
+
+  const progress = playerState && playerState.durationMs > 0
+      ? (playerState.progressMs / playerState.durationMs) * 100
+      : 0;
+
+  if (showPlaylists) {
+      return (
+          <div className="flex flex-col h-full bg-gray-900 text-white p-4 relative overflow-hidden">
+              <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-bold text-sm">Select Playlist</h3>
+                  <button onClick={() => setShowPlaylists(false)} className="text-gray-400 hover:text-white">
+                      <i className="fa-solid fa-xmark"></i>
+                  </button>
+              </div>
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                  {loading && <div className="text-xs text-gray-500 text-center py-4">Loading playlists...</div>}
+                  {playlists.map(p => (
+                      <button
+                          key={p.id}
+                          onClick={() => playPlaylist(p.id)}
+                          className="w-full flex items-center gap-3 p-2 hover:bg-white/10 rounded-md transition-colors text-left group"
+                      >
+                          <div className="w-10 h-10 bg-gray-800 rounded overflow-hidden shrink-0">
+                              {p.imageUrl ? (
+                                  <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                              ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-gray-600">
+                                      <i className="fa-solid fa-music"></i>
+                                  </div>
+                              )}
+                          </div>
+                          <span className="text-sm font-medium truncate flex-1">{p.name}</span>
+                          <i className="fa-solid fa-play opacity-0 group-hover:opacity-100 text-green-500"></i>
+                      </button>
+                  ))}
+              </div>
+          </div>
+      );
+  }
 
   return (
     <div className="flex items-center h-full bg-gradient-to-br from-gray-900 to-black text-white p-0 overflow-hidden relative group">
       <div className="relative h-full w-24 shrink-0">
-         <img src="https://picsum.photos/200" alt="Album Art" className="w-full h-full object-cover opacity-80 group-hover:opacity-60 transition-opacity" />
+         {playerState?.imageUrl ? (
+             <img src={playerState.imageUrl} alt="Album Art" className="w-full h-full object-cover opacity-80 group-hover:opacity-60 transition-opacity" />
+         ) : (
+             <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                 <i className="fa-brands fa-spotify text-4xl text-gray-600"></i>
+             </div>
+         )}
          <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></div>
       </div>
 
-      <div className="flex-1 p-4 z-10 flex flex-col justify-center">
-        <div className="flex items-center gap-2 mb-1">
-             <i className="fa-brands fa-spotify text-green-500 text-lg"></i>
-             <span className="text-xs text-green-500 font-bold uppercase tracking-wide">Now Playing</span>
+      <div className="flex-1 p-4 z-10 flex flex-col justify-center min-w-0">
+        <div className="flex items-center justify-between mb-1">
+             <div className="flex items-center gap-2">
+                 <i className="fa-brands fa-spotify text-green-500 text-lg"></i>
+                 <span className="text-xs text-green-500 font-bold uppercase tracking-wide">
+                     {playerState ? 'Now Playing' : 'Spotify'}
+                 </span>
+             </div>
+             <button
+                onClick={() => { setShowPlaylists(true); loadPlaylists(); }}
+                className="text-xs bg-white/10 hover:bg-white/20 px-2 py-1 rounded transition-colors"
+                title="Open Library"
+             >
+                 <i className="fa-solid fa-list-ul"></i>
+             </button>
         </div>
-        <div className="font-bold text-lg truncate leading-tight">Lo-Fi Beats to Study To</div>
-        <div className="text-xs text-gray-400 truncate mb-3">Lofi Girl • 2024 Mix</div>
+
+        <div className="font-bold text-lg truncate leading-tight">
+            {playerState ? playerState.track : 'Not Connected / Idle'}
+        </div>
+        <div className="text-xs text-gray-400 truncate mb-3">
+            {playerState ? `${playerState.artist} • ${playerState.album}` : 'Connect in Settings'}
+        </div>
 
         {/* Progress Bar */}
         <div className="w-full h-1 bg-gray-700 rounded-full mb-3 overflow-hidden">
-            <div className="h-full bg-white w-1/3 rounded-full"></div>
+            <div className="h-full bg-white rounded-full transition-all duration-1000 ease-linear" style={{ width: `${progress}%` }}></div>
         </div>
 
         {/* Controls */}
         <div className="flex items-center gap-6 text-xl">
           <button className="text-gray-400 hover:text-white transition-colors"><i className="fa-solid fa-backward-step"></i></button>
           <button
-            onClick={() => setIsPlaying(!isPlaying)}
-            className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 transition-transform"
+            onClick={togglePlayback}
+            disabled={!playerState}
+            className={`w-8 h-8 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 transition-transform ${!playerState ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'} text-xs`}></i>
+            <i className={`fa-solid ${playerState?.isPlaying ? 'fa-pause' : 'fa-play'} text-xs`}></i>
           </button>
           <button className="text-gray-400 hover:text-white transition-colors"><i className="fa-solid fa-forward-step"></i></button>
         </div>

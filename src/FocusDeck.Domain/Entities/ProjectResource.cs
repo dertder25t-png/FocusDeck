@@ -10,6 +10,7 @@ namespace FocusDeck.Domain.Entities
         public ProjectResourceType ResourceType { get; set; }
         public string ResourceValue { get; set; } = string.Empty;
         public string? Title { get; set; }
+        public string? MetadataJson { get; set; } // Added for flexibility (e.g. App specific config)
         public ProjectResourceStatus Status { get; set; } = ProjectResourceStatus.Active;
         public Guid TenantId { get; set; }
 

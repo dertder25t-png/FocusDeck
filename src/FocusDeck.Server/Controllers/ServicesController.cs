@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
@@ -10,6 +11,7 @@ using FocusDeck.Server.Controllers.Support;
 using FocusDeck.Persistence;
 using FocusDeck.Domain.Entities;
 using FocusDeck.Domain.Entities.Automations;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -18,6 +20,7 @@ namespace FocusDeck.Server.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class ServicesController : ControllerBase
     {
         private readonly AutomationDbContext _context;
@@ -25,7 +28,6 @@ namespace FocusDeck.Server.Controllers
         private readonly IConfiguration _configuration;
         private readonly IHttpClientFactory _httpClientFactory;
 
-        private const string DefaultUserId = "default_user";
         private static readonly string[] SensitiveMetadataIndicators = { "token", "secret", "password" };
 
         public ServicesController(
@@ -40,10 +42,26 @@ namespace FocusDeck.Server.Controllers
             _httpClientFactory = httpClientFactory;
         }
 
+        /// <summary>
+        /// Get current user ID from claims
+        /// </summary>
+        private string GetUserId()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                throw new UnauthorizedAccessException("User is not authenticated");
+            }
+            return userId;
+        }
+
         [HttpGet]
         public async Task<ActionResult> GetAll()
         {
+            var userId = GetUserId();
+            
             var services = await _context.ConnectedServices
+                .Where(s => s.UserId == userId)
                 .AsNoTracking()
                 .ToListAsync();
 
@@ -232,6 +250,8 @@ namespace FocusDeck.Server.Controllers
         [HttpPost("connect/{service}")]
         public async Task<ActionResult> Connect(ServiceType service, [FromBody] Dictionary<string, string>? credentials)
         {
+            var userId = GetUserId();
+            
             credentials = credentials != null
                 ? new Dictionary<string, string>(credentials, StringComparer.OrdinalIgnoreCase)
                 : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -241,7 +261,7 @@ namespace FocusDeck.Server.Controllers
             var metadataJson = BuildMetadataJson(credentials);
 
             var existing = await _context.ConnectedServices
-                .FirstOrDefaultAsync(s => s.UserId == DefaultUserId && s.Service == service);
+                .FirstOrDefaultAsync(s => s.UserId == userId && s.Service == service);
 
             if (existing != null)
             {
@@ -265,7 +285,7 @@ namespace FocusDeck.Server.Controllers
             var connectedService = new ConnectedService
             {
                 Id = Guid.NewGuid(),
-                UserId = DefaultUserId,
+                UserId = userId,
                 Service = service,
                 AccessToken = accessToken ?? string.Empty,
                 RefreshToken = refreshToken ?? string.Empty,
@@ -303,6 +323,8 @@ namespace FocusDeck.Server.Controllers
         [HttpGet("oauth/{service}/url")]
         public async Task<ActionResult<string>> GetOAuthUrl(ServiceType service)
         {
+            var userId = GetUserId();
+            
             // Try to get credentials from database first, fall back to appsettings
             var config = await _context.ServiceConfigurations
                 .FirstOrDefaultAsync(s => s.ServiceName == service.ToString());
@@ -319,18 +341,21 @@ namespace FocusDeck.Server.Controllers
 
             string redirectUri = $"{Request.Scheme}://{Request.Host}/api/services/oauth/{service}/callback";
             
+            // Encode user ID in state parameter for callback
+            var stateValue = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(userId));
+            
             string url;
 
             switch (service)
             {
                 case ServiceType.GoogleCalendar:
-                    url = $"https://accounts.google.com/o/oauth2/v2/auth?client_id={clientId}&redirect_uri={redirectUri}&response_type=code&scope=https://www.googleapis.com/auth/calendar.readonly&access_type=offline&prompt=consent";
+                    url = $"https://accounts.google.com/o/oauth2/v2/auth?client_id={clientId}&redirect_uri={redirectUri}&response_type=code&scope=https://www.googleapis.com/auth/calendar.readonly&access_type=offline&prompt=consent&state={stateValue}";
                     break;
                 case ServiceType.GoogleDrive:
-                     url = $"https://accounts.google.com/o/oauth2/v2/auth?client_id={clientId}&redirect_uri={redirectUri}&response_type=code&scope=https://www.googleapis.com/auth/drive.readonly&access_type=offline&prompt=consent";
+                     url = $"https://accounts.google.com/o/oauth2/v2/auth?client_id={clientId}&redirect_uri={redirectUri}&response_type=code&scope=https://www.googleapis.com/auth/drive.readonly&access_type=offline&prompt=consent&state={stateValue}";
                     break;
                 case ServiceType.Spotify:
-                    url = $"https://accounts.spotify.com/authorize?client_id={clientId}&redirect_uri={redirectUri}&response_type=code&scope=user-read-playback-state user-modify-playback-state";
+                    url = $"https://accounts.spotify.com/authorize?client_id={clientId}&redirect_uri={redirectUri}&response_type=code&scope=user-read-playback-state user-modify-playback-state&state={stateValue}";
                     break;
                 default:
                     return BadRequest(new { message = "OAuth not supported for this service" });
@@ -339,13 +364,45 @@ namespace FocusDeck.Server.Controllers
             return Ok(new { url });
         }
         
-        // --- CRITICAL FIX: REPLACED OAUTH CALLBACK ---
+        // OAuth callback - AllowAnonymous since it's called by the OAuth provider
+        // Note: CSRF protection is provided by the state parameter which contains the user ID
+        // from the authenticated session that initiated the OAuth flow
+        [AllowAnonymous]
         [HttpGet("oauth/{service}/callback")]
         public async Task<ActionResult> OAuthCallback(ServiceType service, [FromQuery] string code, [FromQuery] string? state)
         {
             if (string.IsNullOrEmpty(code))
             {
                 return BadRequest("OAuth flow failed: No code provided.");
+            }
+            
+            // Extract user ID from state parameter (CSRF protection via state)
+            if (string.IsNullOrEmpty(state))
+            {
+                _logger.LogWarning("OAuth callback received without state parameter for {Service}", service);
+                return BadRequest("OAuth flow failed: Missing state parameter.");
+            }
+            
+            string userId;
+            try
+            {
+                userId = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(state));
+                
+                // Basic validation that it looks like a valid user ID (not empty)
+                if (string.IsNullOrWhiteSpace(userId))
+                {
+                    throw new ArgumentException("User ID cannot be empty");
+                }
+            }
+            catch (FormatException ex)
+            {
+                _logger.LogWarning(ex, "OAuth callback received with invalid base64 state parameter for {Service}", service);
+                return BadRequest("OAuth flow failed: Invalid state parameter format.");
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "OAuth callback received with invalid state parameter for {Service}", service);
+                return BadRequest("OAuth flow failed: Invalid state parameter.");
             }
 
             try
@@ -355,7 +412,7 @@ namespace FocusDeck.Server.Controllers
                 var connected = new ConnectedService
                 {
                     Id = Guid.NewGuid(),
-                    UserId = DefaultUserId,
+                    UserId = userId,
                     Service = service,
                     AccessToken = accessToken,
                     RefreshToken = refreshToken ?? string.Empty,
@@ -367,7 +424,7 @@ namespace FocusDeck.Server.Controllers
                 _context.ConnectedServices.Add(connected);
                 await _context.SaveChangesAsync();
                 
-                _logger.LogInformation("OAuth callback successful for {Service}", service);
+                _logger.LogInformation("OAuth callback successful for {Service} and user {UserId}", service, userId);
                 
                 // Redirect back to the root of your web app
                 return Redirect("/");
