@@ -72,14 +72,9 @@ namespace FocusDeck.Server.Services.Writing
             // We assume it's at the end of the document.
             var pattern = @"(\n\n## (References|Works Cited|Bibliography)\s*[\s\S]*$)";
 
-            if (Regex.IsMatch(note.Content, pattern))
-            {
-                return Regex.Replace(note.Content, pattern, newSection);
-            }
-            else
-            {
-                return note.Content + newSection;
-            }
+            return Regex.IsMatch(note.Content, pattern)
+                ? Regex.Replace(note.Content, pattern, newSection)
+                : note.Content + newSection;
         }
 
         private string RemoveBibliographySection(string content)

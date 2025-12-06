@@ -109,12 +109,9 @@ JSON Response:
                 var root = doc.RootElement;
 
                 Guid? projectId = null;
-                if (root.TryGetProperty("projectId", out var pidProp) && pidProp.ValueKind == JsonValueKind.String)
+                if (root.TryGetProperty("projectId", out var pidProp) && pidProp.ValueKind == JsonValueKind.String && Guid.TryParse(pidProp.GetString(), out var parsedId))
                 {
-                    if (Guid.TryParse(pidProp.GetString(), out var parsedId))
-                    {
-                        projectId = parsedId;
-                    }
+                    projectId = parsedId;
                 }
 
                 double confidence = 0;
