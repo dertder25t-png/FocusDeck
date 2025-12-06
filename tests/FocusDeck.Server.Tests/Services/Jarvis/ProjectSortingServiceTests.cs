@@ -7,6 +7,7 @@ using FocusDeck.Domain.Entities;
 using FocusDeck.Persistence;
 using FocusDeck.Server.Services.Jarvis;
 using FocusDeck.Server.Services.TextGeneration;
+using FocusDeck.SharedKernel.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -14,25 +15,36 @@ using Xunit;
 
 namespace FocusDeck.Server.Tests.Services.Jarvis
 {
+    /// <summary>
+    /// Mock implementation of ICurrentTenant for testing purposes
+    /// </summary>
+    internal class MockCurrentTenant : ICurrentTenant
+    {
+        private Guid? _tenantId;
+
+        public MockCurrentTenant(Guid tenantId)
+        {
+            _tenantId = tenantId;
+        }
+
+        public Guid? TenantId => _tenantId;
+        public bool HasTenant => _tenantId.HasValue;
+
+        public void SetTenant(Guid tenantId)
+        {
+            _tenantId = tenantId;
+        }
+    }
+
     public class ProjectSortingServiceTests
     {
         private readonly Mock<ITextGen> _textGenMock;
         private readonly Mock<ILogger<ProjectSortingService>> _loggerMock;
-        private readonly AutomationDbContext _dbContext; // Using InMemory for simplicity if possible, or Mock DbContext
-        private readonly ProjectSortingService _service;
 
         public ProjectSortingServiceTests()
         {
             _textGenMock = new Mock<ITextGen>();
             _loggerMock = new Mock<ILogger<ProjectSortingService>>();
-
-            // Setup InMemory DB
-            var options = new DbContextOptionsBuilder<AutomationDbContext>()
-                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-                .Options;
-            _dbContext = new AutomationDbContext(options);
-
-            _service = new ProjectSortingService(_dbContext, _textGenMock.Object, _loggerMock.Object);
         }
 
         [Fact]
@@ -40,6 +52,17 @@ namespace FocusDeck.Server.Tests.Services.Jarvis
         {
             var tenantId = Guid.NewGuid();
             var projectId = Guid.NewGuid();
+            
+            // Create a mock tenant that matches the project's tenant
+            var mockTenant = new MockCurrentTenant(tenantId);
+
+            // Setup InMemory DB with proper tenant context
+            var options = new DbContextOptionsBuilder<AutomationDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .Options;
+            using var dbContext = new AutomationDbContext(options, mockTenant);
+
+            var service = new ProjectSortingService(dbContext, _textGenMock.Object, _loggerMock.Object);
 
             var project = new Project
             {
@@ -49,8 +72,8 @@ namespace FocusDeck.Server.Tests.Services.Jarvis
                 Description = "A project about coding",
                 SortingMode = ProjectSortingMode.Auto
             };
-            _dbContext.Projects.Add(project);
-            await _dbContext.SaveChangesAsync();
+            dbContext.Projects.Add(project);
+            await dbContext.SaveChangesAsync();
 
             var item = new CapturedItem
             {
@@ -72,7 +95,7 @@ namespace FocusDeck.Server.Tests.Services.Jarvis
                 .ReturnsAsync(jsonResponse);
 
             // Act
-            await _service.SortItemAsync(item, CancellationToken.None);
+            await service.SortItemAsync(item, CancellationToken.None);
 
             // Assert
             Assert.Equal(projectId, item.ProjectId);
@@ -81,8 +104,19 @@ namespace FocusDeck.Server.Tests.Services.Jarvis
         [Fact]
         public async Task SortItemAsync_MatchesProject_ReviewMode_UpdatesSuggestedProjectId()
         {
-             var tenantId = Guid.NewGuid();
+            var tenantId = Guid.NewGuid();
             var projectId = Guid.NewGuid();
+
+            // Create a mock tenant that matches the project's tenant
+            var mockTenant = new MockCurrentTenant(tenantId);
+
+            // Setup InMemory DB with proper tenant context
+            var options = new DbContextOptionsBuilder<AutomationDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .Options;
+            using var dbContext = new AutomationDbContext(options, mockTenant);
+
+            var service = new ProjectSortingService(dbContext, _textGenMock.Object, _loggerMock.Object);
 
             var project = new Project
             {
@@ -92,8 +126,8 @@ namespace FocusDeck.Server.Tests.Services.Jarvis
                 Description = "Research papers",
                 SortingMode = ProjectSortingMode.Review
             };
-            _dbContext.Projects.Add(project);
-            await _dbContext.SaveChangesAsync();
+            dbContext.Projects.Add(project);
+            await dbContext.SaveChangesAsync();
 
             var item = new CapturedItem
             {
@@ -112,7 +146,7 @@ namespace FocusDeck.Server.Tests.Services.Jarvis
             _textGenMock.Setup(x => x.GenerateAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<double>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(jsonResponse);
 
-            await _service.SortItemAsync(item, CancellationToken.None);
+            await service.SortItemAsync(item, CancellationToken.None);
 
             Assert.Null(item.ProjectId);
             Assert.Equal(projectId, item.SuggestedProjectId);
@@ -120,11 +154,22 @@ namespace FocusDeck.Server.Tests.Services.Jarvis
             Assert.Equal("Good match.", item.SuggestionReason);
         }
 
-         [Fact]
+        [Fact]
         public async Task SortItemAsync_LowConfidence_DoesNothing()
         {
-             var tenantId = Guid.NewGuid();
+            var tenantId = Guid.NewGuid();
             var projectId = Guid.NewGuid();
+
+            // Create a mock tenant that matches the project's tenant
+            var mockTenant = new MockCurrentTenant(tenantId);
+
+            // Setup InMemory DB with proper tenant context
+            var options = new DbContextOptionsBuilder<AutomationDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .Options;
+            using var dbContext = new AutomationDbContext(options, mockTenant);
+
+            var service = new ProjectSortingService(dbContext, _textGenMock.Object, _loggerMock.Object);
 
             var project = new Project
             {
@@ -133,8 +178,8 @@ namespace FocusDeck.Server.Tests.Services.Jarvis
                 Title = "Research",
                 SortingMode = ProjectSortingMode.Auto
             };
-            _dbContext.Projects.Add(project);
-            await _dbContext.SaveChangesAsync();
+            dbContext.Projects.Add(project);
+            await dbContext.SaveChangesAsync();
 
             var item = new CapturedItem { Id = Guid.NewGuid(), TenantId = tenantId, Title = "Random" };
 
@@ -148,7 +193,7 @@ namespace FocusDeck.Server.Tests.Services.Jarvis
             _textGenMock.Setup(x => x.GenerateAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<double>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(jsonResponse);
 
-            await _service.SortItemAsync(item, CancellationToken.None);
+            await service.SortItemAsync(item, CancellationToken.None);
 
             Assert.Null(item.ProjectId);
             Assert.Null(item.SuggestedProjectId);
