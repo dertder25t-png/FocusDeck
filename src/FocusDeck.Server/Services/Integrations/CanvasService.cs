@@ -89,9 +89,12 @@ namespace FocusDeck.Server.Services.Integrations
                     var items = JsonDocument.Parse(json).RootElement;
                     var list = new List<CanvasGrade>();
 
-                    foreach (var s in items.EnumerateArray().Where(s => s.TryGetProperty("grade", out var g) && g.ValueKind != JsonValueKind.Null))
+                    foreach (var s in items.EnumerateArray())
                     {
-                        var grade = s.GetProperty("grade").ToString();
+                        if (!s.TryGetProperty("grade", out var gradeElement) || gradeElement.ValueKind == JsonValueKind.Null)
+                            continue;
+                            
+                        var grade = gradeElement.ToString();
                         var score = s.TryGetProperty("score", out var sc) && sc.ValueKind == JsonValueKind.Number ? sc.GetDouble() : (double?)null;
                         var gradedAt = s.TryGetProperty("graded_at", out var ga) && ga.ValueKind == JsonValueKind.String
                             && DateTime.TryParse(ga.GetString(), out var dt) ? dt.ToUniversalTime() : (DateTime?)null;
@@ -152,9 +155,12 @@ namespace FocusDeck.Server.Services.Integrations
                 {
                     var coursesJson = await coursesResponse.Content.ReadAsStringAsync();
                     var courses = JsonDocument.Parse(coursesJson).RootElement;
-                    foreach (var c in courses.EnumerateArray().Where(c => c.TryGetProperty("id", out _)))
+                    foreach (var c in courses.EnumerateArray())
                     {
-                        contextCodes.Add($"course_{c.GetProperty("id")}");
+                        if (c.TryGetProperty("id", out var cid))
+                        {
+                            contextCodes.Add($"course_{cid}");
+                        }
                     }
                 }
 
