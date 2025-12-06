@@ -29,6 +29,12 @@ public class EncryptionService : IEncryptionService
 
         // Try to load existing key
         LoadKeyFromStorage();
+        
+        // Auto-generate key if none exists (server environment)
+        if (_encryptionKey == null)
+        {
+            GenerateKeyPair();
+        }
     }
 
     /// <summary>
