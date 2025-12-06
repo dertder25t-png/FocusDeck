@@ -64,7 +64,9 @@ public class FocusSessionTests : IDisposable
 
     private class TestContextEventBus : IContextEventBus
     {
-        public event Func<ContextSnapshot, Task> OnContextSnapshotCreated;
+#pragma warning disable CS0067 // Event is never used
+        public event Func<ContextSnapshot, Task>? OnContextSnapshotCreated;
+#pragma warning restore CS0067
 
         public Task PublishAsync(ContextSnapshot snapshot)
         {

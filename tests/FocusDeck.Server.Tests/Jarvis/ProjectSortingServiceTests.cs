@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using FocusDeck.Domain.Entities;
 using FocusDeck.Persistence;
 using FocusDeck.Server.Services.Jarvis;
+using FocusDeck.Server.Tests.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Xunit;
@@ -17,16 +18,23 @@ namespace FocusDeck.Server.Tests.Jarvis
         public async Task SortItemAsync_AutoMode_LinksProject()
         {
             // Arrange
+            var tenantId = Guid.NewGuid();
+            var projectId = Guid.NewGuid();
+            
+            // Create a mock tenant that matches the project's tenant
+            var mockTenant = new MockCurrentTenant(tenantId);
+            
             var options = new DbContextOptionsBuilder<AutomationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
                 .Options;
 
-            using var db = new AutomationDbContext(options);
+            using var db = new AutomationDbContext(options, mockTenant);
             var logger = new Microsoft.Extensions.Logging.Abstractions.NullLogger<ProjectSortingService>();
-            var service = new ProjectSortingService(db, logger);
-
-            var tenantId = Guid.NewGuid();
-            var projectId = Guid.NewGuid();
+            
+            // Create mock that will return the project ID with high confidence
+            var mockTextGen = new MockTextGen(projectId, 0.9, "FocusDeck mentioned in content");
+            var service = new ProjectSortingService(db, mockTextGen, logger);
+            
             var project = new Project
             {
                 Id = projectId,
@@ -56,16 +64,23 @@ namespace FocusDeck.Server.Tests.Jarvis
         public async Task SortItemAsync_ReviewMode_SuggestsProject()
         {
             // Arrange
+            var tenantId = Guid.NewGuid();
+            var projectId = Guid.NewGuid();
+            
+            // Create a mock tenant that matches the project's tenant
+            var mockTenant = new MockCurrentTenant(tenantId);
+            
             var options = new DbContextOptionsBuilder<AutomationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
                 .Options;
 
-            using var db = new AutomationDbContext(options);
+            using var db = new AutomationDbContext(options, mockTenant);
             var logger = new Microsoft.Extensions.Logging.Abstractions.NullLogger<ProjectSortingService>();
-            var service = new ProjectSortingService(db, logger);
+            
+            // Create mock that will return the project ID with high confidence
+            var mockTextGen = new MockTextGen(projectId, 0.85, "Marketing content matches campaign");
+            var service = new ProjectSortingService(db, mockTextGen, logger);
 
-            var tenantId = Guid.NewGuid();
-            var projectId = Guid.NewGuid();
             var project = new Project
             {
                 Id = projectId,
