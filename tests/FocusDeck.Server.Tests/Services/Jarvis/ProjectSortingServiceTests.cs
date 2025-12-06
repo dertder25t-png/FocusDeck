@@ -7,7 +7,7 @@ using FocusDeck.Domain.Entities;
 using FocusDeck.Persistence;
 using FocusDeck.Server.Services.Jarvis;
 using FocusDeck.Server.Services.TextGeneration;
-using FocusDeck.SharedKernel.Tenancy;
+using FocusDeck.Server.Tests.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -15,27 +15,6 @@ using Xunit;
 
 namespace FocusDeck.Server.Tests.Services.Jarvis
 {
-    /// <summary>
-    /// Mock implementation of ICurrentTenant for testing purposes
-    /// </summary>
-    internal class MockCurrentTenant : ICurrentTenant
-    {
-        private Guid? _tenantId;
-
-        public MockCurrentTenant(Guid tenantId)
-        {
-            _tenantId = tenantId;
-        }
-
-        public Guid? TenantId => _tenantId;
-        public bool HasTenant => _tenantId.HasValue;
-
-        public void SetTenant(Guid tenantId)
-        {
-            _tenantId = tenantId;
-        }
-    }
-
     public class ProjectSortingServiceTests
     {
         private readonly Mock<ITextGen> _textGenMock;
