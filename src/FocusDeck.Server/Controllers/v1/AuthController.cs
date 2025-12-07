@@ -56,6 +56,19 @@ public class AuthController : ControllerBase
         _tenantMembership = tenantMembership;
     }
 
+    [HttpPost("login")]
+    [AllowAnonymous]
+    public IActionResult Login([FromBody] LoginRequest request)
+    {
+        return BadRequest(new
+        {
+            code = "LEGACY_LOGIN_REMOVED",
+            message = "Legacy password login has been removed for security. Please use PAKE or Google Authentication.",
+            traceId = HttpContext.TraceIdentifier,
+            documentation = "https://docs.focusdeck.com/auth/migration"
+        });
+    }
+
     [HttpPost("refresh")]
     [AllowAnonymous]
     public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
