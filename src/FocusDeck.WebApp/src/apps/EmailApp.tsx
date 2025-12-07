@@ -1,28 +1,52 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/Dialog';
 import { Mail, Send, Paperclip, Trash2, Archive, Star, Inbox } from 'lucide-react';
-
-interface Email {
-    id: string;
-    from: string;
-    subject: string;
-    preview: string;
-    date: string;
-    isUnread: boolean;
-    body: string;
-}
-
-const MOCK_EMAILS: Email[] = [
-    { id: '1', from: 'Alice Smith', subject: 'Project Update: Q4 Roadmap', preview: 'Hey team, just wanted to share the latest updates...', date: '10:42 AM', isUnread: true, body: 'Hey team,\n\nJust wanted to share the latest updates on the Q4 roadmap. We are making good progress on the backend integration.' },
-    { id: '2', from: 'GitHub Notifications', subject: 'New Pull Request: Feature/Kanban', preview: '@jules opened a new pull request...', date: 'Yesterday', isUnread: false, body: 'You have a new pull request.' },
-    { id: '3', from: 'Newsletter', subject: 'Weekly Tech Digest', preview: 'Top stories in tech this week...', date: 'Mon', isUnread: false, body: 'Here are the top stories...' },
-];
+import { useEmails, type Email } from '../hooks/useEmails';
+import { useToast } from '../hooks/useToast';
+import { apiFetch } from '../lib/utils';
 
 export const EmailApp: React.FC = () => {
-    const [emails] = useState(MOCK_EMAILS);
-    const [selectedEmail, setSelectedEmail] = useState<Email | null>(MOCK_EMAILS[0]);
+    const { data: emails = [], isLoading, error } = useEmails();
+    const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
     const [composeOpen, setComposeOpen] = useState(false);
+    const { addToast } = useToast();
+
+    // Compose State
+    const [to, setTo] = useState('');
+    const [subject, setSubject] = useState('');
+    const [body, setBody] = useState('');
+    const [sending, setSending] = useState(false);
+
+    const handleSend = async () => {
+        setSending(true);
+        try {
+            await apiFetch('/v1/integrations/google/messages/send', {
+                method: 'POST',
+                body: JSON.stringify({ to, subject, body })
+            });
+            addToast({ title: 'Sent', description: 'Message sent successfully.', variant: 'success' });
+            setComposeOpen(false);
+            setTo('');
+            setSubject('');
+            setBody('');
+        } catch (e) {
+            console.error(e);
+            addToast({ title: 'Error', description: 'Failed to send message.', variant: 'error' });
+        } finally {
+            setSending(false);
+        }
+    };
+
+    if (isLoading) return <div className="h-full flex items-center justify-center">Loading emails...</div>;
+    // If error, likely integration not connected. Show empty state or connect prompt.
+    if (error) return (
+         <div className="h-full flex flex-col items-center justify-center p-8 text-center">
+             <i className="fa-brands fa-google text-4xl mb-4 text-gray-400"></i>
+             <h3 className="text-lg font-bold">Gmail Not Connected</h3>
+             <p className="text-gray-500 mb-4">Connect your Google account in Settings to see your emails here.</p>
+             <button onClick={() => window.location.href='/integrations'} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold">Connect Integration</button>
+         </div>
+    );
 
     return (
         <div className="flex h-full bg-white dark:bg-gray-900 overflow-hidden">
@@ -38,7 +62,7 @@ export const EmailApp: React.FC = () => {
                 </div>
                 <div className="flex-1 overflow-y-auto px-2 space-y-1">
                     <button className="w-full text-left px-3 py-2 rounded-md bg-white dark:bg-gray-800 shadow-sm text-blue-600 font-medium text-sm flex items-center gap-3">
-                        <Inbox size={16} /> Inbox <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-1.5 rounded-full">4</span>
+                        <Inbox size={16} /> Inbox <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-1.5 rounded-full">{emails.filter(e => e.isUnread).length}</span>
                     </button>
                     <button className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm flex items-center gap-3">
                         <Star size={16} /> Starred
@@ -58,6 +82,7 @@ export const EmailApp: React.FC = () => {
                     <input className="w-full bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-md text-sm outline-none" placeholder="Search mail..." />
                 </div>
                 <div className="flex-1 overflow-y-auto">
+                    {emails.length === 0 && <div className="p-4 text-center text-gray-400 text-sm">No emails found</div>}
                     {emails.map(email => (
                         <div
                             key={email.id}
@@ -118,15 +143,32 @@ export const EmailApp: React.FC = () => {
                         <DialogTitle>New Message</DialogTitle>
                     </DialogHeader>
                     <div className="flex flex-col gap-4 py-4">
-                        <input className="w-full px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-transparent outline-none" placeholder="To" />
-                        <input className="w-full px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-transparent outline-none" placeholder="Subject" />
-                        <textarea className="w-full h-64 p-3 bg-transparent outline-none resize-none" placeholder="Write your message..."></textarea>
+                        <input
+                            className="w-full px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-transparent outline-none"
+                            placeholder="To"
+                            value={to}
+                            onChange={e => setTo(e.target.value)}
+                        />
+                        <input
+                            className="w-full px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-transparent outline-none"
+                            placeholder="Subject"
+                            value={subject}
+                            onChange={e => setSubject(e.target.value)}
+                        />
+                        <textarea
+                            className="w-full h-64 p-3 bg-transparent outline-none resize-none"
+                            placeholder="Write your message..."
+                            value={body}
+                            onChange={e => setBody(e.target.value)}
+                        ></textarea>
                     </div>
                     <DialogFooter className="justify-between items-center w-full sm:justify-between">
                         <button className="text-gray-400 hover:text-gray-600"><Paperclip size={20} /></button>
                         <div className="flex gap-2">
                              <button onClick={() => setComposeOpen(false)} className="px-4 py-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800 rounded">Discard</button>
-                             <button onClick={() => setComposeOpen(false)} className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Send</button>
+                             <button onClick={handleSend} disabled={sending} className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                                 {sending ? 'Sending...' : 'Send'}
+                             </button>
                         </div>
                     </DialogFooter>
                 </DialogContent>

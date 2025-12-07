@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useWindowManager, APPS } from '../../contexts/WindowManagerContext';
+import { logout } from '../../lib/utils';
+import { useCurrentTenant } from '../../hooks/useCurrentTenant';
 
 interface TaskbarProps {
   onToggleStart: () => void;
@@ -7,12 +9,18 @@ interface TaskbarProps {
 
 export const Taskbar: React.FC<TaskbarProps> = ({ onToggleStart }) => {
   const { openApps, minimizedApps, activeApp, splitMode, splitApps, focusApp, isDarkMode, toggleDarkMode } = useWindowManager();
+  const { tenant } = useCurrentTenant();
 
   const processedIds = new Set<string>();
 
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const userId = typeof window !== 'undefined' ? localStorage.getItem('focusdeck_user') || 'Guest' : 'Guest';
+  const userId = typeof window !== 'undefined' ? localStorage.getItem('focusdeck_user') || 'User' : 'User';
   const { launchApp } = useWindowManager();
+
+  const handleLogout = async () => {
+    setShowUserMenu(false);
+    await logout();
+  };
 
   return (
     <div className="h-14 bg-subtle dark:bg-gray-900 border-t-2 border-border dark:border-gray-700 flex items-center px-2 md:px-4 gap-2 md:gap-4 z-50 shrink-0 relative shadow-[0_-4px_10px_rgba(0,0,0,0.02)] transition-colors duration-300">
@@ -35,8 +43,8 @@ export const Taskbar: React.FC<TaskbarProps> = ({ onToggleStart }) => {
 
       {/* Auth / User Indicator */}
       <div className="relative mr-2">
-        {/* Check if user has a valid token (not Guest) */}
-        {typeof window !== 'undefined' && localStorage.getItem('focusdeck_access_token') ? (
+        {/* Check if user has a valid tenant (logged in) */}
+        {tenant ? (
           <>
             <button
               onClick={() => setShowUserMenu(m => !m)}
@@ -73,17 +81,7 @@ export const Taskbar: React.FC<TaskbarProps> = ({ onToggleStart }) => {
                   </button>
                   <div className="h-px bg-gray-200 dark:bg-gray-600 mx-2 my-1"></div>
                   <button
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      // Clear all auth tokens from localStorage
-                      localStorage.removeItem('focusdeck_access_token');
-                      localStorage.removeItem('focusdeck_refresh_token');
-                      localStorage.removeItem('focusdeck_user');
-                      // Clear cookies too
-                      document.cookie = 'focusdeck_access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-                      document.cookie = 'focusdeck_refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-                      window.location.href = '/login';
-                    }}
+                    onClick={handleLogout}
                     className="text-left px-4 py-2 text-xs font-semibold hover:bg-white/70 dark:hover:bg-gray-700 transition flex items-center gap-2 text-red-600"
                   >
                     <i className="fa-solid fa-right-from-bracket"></i> Sign Out

@@ -28,6 +28,10 @@ export function NotesPage() {
   const [editMode, setEditMode] = useState(false);
   const [editedContent, setEditedContent] = useState('');
 
+  // New Note State
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newNoteTitle, setNewNoteTitle] = useState('');
+
   // Editor State
   const [editorMode, setEditorMode] = useState<'quick' | 'paper'>('quick');
   const [sources, setSources] = useState<AcademicSource[]>([]);
@@ -43,6 +47,26 @@ export function NotesPage() {
       setNotes(data || []);
     } catch (error) {
       console.error('Failed to load notes:', error);
+    }
+  };
+
+  const handleCreateNote = async () => {
+    try {
+      const newNote = await noteService.createNote({
+        title: newNoteTitle || 'Untitled Note',
+        content: '',
+        type: 0 // QuickNote
+      });
+      setIsCreateOpen(false);
+      setNewNoteTitle('');
+      await loadNotes();
+      // Optionally select the new note
+      if (newNote && newNote.id) {
+        // Fetch full note details if needed or just use returned obj
+        handleNoteClick(newNote as Note);
+      }
+    } catch (error) {
+      console.error('Failed to create note:', error);
     }
   };
 
@@ -149,23 +173,47 @@ export function NotesPage() {
   if (notes.length === 0) {
     return (
       <div>
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold">Notes</h1>
-          <p className="text-sm text-gray-400 mt-1">AI-verified notes from your lectures</p>
+        <div className="mb-6 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-semibold">Notes</h1>
+            <p className="text-sm text-gray-400 mt-1">AI-verified notes from your lectures</p>
+          </div>
+          <Button onClick={() => setIsCreateOpen(true)}>New Note</Button>
         </div>
         <EmptyState
           title="No notes yet"
-          description="Create your first note from a lecture to get started with AI verification"
+          description="Create your first note to get started"
         />
+
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Create New Note</DialogTitle></DialogHeader>
+            <div className="py-4">
+              <input
+                className="w-full px-3 py-2 border rounded dark:bg-gray-800 dark:border-gray-700"
+                placeholder="Note Title"
+                value={newNoteTitle}
+                onChange={e => setNewNoteTitle(e.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="secondary" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+              <Button onClick={handleCreateNote}>Create</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Notes</h1>
-        <p className="text-sm text-gray-400 mt-1">AI-verified notes from your lectures</p>
+      <div className="mb-6 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-semibold">Notes</h1>
+          <p className="text-sm text-gray-400 mt-1">AI-verified notes from your lectures</p>
+        </div>
+        <Button onClick={() => setIsCreateOpen(true)}>New Note</Button>
       </div>
 
       <div className="grid grid-cols-1 gap-4">
@@ -204,6 +252,25 @@ export function NotesPage() {
           </Card>
         ))}
       </div>
+
+      {/* New Note Modal */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Create New Note</DialogTitle></DialogHeader>
+            <div className="py-4">
+              <input
+                className="w-full px-3 py-2 border rounded dark:bg-gray-800 dark:border-gray-700"
+                placeholder="Note Title"
+                value={newNoteTitle}
+                onChange={e => setNewNoteTitle(e.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="secondary" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+              <Button onClick={handleCreateNote}>Create</Button>
+            </DialogFooter>
+          </DialogContent>
+      </Dialog>
 
       {/* Note Detail Dialog */}
       <Dialog open={selectedNote !== null} onOpenChange={() => setSelectedNote(null)}>

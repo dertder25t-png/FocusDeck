@@ -1,30 +1,45 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { useCurrentTenant } from '../../hooks/useCurrentTenant'
 
 export function ProtectedRoute() {
   const location = useLocation()
+  const { tenant, loading: tenantLoading, refresh } = useCurrentTenant()
   const [checking, setChecking] = useState(true)
   const [isAuthed, setIsAuthed] = useState(false)
 
-  useEffect(() => {
-    // Check for valid JWT token
-    const token = localStorage.getItem('focusdeck_access_token')
-    
-    if (token && token.length > 0) {
-      if (!isTokenExpired(token)) {
-        setIsAuthed(true)
-      } else {
-        console.warn('Token found but expired')
-        setIsAuthed(false)
+  const verifySession = useCallback(async () => {
+      try {
+          await refresh(); // This calls /v1/tenants/current
+          // If refresh succeeds (no throw) and tenant is set, we are good.
+          // However, refresh sets 'tenant' state asynchronously.
+          // We can check the tenantLoading state in the render.
+          setChecking(false);
+      } catch (e) {
+          console.warn('Session verification failed', e);
+          setChecking(false);
       }
-    } else {
-      setIsAuthed(false)
-    }
+  }, [refresh]);
 
-    setChecking(false)
-  }, [])
+  useEffect(() => {
+    // Only verify once on mount
+    verifySession()
+  }, [verifySession])
 
-  if (checking) {
+  // React to tenant loading/state changes
+  useEffect(() => {
+      if (!tenantLoading) {
+          if (tenant) {
+              setIsAuthed(true);
+          } else {
+              setIsAuthed(false);
+          }
+          setChecking(false);
+      }
+  }, [tenant, tenantLoading]);
+
+
+  if (checking || tenantLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gradient-to-br from-surface via-surface-100 to-surface text-gray-400">
         <div className="text-center">
@@ -48,43 +63,4 @@ export function ProtectedRoute() {
   }
 
   return <Outlet />
-}
-
-/**
- * Helper to check if JWT token is expired
- * Verifies the token structure and compares expiration time
- */
-function isTokenExpired(token: string): boolean {
-  try {
-    // JWT format: header.payload.signature
-    const parts = token.split('.')
-    if (parts.length !== 3) {
-      console.warn('Invalid token format')
-      return true
-    }
-    
-    const payload = JSON.parse(atob(parts[1]))
-    
-    // Check if exp claim exists
-    if (!payload.exp) {
-      // If no exp claim, assume valid if it has valid structure
-      // Server validation will catch invalid tokens
-      return false
-    }
-    
-    const expiryTime = payload.exp * 1000 // exp is in seconds, convert to ms
-    // Add a 30-second buffer to avoid race conditions
-    const isExpired = Date.now() >= (expiryTime - 30000)
-    
-    if (isExpired) {
-      console.info('Token has expired locally (allowing refresh attempt)')
-      // Relaxed validation: Allow expired tokens to proceed to the server
-      return false
-    }
-    
-    return isExpired
-  } catch (error) {
-    console.error('Error checking token expiration:', error)
-    return true
-  }
 }

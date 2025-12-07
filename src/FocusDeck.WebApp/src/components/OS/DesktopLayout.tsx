@@ -6,6 +6,7 @@ import { Taskbar } from './Taskbar';
 import { StartMenu } from './StartMenu';
 import { PlacementModal } from './PlacementModal';
 import { SpotifyChip } from './Chips/SpotifyChip';
+import { useFiles, type FileItem } from '../../hooks/useFiles';
 
 // App Components
 import { DashboardApp } from '../../apps/DashboardApp';
@@ -17,19 +18,6 @@ import { JarvisApp } from '../../apps/JarvisApp';
 import { FilesApp } from '../../apps/FilesApp';
 import { FlashcardsApp } from '../../apps/FlashcardsApp';
 import { AccountSettingsApp } from '../../apps/AccountSettingsApp';
-
-// Mock File Data
-const MOCK_FILES = {
-  'work': [
-      { name: 'Q4_Strategy.note', type: 'note' as const, targetContent: 'win-notes' as WindowId },
-      { name: 'Launch_Plan.board', type: 'board' as const, targetContent: 'win-kanban' as WindowId },
-      { name: 'UI_Concepts.canvas', type: 'canvas' as const, targetContent: 'win-whiteboard' as WindowId }
-  ],
-  'school': [
-      { name: 'History_Essay.note', type: 'note' as const, targetContent: 'win-notes' as WindowId },
-      { name: 'Math_HW.canvas', type: 'canvas' as const, targetContent: 'win-whiteboard' as WindowId }
-  ]
-};
 
 export const DesktopLayout: React.FC = () => {
   const { currentWorkspace } = useWindowManager();
@@ -58,35 +46,38 @@ export const DesktopLayout: React.FC = () => {
     };
   }, []);
 
-  // File System State (Local for now, can move to Context if needed globally)
-  const [currentFiles, setCurrentFiles] = useState(MOCK_FILES);
-  const [activeFile, setActiveFile] = useState<{name: string, type: string, targetContent: WindowId} | null>(null);
+  // Use the hook instead of MOCK_FILES
+  const { files } = useFiles(currentWorkspace);
+  const [activeFile, setActiveFile] = useState<FileItem | null>(null);
 
   const handleCreateNew = (type: 'note' | 'board' | 'canvas' | 'flashcard') => {
       setToolPickerOpen(false);
+      // In a real app, this would trigger a mutation via the hook, or open the app in "New" mode
+      // For now, we will just simulate opening the app
       const map = {
-          'note': { name: 'Untitled', targetContent: 'win-notes' as WindowId },
+          'note': { name: 'New Note', targetContent: 'win-notes' as WindowId },
           'board': { name: 'New Board', targetContent: 'win-kanban' as WindowId },
           'canvas': { name: 'New Canvas', targetContent: 'win-whiteboard' as WindowId },
-          'flashcard': { name: 'Study Set', targetContent: 'win-flashcards' as WindowId }
+          'flashcard': { name: 'New Set', targetContent: 'win-flashcards' as WindowId }
       };
 
-      const newFile = {
-          name: `${map[type].name} ${currentFiles[currentWorkspace].length + 1}`,
+      // We can't easily push to 'files' since it comes from the hook,
+      // but the underlying apps (Notes, Kanban) will handle creation.
+      // We just need to focus the window.
+      // But let's create a temporary object for the File Explorer view if needed,
+      // or simply launch the app.
+
+      const newFile: FileItem = {
+          id: 'temp-new',
+          name: map[type].name,
           type: type,
           targetContent: map[type].targetContent
       };
 
-      setCurrentFiles(prev => ({
-          ...prev,
-          [currentWorkspace]: [...prev[currentWorkspace], newFile]
-      }));
-
-      // Open the file immediately
       setActiveFile(newFile);
   };
 
-  const handleOpenFile = (file: typeof MOCK_FILES['work'][0]) => {
+  const handleOpenFile = (file: FileItem) => {
       setActiveFile(file);
   };
 
@@ -170,7 +161,7 @@ export const DesktopLayout: React.FC = () => {
                 {/* 7. FILES (Workspaces) */}
                 <Window id="win-files">
                     <FilesApp
-                        files={currentFiles}
+                        files={files}
                         currentWorkspace={currentWorkspace}
                         onOpenFile={handleOpenFile}
                         onBack={handleBackFiles}
