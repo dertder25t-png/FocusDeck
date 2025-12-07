@@ -14,21 +14,7 @@ export function QuickActionsWidget() {
   const handleNewLecture = () => {
     navigate('/lectures/new');
     if (!isMobile) {
-        // Fallback or explicit open for desktop environment
-        // Assuming 'win-lectures' or using 'win-jarvis' if lectures are part of it,
-        // but strictly navigating is the primary request.
-        // There is no explicit 'win-lectures' in DesktopLayout, so we rely on the route
-        // or perhaps 'win-notes' if that's where lectures live.
-        // However, the user asked to "Navigate to /lectures/new".
-        // The previous code opened 'win-jarvis'.
-        // If we want to be safe, we can try to open a relevant window if it exists.
-        // For now, let's just navigate, as that updates the URL and DesktopLayout might not react
-        // unless mapped. But the user was specific.
-
-        // Actually, looking at DesktopLayout, there is no 'win-lectures'.
-        // Lectures might be a sub-feature or a modal.
-        // Let's stick to just navigate, or if we must launch an app,
-        // maybe 'win-dashboard' is the safest fallback if it's a page.
+        // Safe fallback if logic requires launching a specific app container in future
     }
   };
 
@@ -37,6 +23,14 @@ export function QuickActionsWidget() {
     if (!isMobile) {
         launchApp('win-notes');
     }
+  };
+
+  const handleNewDesignProject = () => {
+      if (isMobile) {
+          navigate('/design/new');
+      } else {
+          launchApp('win-whiteboard');
+      }
   };
 
   return (
@@ -79,7 +73,7 @@ export function QuickActionsWidget() {
               </div>
             </button>
             <button
-              onClick={() => isMobile ? navigate('/design/new') : launchApp('win-whiteboard')}
+              onClick={handleNewDesignProject}
               className="flex items-center gap-3 p-4 rounded-lg border border-gray-700 hover:bg-surface-50 transition-colors text-left"
             >
               <span className="text-2xl">🎨</span>

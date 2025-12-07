@@ -12,9 +12,36 @@ import { SignInPage } from './pages/Auth/SignInPage';
 import { RegisterPage } from './pages/Auth/RegisterPage';
 import { ProtectedRoute } from './pages/Auth/ProtectedRoute';
 
-function App() {
+// Pages
+import { DashboardPage } from './pages/DashboardPage';
+import { NotesPage } from './pages/NotesPage';
+import { KanbanPage } from './pages/KanbanPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
+import { FlashcardsApp } from './apps/FlashcardsApp'; // Using App directly for page if needed
+
+function MainLayout() {
   const isMobile = useIsMobile();
 
+  if (isMobile) {
+    return (
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route index element={<DashboardPage />} />
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="notes" element={<NotesPage />} />
+          <Route path="kanban" element={<KanbanPage />} />
+          <Route path="analytics" element={<AnalyticsPage />} />
+          <Route path="flashcards" element={<FlashcardsApp />} />
+          {/* Add other mobile routes here */}
+        </Route>
+      </Routes>
+    );
+  }
+
+  return <DesktopLayout />;
+}
+
+function App() {
   return (
     <ToastProvider>
       <SignalRProvider>
@@ -28,7 +55,7 @@ function App() {
                    
                    {/* Use robust ProtectedRoute with token validation */}
                    <Route element={<ProtectedRoute />}>
-                       <Route path="/*" element={isMobile ? <AppShell /> : <DesktopLayout />} />
+                       <Route path="/*" element={<MainLayout />} />
                    </Route>
                 </Routes>
                 <ToastViewport />

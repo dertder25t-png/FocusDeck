@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '../components/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/Card';
 import { Badge } from '../components/Badge';
@@ -8,6 +8,7 @@ import { NoteEditor } from '../components/NoteEditor';
 import type { AcademicSource } from '../types';
 import { noteService } from '../services/api';
 import type { Note } from '../types';
+import { useNotes, useCreateNote, useUpdateNote } from '../hooks/useNotes';
 
 interface Suggestion {
   id: string;
@@ -20,7 +21,12 @@ interface Suggestion {
 }
 
 export function NotesPage() {
-  const [notes, setNotes] = useState<Note[]>([]);
+  const { data: notesRaw, isLoading } = useNotes();
+  const notes = Array.isArray(notesRaw) ? notesRaw : [];
+
+  const createNoteMutation = useCreateNote();
+  const updateNoteMutation = useUpdateNote();
+
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
@@ -37,32 +43,19 @@ export function NotesPage() {
   const [sources, setSources] = useState<AcademicSource[]>([]);
   const [citationStyle, setCitationStyle] = useState('APA');
 
-  useEffect(() => {
-    loadNotes();
-  }, []);
-
-  const loadNotes = async () => {
-    try {
-      const data = await noteService.getNotes();
-      setNotes(data || []);
-    } catch (error) {
-      console.error('Failed to load notes:', error);
-    }
-  };
-
   const handleCreateNote = async () => {
     try {
-      const newNote = await noteService.createNote({
+      const newNote = await createNoteMutation.mutateAsync({
         title: newNoteTitle || 'Untitled Note',
         content: '',
         type: 0 // QuickNote
       });
       setIsCreateOpen(false);
       setNewNoteTitle('');
-      await loadNotes();
+
       // Optionally select the new note
       if (newNote && newNote.id) {
-        // Fetch full note details if needed or just use returned obj
+        // We need to cast or ensure type safety, useNotes returns Note[]
         handleNoteClick(newNote as Note);
       }
     } catch (error) {
@@ -81,6 +74,8 @@ export function NotesPage() {
     setCitationStyle(note.citationStyle || 'APA');
 
     // Load suggestions for this note
+    // We can keep using direct service call for suggestions as it's an action,
+    // or wrap in a hook if we wanted to be 100% consistent, but this is fine for "on click" fetching.
     try {
       const data = await noteService.getSuggestions(note.id);
       setSuggestions(data.suggestions || []);
@@ -101,9 +96,10 @@ export function NotesPage() {
         citationStyle: citationStyle
       };
 
-      await noteService.updateNote(selectedNote.id, payload);
+      await updateNoteMutation.mutateAsync({ id: selectedNote.id, note: payload });
 
-      // Update local state
+      // Update local state to reflect changes immediately in UI if needed,
+      // although React Query invalidation will refresh the list.
       setSelectedNote({
         ...selectedNote,
         content: editedContent,
@@ -112,8 +108,6 @@ export function NotesPage() {
         citationStyle: citationStyle,
         lastModified: new Date().toISOString()
       });
-      // Refresh list to show updated timestamp
-      loadNotes();
     } catch (error) {
       console.error('Failed to save note:', error);
     }
@@ -144,6 +138,10 @@ export function NotesPage() {
       if (selectedNote) {
         setSelectedNote({ ...selectedNote, content: data.updatedContent });
         setEditedContent(data.updatedContent);
+        // Also update backend via mutation to keep consistency if needed,
+        // though acceptSuggestion likely updates backend state too.
+        // We should invalidate query to be safe.
+        // But for now, local state update is good for UX.
       }
       // Remove the accepted suggestion from the list
       setSuggestions(suggestions.filter(s => s.id !== suggestionId));
@@ -169,6 +167,10 @@ export function NotesPage() {
       default: return 'default';
     }
   };
+
+  if (isLoading) {
+      return <div className="p-8 text-center text-gray-500">Loading notes...</div>;
+  }
 
   if (notes.length === 0) {
     return (
@@ -198,7 +200,9 @@ export function NotesPage() {
             </div>
             <DialogFooter>
               <Button variant="secondary" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-              <Button onClick={handleCreateNote}>Create</Button>
+              <Button onClick={handleCreateNote} disabled={createNoteMutation.isPending}>
+                  {createNoteMutation.isPending ? 'Creating...' : 'Create'}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -238,7 +242,7 @@ export function NotesPage() {
                 </div>
               </div>
             </CardHeader>
-            {note.tags.length > 0 && (
+            {note.tags && note.tags.length > 0 && (
               <CardContent>
                 <div className="flex flex-wrap gap-2">
                   {note.tags.map((tag, idx) => (
@@ -267,7 +271,9 @@ export function NotesPage() {
             </div>
             <DialogFooter>
               <Button variant="secondary" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-              <Button onClick={handleCreateNote}>Create</Button>
+              <Button onClick={handleCreateNote} disabled={createNoteMutation.isPending}>
+                  {createNoteMutation.isPending ? 'Creating...' : 'Create'}
+              </Button>
             </DialogFooter>
           </DialogContent>
       </Dialog>
@@ -301,8 +307,9 @@ export function NotesPage() {
                         size="sm"
                         variant="ghost"
                         onClick={handleSaveNote}
+                        disabled={updateNoteMutation.isPending}
                       >
-                        Save
+                        {updateNoteMutation.isPending ? 'Saving...' : 'Save'}
                       </Button>
                     )}
                     <Button

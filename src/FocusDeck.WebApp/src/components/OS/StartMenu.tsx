@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useWindowManager } from '../../contexts/WindowManagerContext';
 import type { WindowId } from '../../contexts/WindowManagerContext';
+import { useUser } from '../../hooks/useUser';
 
 interface StartMenuProps {
   isOpen: boolean;
@@ -9,6 +10,8 @@ interface StartMenuProps {
 
 export const StartMenu: React.FC<StartMenuProps> = ({ isOpen, onClose }) => {
   const { launchApp, openWorkspace } = useWindowManager();
+  const user = useUser();
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Handle click outside is usually better done in Layout, but for now relying on styling/modals
   // We can add a click listener to document if needed, but existing logic might suffice
@@ -25,11 +28,30 @@ export const StartMenu: React.FC<StartMenuProps> = ({ isOpen, onClose }) => {
       onClose();
   };
 
+  const apps = [
+      { id: 'win-dashboard', name: 'Dashboard', icon: 'fa-grid-2' },
+      { id: 'win-jarvis', name: 'Jarvis', icon: 'fa-robot' },
+      { id: 'win-email', name: 'Email', icon: 'fa-envelope' },
+      { id: 'win-whiteboard', name: 'Canvas', icon: 'fa-pen-nib' },
+      { id: 'win-flashcards', name: 'Flashcards', icon: 'fa-layer-group' },
+      { id: 'win-notes', name: 'Notes', icon: 'fa-note-sticky' },
+      { id: 'win-kanban', name: 'Kanban', icon: 'fa-list-check' },
+  ];
+
+  const filteredApps = apps.filter(app => app.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
   return (
     <div id="start-menu" className={menuClass}>
       <div className="h-16 border-b border-gray-200 p-4 flex items-center gap-3 shrink-0 bg-white">
         <i className="fa-solid fa-magnifying-glass text-gray-400"></i>
-        <input type="text" placeholder="Search apps, files..." className="flex-1 outline-none text-sm font-medium placeholder-gray-400 h-full" />
+        <input
+            type="text"
+            placeholder="Search apps, files..."
+            className="flex-1 outline-none text-sm font-medium placeholder-gray-400 h-full"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            autoFocus={isOpen}
+        />
         <div className="md:hidden"><button onClick={onClose}><i className="fa-solid fa-chevron-down"></i></button></div>
       </div>
 
@@ -37,15 +59,18 @@ export const StartMenu: React.FC<StartMenuProps> = ({ isOpen, onClose }) => {
         {/* Sidebar */}
         <div className="w-full md:w-48 bg-ink text-gray-300 flex flex-row md:flex-col py-4 px-4 items-center md:items-start shrink-0 md:border-r md:border-gray-800">
           <div className="flex items-center gap-3 mb-0 md:mb-6">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent-purple to-accent-blue flex items-center justify-center text-white font-bold text-lg">JD</div>
-            <div className="text-white font-bold text-sm">John Doe</div>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent-purple to-accent-blue flex items-center justify-center text-white font-bold text-lg">{user.initials}</div>
+            <div className="text-white font-bold text-sm truncate max-w-[120px]" title={user.name}>{user.name}</div>
           </div>
-          <div className="flex md:flex-col gap-1 ml-auto md:ml-0 w-full md:w-auto">
-             <button onClick={() => handleLaunch('win-dashboard')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-800 text-xs font-medium flex items-center gap-3"><i className="fa-solid fa-grid-2 w-4"></i> <span className="hidden md:inline">Dashboard</span></button>
-             <button onClick={() => handleLaunch('win-jarvis')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-800 text-xs font-medium flex items-center gap-3"><i className="fa-solid fa-robot w-4"></i> <span className="hidden md:inline">Jarvis</span></button>
-             <button onClick={() => handleLaunch('win-email')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-800 text-xs font-medium flex items-center gap-3"><i className="fa-solid fa-envelope w-4"></i> <span className="hidden md:inline">Email</span></button>
-             <button onClick={() => handleLaunch('win-whiteboard')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-800 text-xs font-medium flex items-center gap-3"><i className="fa-solid fa-pen-nib w-4"></i> <span className="hidden md:inline">Canvas</span></button>
-             <button onClick={() => handleLaunch('win-flashcards')} className="w-full text-left px-3 py-2 rounded hover:bg-gray-800 text-xs font-medium flex items-center gap-3"><i className="fa-solid fa-layer-group w-4"></i> <span className="hidden md:inline">Flashcards</span></button>
+          <div className="flex md:flex-col gap-1 ml-auto md:ml-0 w-full md:w-auto overflow-y-auto max-h-[300px]">
+             {filteredApps.map(app => (
+                 <button key={app.id} onClick={() => handleLaunch(app.id as WindowId)} className="w-full text-left px-3 py-2 rounded hover:bg-gray-800 text-xs font-medium flex items-center gap-3">
+                     <i className={`fa-solid ${app.icon} w-4`}></i> <span className="hidden md:inline">{app.name}</span>
+                 </button>
+             ))}
+             {filteredApps.length === 0 && (
+                 <div className="text-xs text-gray-500 p-2">No apps found</div>
+             )}
           </div>
         </div>
 
