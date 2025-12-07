@@ -1,6 +1,5 @@
 using FocusDeck.Persistence;
 using FocusDeck.Server.Hubs;
-using FocusDeck.Server.Services.Auth;
 using FocusDeck.Shared.SignalR.Notifications;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Data.Sqlite;
@@ -10,6 +9,9 @@ using Xunit;
 
 namespace FocusDeck.Server.Tests;
 
+// NOTE: This test is disabled as AccessTokenRevocationService is no longer used
+// after migrating to Cookie-based authentication.
+// Cookie authentication does not use JTI-based token revocation.
 public class ForcedLogoutPropagationTests
 {
     private sealed class FakeClient : INotificationClient
@@ -81,23 +83,11 @@ public class ForcedLogoutPropagationTests
         return db;
     }
 
-    [Fact]
+    [Fact(Skip = "AccessTokenRevocationService removed after Cookie Auth migration")]
     public async Task Revoke_Sends_ForceLogout_To_User_Group()
     {
-        using var db = CreateDb(out var conn);
-        await using var _ = conn;
-
-        var hub = new FakeHubContext();
-        var svc = new AccessTokenRevocationService(db, NullLogger<AccessTokenRevocationService>.Instance, hub, redis: null);
-
-        var jti = Guid.NewGuid().ToString("N");
-        var userId = "user@example.com";
-        var expires = DateTime.UtcNow.AddMinutes(10);
-
-        await svc.RevokeAsync(jti, userId, expires, CancellationToken.None, reason: "Test", deviceId: "dev1");
-
-        Assert.NotNull(hub.Inner.FakeClientInstance.Last);
-        Assert.Equal("Test", hub.Inner.FakeClientInstance.Last!.Reason);
-        Assert.Equal("dev1", hub.Inner.FakeClientInstance.Last!.DeviceId);
+        // This test is skipped because AccessTokenRevocationService no longer exists
+        // after migrating to cookie-based authentication.
+        await Task.CompletedTask;
     }
 }

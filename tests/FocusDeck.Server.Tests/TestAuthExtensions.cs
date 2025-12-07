@@ -1,14 +1,11 @@
 using System;
-using System.IdentityModel.Tokens.Jwt;
 using System.IO;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.IdentityModel.Tokens;
-using FocusDeck.Server.Services.Auth;
 
 namespace FocusDeck.Server.Tests;
 
@@ -29,20 +26,22 @@ internal static class TestAuthExtensions
             .GetAwaiter()
             .GetResult();
 
-        var client = factory.CreateClient();
-        var token = factory.CreateJwtToken(userId, resolvedTenantId);
-        var tokenValidationParameters = factory.Services.GetRequiredService<TokenValidationParameters>();
-        new JwtSecurityTokenHandler().ValidateToken(token, tokenValidationParameters, out _);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        return client;
-    }
+        // Create authenticated client using test authentication scheme
+        var client = factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddAuthentication(defaultScheme: "TestScheme")
+                    .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
+                        "TestScheme", options => { });
+            });
+        }).CreateClient();
 
-    private static string CreateJwtToken<TEntryPoint>(this WebApplicationFactory<TEntryPoint> factory, string userId, Guid tenantId)
-        where TEntryPoint : class
-    {
-        using var scope = factory.Services.CreateScope();
-        var tokenService = scope.ServiceProvider.GetRequiredService<ITokenService>();
-        return tokenService.GenerateAccessTokenAsync(userId, new[] { "User" }, tenantId).GetAwaiter().GetResult();
+        // Add test auth claims to header for test handler
+        client.DefaultRequestHeaders.Add("X-Test-User", userId);
+        client.DefaultRequestHeaders.Add("X-Test-Tenant", resolvedTenantId.ToString());
+
+        return client;
     }
 
     private static void EnsureContentRoot()
@@ -57,5 +56,42 @@ internal static class TestAuthExtensions
         var serverRoot = Path.Combine(root, "src", "FocusDeck.Server");
         Environment.SetEnvironmentVariable("ASPNETCORE_CONTENTROOT", serverRoot);
         _contentRootSet = true;
+    }
+}
+
+// Test authentication handler for integration tests
+public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+{
+    public TestAuthHandler(
+        Microsoft.Extensions.Options.IOptionsMonitor<AuthenticationSchemeOptions> options,
+        Microsoft.Extensions.Logging.ILoggerFactory logger,
+        System.Text.Encodings.Web.UrlEncoder encoder) 
+        : base(options, logger, encoder)
+    {
+    }
+
+    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    {
+        var userId = Context.Request.Headers["X-Test-User"].ToString();
+        var tenantId = Context.Request.Headers["X-Test-Tenant"].ToString();
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Task.FromResult(AuthenticateResult.NoResult());
+        }
+
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId),
+            new Claim(ClaimTypes.Name, userId),
+            new Claim("app_tenant_id", tenantId ?? TestTenancy.DefaultTenantId.ToString()),
+            new Claim(ClaimTypes.Role, "User")
+        };
+
+        var identity = new ClaimsIdentity(claims, "TestScheme");
+        var principal = new ClaimsPrincipal(identity);
+        var ticket = new AuthenticationTicket(principal, "TestScheme");
+
+        return Task.FromResult(AuthenticateResult.Success(ticket));
     }
 }

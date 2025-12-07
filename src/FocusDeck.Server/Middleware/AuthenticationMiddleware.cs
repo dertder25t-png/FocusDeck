@@ -1,30 +1,24 @@
 using System;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using FocusDeck.Server.Services.Auth;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using Microsoft.IdentityModel.Tokens;
 
 namespace FocusDeck.Server.Middleware
 {
     /// <summary>
     /// Authentication middleware that enforces login redirect for protected UI routes.
     /// Allows API routes (/v1/*, /swagger/*) and static assets through without authentication.
+    /// Works with cookie-based authentication.
     /// </summary>
     public class AuthenticationMiddleware
     {
-        private const string AccessCookieName = "focusdeck_access_token";
         private readonly RequestDelegate _next;
         private readonly ILogger<AuthenticationMiddleware> _logger;
-        private readonly TokenValidationParameters _validationParameters;
-        private readonly JwtSecurityTokenHandler _tokenHandler = new();
 
-        public AuthenticationMiddleware(RequestDelegate next, ILogger<AuthenticationMiddleware> logger, TokenValidationParameters validationParameters)
+        public AuthenticationMiddleware(RequestDelegate next, ILogger<AuthenticationMiddleware> logger)
         {
             _next = next;
             _logger = logger;
-            _validationParameters = validationParameters;
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -38,27 +32,31 @@ namespace FocusDeck.Server.Middleware
                 return;
             }
 
-            if (!TryValidateToken(context, out var principal, out var validationOutcome))
+            // Check if user is authenticated via cookie
+            if (!context.User.Identity?.IsAuthenticated ?? true)
             {
-                var reason = GetOutcomeReason(validationOutcome);
-                AuthTelemetry.RecordJwtValidationFailure(reason);
-                _logger.LogWarning("JWT validation failed ({Reason}) for path {Path} from {RemoteIp}", reason, path, context.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+                _logger.LogWarning("Unauthenticated request for path {Path} from {RemoteIp}", path, context.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+                
                 if (IsProtectedUIRoute(path))
                 {
                     context.Response.Redirect("/login?redirectUrl=" + Uri.EscapeDataString(path), false);
                     return;
                 }
 
-                context.Response.StatusCode = validationOutcome == TokenValidationOutcome.MissingTenant
-                    ? StatusCodes.Status403Forbidden
-                    : StatusCodes.Status401Unauthorized;
+                // For API routes, return 401
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                 await context.Response.WriteAsync("Authentication required.");
                 return;
             }
 
-            if (principal != null)
+            // Verify tenant claim exists
+            var tenantClaim = context.User.FindFirst("app_tenant_id")?.Value;
+            if (string.IsNullOrWhiteSpace(tenantClaim) || !Guid.TryParse(tenantClaim, out _))
             {
-                context.User = principal;
+                _logger.LogWarning("Missing or invalid tenant claim for authenticated user on path {Path}", path);
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsync("Tenant information required.");
+                return;
             }
 
             await _next(context);
@@ -96,15 +94,6 @@ namespace FocusDeck.Server.Middleware
             return false;
         }
 
-        private static string GetOutcomeReason(TokenValidationOutcome outcome) => outcome switch
-        {
-            TokenValidationOutcome.MissingToken => "missing-token",
-            TokenValidationOutcome.MissingTenant => "missing-tenant",
-            TokenValidationOutcome.Expired => "expired",
-            TokenValidationOutcome.Invalid => "invalid",
-            _ => "unknown"
-        };
-
         private static bool IsProtectedUIRoute(string path)
         {
             // Any route that's not public and not login/register
@@ -117,85 +106,6 @@ namespace FocusDeck.Server.Middleware
                    !path.EndsWith(".js") &&
                    !path.EndsWith(".css") &&
                    !path.EndsWith(".json");
-        }
-
-        private bool TryValidateToken(HttpContext context, out ClaimsPrincipal? principal, out TokenValidationOutcome outcome)
-        {
-            principal = null;
-            outcome = TokenValidationOutcome.None;
-
-            if (!TryExtractToken(context, out var token))
-            {
-                outcome = TokenValidationOutcome.MissingToken;
-                return false;
-            }
-
-            try
-            {
-                principal = _tokenHandler.ValidateToken(token, _validationParameters, out _);
-            }
-            catch (SecurityTokenExpiredException)
-            {
-                outcome = TokenValidationOutcome.Expired;
-                return false;
-            }
-            catch (SecurityTokenException)
-            {
-                outcome = TokenValidationOutcome.Invalid;
-                return false;
-            }
-            catch
-            {
-                outcome = TokenValidationOutcome.Invalid;
-                return false;
-            }
-
-            var tenantClaim = principal.FindFirst("app_tenant_id")?.Value;
-            if (string.IsNullOrWhiteSpace(tenantClaim) || !Guid.TryParse(tenantClaim, out _))
-            {
-                outcome = TokenValidationOutcome.MissingTenant;
-                return false;
-            }
-
-            outcome = TokenValidationOutcome.Valid;
-            return true;
-        }
-
-        private static bool TryExtractToken(HttpContext context, out string? token)
-        {
-            token = null;
-
-            if (context.Request.Headers.TryGetValue("Authorization", out var authHeader))
-            {
-                var authValue = authHeader.ToString();
-                if (authValue.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-                {
-                    token = authValue.Substring("Bearer ".Length).Trim();
-                    if (!string.IsNullOrEmpty(token))
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            if (context.Request.Cookies.TryGetValue(AccessCookieName, out var cookieToken) &&
-                !string.IsNullOrWhiteSpace(cookieToken))
-            {
-                token = cookieToken;
-                return true;
-            }
-
-            return false;
-        }
-
-        private enum TokenValidationOutcome
-        {
-            None,
-            Valid,
-            MissingToken,
-            MissingTenant,
-            Expired,
-            Invalid
         }
     }
 

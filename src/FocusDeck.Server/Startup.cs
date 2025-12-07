@@ -409,6 +409,15 @@ public sealed class Startup
             });
         });
 
+        // Cloudflare Tunnel: Configure Forwarded Headers to trust the tunnel
+        services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            // Clear known networks and proxies to trust Cloudflare Tunnel
+            options.KnownNetworks.Clear();
+            options.KnownProxies.Clear();
+        });
+
         // Cookie Authentication Configuration
         services.AddAuthentication("CookieAuth")
             .AddCookie("CookieAuth", options =>
@@ -461,12 +470,6 @@ public sealed class Startup
 
         // Prometheus metrics
         app.UseOpenTelemetryPrometheusScrapingEndpoint();
-
-        // Forwarded headers
-        app.UseForwardedHeaders(new ForwardedHeadersOptions
-        {
-            ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-        });
 
         // HTTP logging in development
         if (env.IsDevelopment())
@@ -532,6 +535,9 @@ public sealed class Startup
             options.DocumentTitle = "FocusDeck API Documentation";
             options.DisplayRequestDuration();
         });
+
+        // Cloudflare Tunnel: Apply forwarded headers BEFORE authentication
+        app.UseForwardedHeaders();
 
         app.UseRouting();
 
