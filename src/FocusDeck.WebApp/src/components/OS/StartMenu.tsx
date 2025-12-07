@@ -10,7 +10,7 @@ interface StartMenuProps {
 
 export const StartMenu: React.FC<StartMenuProps> = ({ isOpen, onClose }) => {
   const { launchApp, openWorkspace } = useWindowManager();
-  const user = useUser();
+  const { user } = useUser(); // Deconstruct user from the new return shape
   const [searchQuery, setSearchQuery] = useState('');
 
   // Handle click outside is usually better done in Layout, but for now relying on styling/modals
@@ -40,6 +40,9 @@ export const StartMenu: React.FC<StartMenuProps> = ({ isOpen, onClose }) => {
 
   const filteredApps = apps.filter(app => app.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
+  // Derive initials safely
+  const initials = user?.username ? user.username.slice(0, 2).toUpperCase() : 'JD';
+
   return (
     <div id="start-menu" className={menuClass}>
       <div className="h-16 border-b border-gray-200 p-4 flex items-center gap-3 shrink-0 bg-white">
@@ -59,8 +62,14 @@ export const StartMenu: React.FC<StartMenuProps> = ({ isOpen, onClose }) => {
         {/* Sidebar */}
         <div className="w-full md:w-48 bg-ink text-gray-300 flex flex-row md:flex-col py-4 px-4 items-center md:items-start shrink-0 md:border-r md:border-gray-800">
           <div className="flex items-center gap-3 mb-0 md:mb-6">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent-purple to-accent-blue flex items-center justify-center text-white font-bold text-lg">{user.initials}</div>
-            <div className="text-white font-bold text-sm truncate max-w-[120px]" title={user.name}>{user.name}</div>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent-purple to-accent-blue flex items-center justify-center text-white font-bold text-lg overflow-hidden">
+                {user?.avatarUrl && !user.avatarUrl.includes('github.com') ? ( // Simple check to avoid using the example URL directly if it was meant to be markdown
+                    <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                    <span>{initials}</span>
+                )}
+            </div>
+            <div className="text-white font-bold text-sm truncate max-w-[120px]" title={user?.username || 'Guest'}>{user?.username || 'Guest'}</div>
           </div>
           <div className="flex md:flex-col gap-1 ml-auto md:ml-0 w-full md:w-auto overflow-y-auto max-h-[300px]">
              {filteredApps.map(app => (
