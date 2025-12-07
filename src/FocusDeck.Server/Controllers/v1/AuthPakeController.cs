@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Http;
 using FocusDeck.Server.Services.Auth;
 using FocusDeck.Server.Services.Tenancy;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication;
 
 namespace FocusDeck.Server.Controllers.v1;
 
@@ -28,29 +29,23 @@ public class AuthPakeController : ControllerBase
 {
     private readonly AutomationDbContext _db;
     private readonly ILogger<AuthPakeController> _logger;
-    private readonly FocusDeck.Server.Services.Auth.ITokenService _tokenService;
     private readonly FocusDeck.Server.Services.Auth.ISrpSessionCache _srpSessions;
     private readonly IConfiguration _configuration;
-    private readonly JwtSettings _jwtSettings;
     private readonly IAuthAttemptLimiter _authLimiter;
     private readonly ITenantMembershipService _tenantMembership;
 
     public AuthPakeController(
         AutomationDbContext db,
         ILogger<AuthPakeController> logger,
-        FocusDeck.Server.Services.Auth.ITokenService tokenService,
         FocusDeck.Server.Services.Auth.ISrpSessionCache srpSessions,
         IConfiguration configuration,
-        JwtSettings jwtSettings,
         IAuthAttemptLimiter authLimiter,
         ITenantMembershipService tenantMembership)
     {
         _db = db;
         _logger = logger;
-        _tokenService = tokenService;
         _srpSessions = srpSessions;
         _configuration = configuration;
-        _jwtSettings = jwtSettings;
         _authLimiter = authLimiter;
         _tenantMembership = tenantMembership;
     }
@@ -442,47 +437,24 @@ public class AuthPakeController : ControllerBase
 
             var serverProof = Srp.ComputeServerProof(session.ClientPublic, expectedProof, sessionKey);
 
-            var roles = new[] { "User" };
             var tenantId = await _tenantMembership.EnsureTenantAsync(session.UserId, session.UserId, session.UserId, HttpContext.RequestAborted);
-            var accessToken = await _tokenService.GenerateAccessTokenAsync(session.UserId, roles, tenantId, HttpContext.RequestAborted);
-            var refreshToken = _tokenService.GenerateRefreshToken();
 
-            var deviceId = request.ClientId ?? session.ClientId ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-device";
-
-            // Truncate DeviceId to 200 chars to fit in database
-            if (deviceId.Length > 200)
+            var claims = new List<Claim>
             {
-                deviceId = deviceId.Substring(0, 200);
-            }
-
-            var deviceName = request.DeviceName ?? session.DeviceName ?? deviceId ?? "unknown";
-            var devicePlatform = request.DevicePlatform ?? session.DevicePlatform;
-
-            var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
-            var clientFingerprint = _tokenService.ComputeClientFingerprint(deviceId, userAgent);
-
-            var refreshEntity = new FocusDeck.Domain.Entities.RefreshToken
-            {
-                Id = Guid.NewGuid(),
-                UserId = session.UserId,
-                TokenHash = _tokenService.ComputeTokenHash(refreshToken),
-                ClientFingerprint = clientFingerprint,
-                IssuedUtc = DateTime.UtcNow,
-                ExpiresUtc = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
-                DeviceId = deviceId,
-                DeviceName = deviceName,
-                DevicePlatform = devicePlatform,
-                LastAccessUtc = DateTime.UtcNow,
-                TenantId = tenantId
+                new Claim(ClaimTypes.NameIdentifier, session.UserId),
+                new Claim(ClaimTypes.Name, session.UserId),
+                new Claim("app_tenant_id", tenantId.ToString()),
+                new Claim(ClaimTypes.Role, "User")
             };
-            _db.RefreshTokens.Add(refreshEntity);
 
-            if (!string.IsNullOrWhiteSpace(deviceId))
+            var claimsIdentity = new ClaimsIdentity(claims, "CookieAuth");
+            var authProperties = new AuthenticationProperties
             {
-                await UpsertDeviceRegistrationAsync(session.UserId, tenantId, deviceId!, deviceName, devicePlatform);
-            }
+                IsPersistent = true,
+                ExpiresUtc = DateTime.UtcNow.AddDays(30)
+            };
 
-            await _db.SaveChangesAsync();
+            await HttpContext.SignInAsync("CookieAuth", new ClaimsPrincipal(claimsIdentity), authProperties);
 
             // Use IgnoreQueryFilters() to bypass tenant filter for vault lookup during login
             var vault = await _db.KeyVaults.IgnoreQueryFilters().FirstOrDefaultAsync(v => v.UserId == session.UserId);
@@ -491,9 +463,9 @@ public class AuthPakeController : ControllerBase
 
             var metadata = new
             {
-                deviceId,
-                deviceName,
-                devicePlatform,
+                deviceId = request.ClientId,
+                deviceName = request.DeviceName,
+                devicePlatform = request.DevicePlatform,
                 vaultCipherSuite = vault?.CipherSuite
             };
 
@@ -501,19 +473,19 @@ public class AuthPakeController : ControllerBase
                 "PAKE_LOGIN_FINISH",
                 session.UserId,
                 true,
-                deviceId: deviceId,
-                deviceName: deviceName,
+                deviceId: request.ClientId,
+                deviceName: request.DeviceName,
                 metadataJson: JsonSerializer.Serialize(metadata));
 
             await _authLimiter.ResetAsync(session.UserId, remoteIp);
 
-            TrackLoginSuccess(session.UserId, tenantId, deviceId);
+            TrackLoginSuccess(session.UserId, tenantId, request.ClientId);
             return Ok(new LoginFinishResponse(
                 true,
                 vault != null,
-                accessToken,
-                refreshToken,
-                _jwtSettings.AccessTokenExpirationMinutes * 60,
+                "cookie", // No token
+                "cookie", // No refresh token
+                0,
                 Convert.ToBase64String(serverProof)));
         }
         catch (Exception ex)
@@ -619,44 +591,28 @@ public class AuthPakeController : ControllerBase
         if (session.Status != PairingStatus.Ready || string.IsNullOrEmpty(session.VaultDataBase64))
             return BadRequest(new { error = "Not ready" });
 
-        var roles = new[] { "User" };
-        var accessToken = await _tokenService.GenerateAccessTokenAsync(session.UserId, roles, session.TenantId, HttpContext.RequestAborted);
-        var refreshToken = _tokenService.GenerateRefreshToken();
-
-        // Register the new refresh token (and device)
-        var deviceId = session.TargetDeviceId ?? "mobile-pairing-" + session.Id.ToString()[..8];
-        var deviceName = "Mobile Device";
-        var devicePlatform = DevicePlatform.Android.ToString(); // Assume Android since this flow is primarily for it
-
-        var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
-        var clientFingerprint = _tokenService.ComputeClientFingerprint(deviceId, userAgent);
-
-        var refreshEntity = new FocusDeck.Domain.Entities.RefreshToken
+        var claims = new List<Claim>
         {
-            Id = Guid.NewGuid(),
-            UserId = session.UserId,
-            TokenHash = _tokenService.ComputeTokenHash(refreshToken),
-            ClientFingerprint = clientFingerprint,
-            IssuedUtc = DateTime.UtcNow,
-            ExpiresUtc = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
-            DeviceId = deviceId,
-            DeviceName = deviceName,
-            DevicePlatform = devicePlatform,
-            LastAccessUtc = DateTime.UtcNow,
-            TenantId = session.TenantId
+            new Claim(ClaimTypes.NameIdentifier, session.UserId),
+            new Claim(ClaimTypes.Name, session.UserId),
+            new Claim("app_tenant_id", session.TenantId.ToString()),
+            new Claim(ClaimTypes.Role, "User")
         };
-        _db.RefreshTokens.Add(refreshEntity);
 
-        if (!string.IsNullOrWhiteSpace(deviceId))
+        var claimsIdentity = new ClaimsIdentity(claims, "CookieAuth");
+        var authProperties = new AuthenticationProperties
         {
-            await UpsertDeviceRegistrationAsync(session.UserId, session.TenantId, deviceId, deviceName, devicePlatform);
-        }
+            IsPersistent = true,
+            ExpiresUtc = DateTime.UtcNow.AddDays(30)
+        };
+
+        await HttpContext.SignInAsync("CookieAuth", new ClaimsPrincipal(claimsIdentity), authProperties);
 
         session.Status = PairingStatus.Completed;
         await _db.SaveChangesAsync();
 
-        await LogAuthEventAsync("PAKE_PAIR_REDEEM", session.UserId, true, deviceId: deviceId);
-        TrackLoginSuccess(session.UserId, session.TenantId, deviceId);
+        await LogAuthEventAsync("PAKE_PAIR_REDEEM", session.UserId, true, deviceId: session.TargetDeviceId);
+        TrackLoginSuccess(session.UserId, session.TenantId, session.TargetDeviceId);
 
         return Ok(new
         {
@@ -664,45 +620,10 @@ public class AuthPakeController : ControllerBase
             userId = session.UserId,
             vaultKdfMetadataJson = session.VaultKdfMetadataJson,
             vaultCipherSuite = session.VaultCipherSuite,
-            accessToken,
-            refreshToken,
-            expiresIn = _jwtSettings.AccessTokenExpirationMinutes * 60
+            accessToken = "cookie",
+            refreshToken = "cookie",
+            expiresIn = 0
         });
-    }
-
-    private async Task UpsertDeviceRegistrationAsync(string userId, Guid tenantId, string deviceId, string? deviceName, string? devicePlatform)
-    {
-        deviceId = deviceId.Trim();
-        var registration = await _db.DeviceRegistrations.FirstOrDefaultAsync(d => d.UserId == userId && d.DeviceId == deviceId);
-        var platform = ParsePlatform(devicePlatform);
-
-        if (registration == null)
-        {
-            registration = new DeviceRegistration
-            {
-                Id = Guid.NewGuid(),
-                UserId = userId,
-                DeviceId = deviceId,
-                DeviceName = string.IsNullOrWhiteSpace(deviceName) ? deviceId : deviceName!,
-                Platform = platform,
-                RegisteredAt = DateTime.UtcNow,
-                LastSyncAt = DateTime.UtcNow,
-                IsActive = true,
-                TenantId = tenantId
-            };
-            _db.DeviceRegistrations.Add(registration);
-        }
-        else
-        {
-            registration.DeviceName = string.IsNullOrWhiteSpace(deviceName) ? registration.DeviceName : deviceName!;
-            registration.Platform = platform;
-            registration.LastSyncAt = DateTime.UtcNow;
-            registration.IsActive = true;
-            if (registration.TenantId == Guid.Empty)
-            {
-                registration.TenantId = tenantId;
-            }
-        }
     }
 
     private static DevicePlatform ParsePlatform(string? devicePlatform)

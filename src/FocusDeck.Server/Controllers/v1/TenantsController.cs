@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace FocusDeck.Server.Controllers.v1;
 
@@ -20,18 +22,15 @@ public class TenantsController : ControllerBase
 {
     private readonly AutomationDbContext _db;
     private readonly ILogger<TenantsController> _logger;
-    private readonly ITokenService _tokenService;
     private readonly ICurrentTenant _currentTenant;
 
     public TenantsController(
         AutomationDbContext db,
         ILogger<TenantsController> logger,
-        ITokenService tokenService,
         ICurrentTenant currentTenant)
     {
         _db = db;
         _logger = logger;
-        _tokenService = tokenService;
         _currentTenant = currentTenant;
     }
 
@@ -232,13 +231,28 @@ public class TenantsController : ControllerBase
             return NotFound(new { code = "TENANT_NOT_FOUND", message = "Tenant not found or access denied" });
         }
 
-        var accessToken = await _tokenService.GenerateAccessTokenAsync(userId, new[] { membership.Role.ToString() }, id, HttpContext.RequestAborted);
-        var refreshToken = _tokenService.GenerateRefreshToken();
+        // Re-issue cookie with new tenant
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId),
+            new Claim(ClaimTypes.Name, User.Identity?.Name ?? userId), // Use null conditional operator
+            new Claim("app_tenant_id", id.ToString()),
+            new Claim(ClaimTypes.Role, membership.Role.ToString())
+        };
+
+        var claimsIdentity = new ClaimsIdentity(claims, "CookieAuth");
+        var authProperties = new AuthenticationProperties
+        {
+            IsPersistent = true,
+            ExpiresUtc = DateTime.UtcNow.AddDays(30)
+        };
+
+        await HttpContext.SignInAsync("CookieAuth", new ClaimsPrincipal(claimsIdentity), authProperties);
 
         _currentTenant.SetTenant(id);
         _logger.LogInformation("Tenant switch: {UserId} moved to {TenantId}", AuthTelemetry.MaskIdentifier(userId), id);
 
-        return Ok(new { accessToken, refreshToken });
+        return Ok(new { success = true, tenantId = id });
     }
 
     [HttpDelete("{id}/members/{memberId}")]

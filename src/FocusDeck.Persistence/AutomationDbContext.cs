@@ -54,7 +54,6 @@ public class AutomationDbContext : DbContext
     public DbSet<EventCache> EventCache { get; set; }
     public DbSet<CourseIndex> CourseIndex { get; set; }
     public DbSet<StudySession> StudySessions { get; set; }
-    public DbSet<RefreshToken> RefreshTokens { get; set; }
     public DbSet<Asset> Assets { get; set; }
     public DbSet<Course> Courses { get; set; }
     public DbSet<Lecture> Lectures { get; set; }
@@ -66,7 +65,6 @@ public class AutomationDbContext : DbContext
     public DbSet<HabitCompletion> HabitCompletions { get; set; }
 
     // Sync tables
-    public DbSet<DeviceRegistration> DeviceRegistrations { get; set; }
     public DbSet<SyncTransaction> SyncTransactions { get; set; }
     public DbSet<SyncChange> SyncChanges { get; set; }
     public DbSet<SyncMetadata> SyncMetadata { get; set; }

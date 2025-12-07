@@ -38,7 +38,7 @@ using FocusDeck.SharedKernel.Tenancy;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Hangfire.MemoryStorage;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -53,7 +53,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.FileProviders;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -126,28 +125,13 @@ public sealed class Startup
                 }
             });
 
-            options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            // Cookie Auth definition for Swagger (optional, mainly for documentation)
+            options.AddSecurityDefinition("CookieAuth", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
             {
-                Description = "JWT Authorization header using the ****** scheme. Enter 'Bearer' [space] and then your token in the text input below.",
-                Name = "Authorization",
-                In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-                Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
-                Scheme = "Bearer"
-            });
-
-            options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-            {
-                {
-                    new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-                    {
-                        Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                        {
-                            Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                            Id = "Bearer"
-                        }
-                    },
-                    Array.Empty<string>()
-                }
+                Description = "Cookie Authentication. The browser automatically sends the 'FocusDeck.Auth' cookie.",
+                Name = "Cookie",
+                In = Microsoft.OpenApi.Models.ParameterLocation.Cookie,
+                Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey
             });
         });
 
@@ -211,7 +195,7 @@ public sealed class Startup
         services.AddSingleton<IIdGenerator, GuidIdGenerator>();
         services.AddSingleton<FocusDeck.Services.Abstractions.IEncryptionService, FocusDeck.Services.Implementations.Core.EncryptionService>();
 
-        // Data Protection for API key encryption
+        // Data Protection for API key encryption and Cookies
         var dataProtectionPath = Path.Combine(AppContext.BaseDirectory, "data", "keys");
         if (!Directory.Exists(dataProtectionPath))
         {
@@ -240,7 +224,6 @@ public sealed class Startup
         }
 
         // Auth services
-        services.AddScoped<ITokenService, TokenService>();
         services.AddSingleton<ISrpSessionCache, SrpSessionCache>();
         services.AddMemoryCache();
         services.AddSingleton<IAuthAttemptLimiter>(sp =>
@@ -373,8 +356,8 @@ public sealed class Startup
         // Health checks
         var healthChecks = services.AddHealthChecks()
             .AddDbContextCheck<AutomationDbContext>("database", tags: new[] { "db", "sql" })
-            .AddCheck("filesystem", new FileSystemWriteHealthCheck(_configuration), tags: new[] { "filesystem" })
-            .AddCheck<JwtKeyHealthCheck>("jwt_keys", tags: new[] { "security", "jwt" });
+            .AddCheck("filesystem", new FileSystemWriteHealthCheck(_configuration), tags: new[] { "filesystem" });
+            // .AddCheck<JwtKeyHealthCheck>("jwt_keys", tags: new[] { "security", "jwt" }); // Removed JWT check
 
         if (!string.IsNullOrWhiteSpace(redisConnection))
         {
@@ -426,127 +409,28 @@ public sealed class Startup
             });
         });
 
-        // JWT configuration
-        var jwtSection = _configuration.GetSection(JwtSettings.SectionName);
-        var jwtSettings = jwtSection.Get<JwtSettings>() ?? new JwtSettings();
-        jwtSettings.Validate();
-        services.Configure<JwtSettings>(jwtSection);
-        services.AddSingleton(jwtSettings);
+        // Cookie Authentication Configuration
+        services.AddAuthentication("CookieAuth")
+            .AddCookie("CookieAuth", options =>
+            {
+                options.Cookie.Name = "FocusDeck.Auth";
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+                options.Cookie.SameSite = SameSiteMode.Lax;
+                options.ExpireTimeSpan = TimeSpan.FromDays(30);
+                options.SlidingExpiration = true;
+                options.Events.OnRedirectToLogin = context =>
+                {
+                    context.Response.StatusCode = 401;
+                    return Task.CompletedTask;
+                };
+            });
 
         // Google Auth
         services.Configure<GoogleOptions>(_configuration.GetSection(GoogleOptions.SectionName));
         services.AddScoped<GoogleAuthService>();
 
-        var vaultUrl = _configuration["Azure:KeyVault:VaultUrl"];
-        if (!string.IsNullOrWhiteSpace(vaultUrl))
-        {
-            services.AddSingleton(sp => new SecretClient(new Uri(vaultUrl), new DefaultAzureCredential()));
-            services.AddSingleton<ICryptographicKeyStore, AzureKeyVaultKeyStore>();
-        }
-        else
-        {
-            if (_environment.IsProduction())
-            {
-                // In production, we log a warning but allow environment variable fallback if Azure is not configured
-                Console.WriteLine("WARNING: Azure Key Vault is not configured in Production. Falling back to EnvironmentVariableKeyStore.");
-            }
-            services.AddSingleton<EnvironmentVariableKeyStore>(sp => new EnvironmentVariableKeyStore(jwtSettings));
-            services.AddSingleton<ICryptographicKeyStore>(sp => sp.GetRequiredService<EnvironmentVariableKeyStore>());
-        }
-
-        services.AddSingleton<IJwtSigningKeyProvider>(sp => new JwtSigningKeyProvider(
-            sp.GetRequiredService<ICryptographicKeyStore>(),
-            sp.GetRequiredService<IOptions<JwtSettings>>(),
-            sp.GetRequiredService<IMemoryCache>(),
-            sp.GetRequiredService<ILogger<JwtSigningKeyProvider>>()));
-
-        services.AddSingleton<TokenValidationParameters>(sp =>
-        {
-            var provider = sp.GetRequiredService<IJwtSigningKeyProvider>();
-            var settings = sp.GetRequiredService<IOptions<JwtSettings>>().Value;
-            var logger = sp.GetRequiredService<ILogger<Startup>>();
-            
-            // Pre-load keys at startup to ensure they're always available
-            var preloadedKeys = provider.GetValidationKeys().ToList();
-            logger.LogInformation("Startup: Pre-loaded {KeyCount} JWT signing keys into TokenValidationParameters", preloadedKeys.Count);
-            
-            // Fallback: if no keys from provider, construct from settings directly
-            if (preloadedKeys.Count == 0)
-            {
-                logger.LogWarning("Startup: No keys from provider, loading from settings directly");
-                if (!string.IsNullOrWhiteSpace(settings.PrimaryKey))
-                {
-                    preloadedKeys.Add(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.PrimaryKey)));
-                    logger.LogInformation("Startup: Added primary key from settings");
-                }
-                if (!string.IsNullOrWhiteSpace(settings.SecondaryKey))
-                {
-                    preloadedKeys.Add(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.SecondaryKey)));
-                    logger.LogInformation("Startup: Added secondary key from settings");
-                }
-            }
-            
-            return new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidIssuers = jwtSettings.GetValidIssuers(),
-                ValidateAudience = true,
-                ValidAudiences = jwtSettings.GetValidAudiences(),
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                // Pre-populate with loaded keys
-                IssuerSigningKeys = preloadedKeys,
-                // Also keep the dynamic resolver for refreshing keys
-                IssuerSigningKeyResolver = (token, securityToken, kid, parameters) =>
-                {
-                    // First try the pre-loaded keys
-                    var keys = provider.GetValidationKeys().ToList();
-                    if (keys.Count == 0 && preloadedKeys.Count > 0)
-                    {
-                        // Fallback to preloaded keys
-                        return preloadedKeys;
-                    }
-                    return keys;
-                },
-                ClockSkew = TimeSpan.FromMinutes(2)
-            };
-        });
-
-        services.AddSingleton<IConfigureNamedOptions<JwtBearerOptions>, JwtBearerOptionsConfigurator>();
-        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options =>
-            {
-                // DIRECTLY configure signing keys - don't rely on external resolvers
-                var signingKey = jwtSettings.PrimaryKey;
-                if (string.IsNullOrWhiteSpace(signingKey))
-                {
-                    throw new InvalidOperationException("JWT PrimaryKey/SigningKey is not configured. Check appsettings.json or environment variables.");
-                }
-                
-                var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey));
-                
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidIssuers = jwtSettings.GetValidIssuers(),
-                    ValidateAudience = true,
-                    ValidAudiences = jwtSettings.GetValidAudiences(),
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = securityKey, // Direct key, no resolver
-                    ClockSkew = TimeSpan.FromMinutes(2)
-                };
-            });
-
         services.AddAuthorization();
-        services.AddScoped<ITokenService, TokenService>();
-        services.AddHostedService<TokenPruningService>();
-        services.AddScoped<IAccessTokenRevocationService, AccessTokenRevocationService>();
-
-        if (!_environment.IsEnvironment("Testing"))
-        {
-            services.AddHostedService<JwtKeyRotationService>();
-        }
 
         // HTTP logging
         services.AddHttpLogging(_ => { });
