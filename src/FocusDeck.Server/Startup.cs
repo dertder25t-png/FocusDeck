@@ -357,7 +357,6 @@ public sealed class Startup
         var healthChecks = services.AddHealthChecks()
             .AddDbContextCheck<AutomationDbContext>("database", tags: new[] { "db", "sql" })
             .AddCheck("filesystem", new FileSystemWriteHealthCheck(_configuration), tags: new[] { "filesystem" });
-            // .AddCheck<JwtKeyHealthCheck>("jwt_keys", tags: new[] { "security", "jwt" }); // Removed JWT check
 
         if (!string.IsNullOrWhiteSpace(redisConnection))
         {
